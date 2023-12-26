@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package ss_floorplan;
+
+message Floorplan {
+  int32 max_width = 1;
+  int32 max_height = 2;
+  repeated RectanglePosion pos = 3;
+  repeated RectangleShape shape = 4;
+  repeated int32 conn = 5;
+}
+
+message RectanglePosion {
+  int32 x = 1;
+  int32 y = 2;
+}
+
+message RectangleShape {
+  int32 width = 1;
+  int32 height = 2;
+}

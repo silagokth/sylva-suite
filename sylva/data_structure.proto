@@ -1,0 +1,122 @@
+syntax = "proto3";
+
+package ss.sylva.ds;
+
+message DataBase {
+  RoutingGraph routing_graph = 1;
+  FloorPlan floor_plan = 2;
+}
+
+message AppGraph {
+  repeated AppNode nodes = 1;
+  repeated AppEdge edges = 2;
+}
+message AppNode {
+  string id = 1;
+  string func = 2;
+  repeated AppNodePort input_ports = 3;
+  repeated AppNodePort output_ports = 4;
+  int32 repetition = 5;
+  int32 execution_time = 6;
+}
+
+message AppNodePort {
+  string id = 1;
+  int32 rate = 2;
+  string token_type = 3;
+  int32 token_size = 4;
+  repeated pair_int_int addr_time_patterns = 5;
+}
+
+message AppEdge {
+  string source_node = 1;
+  string target_node = 2;
+  string source_port = 3;
+  string target_port = 4;
+  string token_type = 5;
+  int32 token_size = 6;
+  int32 delay = 7;
+}
+
+message AppNodeMapping {
+  string app_node_id = 1;
+  string alimp_id = 2;
+}
+
+message AlimpLibrary { repeated AlimpEntry entries = 1; }
+
+message AlimpEntry {
+  string func = 1;
+  repeated AlimpInstance instances = 2;
+}
+
+message AlimpInstance {
+  string id = 1;
+  int32 width = 2;
+  int32 height = 3;
+  repeated int32 input_port_positions = 4;
+  repeated int32 output_port_positions = 5;
+  float frequency = 6;
+  float latency = 7;
+  float power = 8;
+  repeated pair_int_int input_addr_time_patterns = 9;
+  repeated pair_int_int output_addr_time_patterns = 10;
+}
+
+message pair_int_int {
+  int32 key = 1;
+  int32 value = 2;
+}
+
+message Constraints {
+  int32 max_width = 1;
+  int32 max_height = 2;
+  int32 max_area = 3;
+  float max_power = 4;
+  float max_latency = 5;
+  float max_period = 6;
+  float data_movement_overhead = 7;
+  float area_overhead = 8;
+}
+
+message FloorPlan {
+  int32 max_width = 1;
+  int32 max_height = 2;
+  repeated RectanglePosion pos = 3;
+  repeated RectangleShape shape = 4;
+  repeated int32 conn = 5;
+}
+
+message RectanglePosion {
+  int32 x = 1;
+  int32 y = 2;
+}
+
+message RectangleShape {
+  int32 width = 1;
+  int32 height = 2;
+}
+
+message RoutingGraph {
+  repeated Node nodes = 1;
+  repeated Edge edges = 2;
+  repeated Channel channels = 3;
+}
+
+message Node {
+  string id = 1;
+  double weight = 2;
+}
+
+message Edge {
+  string source = 1;
+  string target = 2;
+  double weight = 3;
+}
+
+message Channel {
+  string source = 1;
+  string target = 2;
+  double traffic = 3;
+  repeated string path = 4;
+}

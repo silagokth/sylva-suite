@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package ss.sylva.ds.routing_graph;
+
+message RoutingGraph {
+  repeated Node nodes = 1;
+  repeated Edge edges = 2;
+  repeated Channel channels = 3;
+  repeated Path paths = 4;
+}
+
+message Node {
+  string id = 1;
+  double weight = 2;
+}
+
+message Edge {
+  string source = 1;
+  string target = 2;
+  double weight = 3;
+}
+
+message Channel {
+  string source = 1;
+  string target = 2;
+  double traffic = 3;
+}
+
+message Path {
+  string source = 1;
+  string target = 2;
+  repeated string nodes = 3;
+  double weight = 4;
+}
