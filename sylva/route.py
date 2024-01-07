@@ -11,6 +11,8 @@ import random
 from google.protobuf.json_format import MessageToJson
 from google.protobuf.json_format import Parse
 
+import logging
+
 
 def load_routing_graph_from_bin(file_name) -> ds.RoutingGraph:
     with open(file_name, 'rb') as f:
@@ -59,6 +61,13 @@ def manhattan_distance(node1: ds.Node, node2: ds.Node) -> int:
     x1, y1, _ = node1.id.split('_')
     x2, y2, _ = node2.id.split('_')
     return abs(int(x1)-int(x2)) + abs(int(y1)-int(y2))
+
+def test_log():
+    logging.debug("debug")
+    logging.info("info")
+    logging.warning("warning")
+    logging.error("error")
+    logging.critical("critical")
 
 
 def dijkstra(routing_graph, source_id: str, target_id: str) -> list:

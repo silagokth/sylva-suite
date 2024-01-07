@@ -3,8 +3,28 @@ syntax = "proto3";
 package ss.sylva.ds;
 
 message DataBase {
-  RoutingGraph routing_graph = 1;
-  FloorPlan floor_plan = 2;
+  AppGraph app_graph = 1;
+  GlobalConstraint global_constraint = 2;
+  RoutingGraph routing_graph = 3;
+  FloorPlan floor_plan = 4;
+  AlimpLibrary alimp_lib = 5;
+  HyperParameter hyper_parameter = 6;
+}
+
+message HyperParameter{
+  int32 bind_w_area = 1;
+  int32 bind_w_energy = 2;
+  int32 bind_w_latency = 3;
+  float bind_relaxation_factor = 4;
+}
+
+message GlobalConstraint{
+  int32 max_height = 1;
+  int32 max_width = 2;
+  int32 max_area = 3;
+  int32 max_latency = 4;
+  int32 max_period = 5;
+  int32 max_energy = 6;
 }
 
 message AppGraph {
@@ -56,11 +76,12 @@ message AlimpInstance {
   int32 height = 3;
   repeated int32 input_port_positions = 4;
   repeated int32 output_port_positions = 5;
-  float frequency = 6;
-  float latency = 7;
-  float power = 8;
-  repeated pair_int_int input_addr_time_patterns = 9;
-  repeated pair_int_int output_addr_time_patterns = 10;
+  int32 frequency = 6;
+  int32 latency = 7;
+  int32 power = 8;
+  int32 energy = 9;
+  repeated pair_int_int input_addr_time_patterns = 10;
+  repeated pair_int_int output_addr_time_patterns = 11;
 }
 
 message pair_int_int {

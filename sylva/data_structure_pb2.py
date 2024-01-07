@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\x14\x64\x61ta_structure.proto\x12\x0bss.sylva.ds\"h\n\x08\x44\x61taBase\x12\x30\n\rrouting_graph\x18\x01 \x01(\x0b\x32\x19.ss.sylva.ds.RoutingGraph\x12*\n\nfloor_plan\x18\x02 \x01(\x0b\x32\x16.ss.sylva.ds.FloorPlan\"T\n\x08\x41ppGraph\x12#\n\x05nodes\x18\x01 \x03(\x0b\x32\x14.ss.sylva.ds.AppNode\x12#\n\x05\x65\x64ges\x18\x02 \x03(\x0b\x32\x14.ss.sylva.ds.AppEdge\"\xae\x01\n\x07\x41ppNode\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04\x66unc\x18\x02 \x01(\t\x12-\n\x0binput_ports\x18\x03 \x03(\x0b\x32\x18.ss.sylva.ds.AppNodePort\x12.\n\x0coutput_ports\x18\x04 \x03(\x0b\x32\x18.ss.sylva.ds.AppNodePort\x12\x12\n\nrepetition\x18\x05 \x01(\x05\x12\x16\n\x0e\x65xecution_time\x18\x06 \x01(\x05\"\x86\x01\n\x0b\x41ppNodePort\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04rate\x18\x02 \x01(\x05\x12\x12\n\ntoken_type\x18\x03 \x01(\t\x12\x12\n\ntoken_size\x18\x04 \x01(\x05\x12\x35\n\x12\x61\x64\x64r_time_patterns\x18\x05 \x03(\x0b\x32\x19.ss.sylva.ds.pair_int_int\"\x94\x01\n\x07\x41ppEdge\x12\x13\n\x0bsource_node\x18\x01 \x01(\t\x12\x13\n\x0btarget_node\x18\x02 \x01(\t\x12\x13\n\x0bsource_port\x18\x03 \x01(\t\x12\x13\n\x0btarget_port\x18\x04 \x01(\t\x12\x12\n\ntoken_type\x18\x05 \x01(\t\x12\x12\n\ntoken_size\x18\x06 \x01(\x05\x12\r\n\x05\x64\x65lay\x18\x07 \x01(\x05\"7\n\x0e\x41ppNodeMapping\x12\x13\n\x0b\x61pp_node_id\x18\x01 \x01(\t\x12\x10\n\x08\x61limp_id\x18\x02 \x01(\t\"8\n\x0c\x41limpLibrary\x12(\n\x07\x65ntries\x18\x01 \x03(\x0b\x32\x17.ss.sylva.ds.AlimpEntry\"I\n\nAlimpEntry\x12\x0c\n\x04\x66unc\x18\x01 \x01(\t\x12-\n\tinstances\x18\x02 \x03(\x0b\x32\x1a.ss.sylva.ds.AlimpInstance\"\xa5\x02\n\rAlimpInstance\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05width\x18\x02 \x01(\x05\x12\x0e\n\x06height\x18\x03 \x01(\x05\x12\x1c\n\x14input_port_positions\x18\x04 \x03(\x05\x12\x1d\n\x15output_port_positions\x18\x05 \x03(\x05\x12\x11\n\tfrequency\x18\x06 \x01(\x02\x12\x0f\n\x07latency\x18\x07 \x01(\x02\x12\r\n\x05power\x18\x08 \x01(\x02\x12;\n\x18input_addr_time_patterns\x18\t \x03(\x0b\x32\x19.ss.sylva.ds.pair_int_int\x12<\n\x19output_addr_time_patterns\x18\n \x03(\x0b\x32\x19.ss.sylva.ds.pair_int_int\"*\n\x0cpair_int_int\x12\x0b\n\x03key\x18\x01 \x01(\x05\x12\r\n\x05value\x18\x02 \x01(\x05\"\xb9\x01\n\x0b\x43onstraints\x12\x11\n\tmax_width\x18\x01 \x01(\x05\x12\x12\n\nmax_height\x18\x02 \x01(\x05\x12\x10\n\x08max_area\x18\x03 \x01(\x05\x12\x11\n\tmax_power\x18\x04 \x01(\x02\x12\x13\n\x0bmax_latency\x18\x05 \x01(\x02\x12\x12\n\nmax_period\x18\x06 \x01(\x02\x12\x1e\n\x16\x64\x61ta_movement_overhead\x18\x07 \x01(\x02\x12\x15\n\rarea_overhead\x18\x08 \x01(\x02\"\x97\x01\n\tFloorPlan\x12\x11\n\tmax_width\x18\x01 \x01(\x05\x12\x12\n\nmax_height\x18\x02 \x01(\x05\x12)\n\x03pos\x18\x03 \x03(\x0b\x32\x1c.ss.sylva.ds.RectanglePosion\x12*\n\x05shape\x18\x04 \x03(\x0b\x32\x1b.ss.sylva.ds.RectangleShape\x12\x0c\n\x04\x63onn\x18\x05 \x03(\x05\"\'\n\x0fRectanglePosion\x12\t\n\x01x\x18\x01 \x01(\x05\x12\t\n\x01y\x18\x02 \x01(\x05\"/\n\x0eRectangleShape\x12\r\n\x05width\x18\x01 \x01(\x05\x12\x0e\n\x06height\x18\x02 \x01(\x05\"z\n\x0cRoutingGraph\x12 \n\x05nodes\x18\x01 \x03(\x0b\x32\x11.ss.sylva.ds.Node\x12 \n\x05\x65\x64ges\x18\x02 \x03(\x0b\x32\x11.ss.sylva.ds.Edge\x12&\n\x08\x63hannels\x18\x03 \x03(\x0b\x32\x14.ss.sylva.ds.Channel\"\"\n\x04Node\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0e\n\x06weight\x18\x02 \x01(\x01\"6\n\x04\x45\x64ge\x12\x0e\n\x06source\x18\x01 \x01(\t\x12\x0e\n\x06target\x18\x02 \x01(\t\x12\x0e\n\x06weight\x18\x03 \x01(\x01\"H\n\x07\x43hannel\x12\x0e\n\x06source\x18\x01 \x01(\t\x12\x0e\n\x06target\x18\x02 \x01(\t\x12\x0f\n\x07traffic\x18\x03 \x01(\x01\x12\x0c\n\x04path\x18\x04 \x03(\tb\x06proto3'
+  serialized_pb=b'\n\x14\x64\x61ta_structure.proto\x12\x0bss.sylva.ds\"\xb0\x02\n\x08\x44\x61taBase\x12(\n\tapp_graph\x18\x01 \x01(\x0b\x32\x15.ss.sylva.ds.AppGraph\x12\x38\n\x11global_constraint\x18\x02 \x01(\x0b\x32\x1d.ss.sylva.ds.GlobalConstraint\x12\x30\n\rrouting_graph\x18\x03 \x01(\x0b\x32\x19.ss.sylva.ds.RoutingGraph\x12*\n\nfloor_plan\x18\x04 \x01(\x0b\x32\x16.ss.sylva.ds.FloorPlan\x12,\n\talimp_lib\x18\x05 \x01(\x0b\x32\x19.ss.sylva.ds.AlimpLibrary\x12\x34\n\x0fhyper_parameter\x18\x06 \x01(\x0b\x32\x1b.ss.sylva.ds.HyperParameter\"t\n\x0eHyperParameter\x12\x13\n\x0b\x62ind_w_area\x18\x01 \x01(\x05\x12\x15\n\rbind_w_energy\x18\x02 \x01(\x05\x12\x16\n\x0e\x62ind_w_latency\x18\x03 \x01(\x05\x12\x1e\n\x16\x62ind_relaxation_factor\x18\x04 \x01(\x02\"\x88\x01\n\x10GlobalConstraint\x12\x12\n\nmax_height\x18\x01 \x01(\x05\x12\x11\n\tmax_width\x18\x02 \x01(\x05\x12\x10\n\x08max_area\x18\x03 \x01(\x05\x12\x13\n\x0bmax_latency\x18\x04 \x01(\x05\x12\x12\n\nmax_period\x18\x05 \x01(\x05\x12\x12\n\nmax_energy\x18\x06 \x01(\x05\"T\n\x08\x41ppGraph\x12#\n\x05nodes\x18\x01 \x03(\x0b\x32\x14.ss.sylva.ds.AppNode\x12#\n\x05\x65\x64ges\x18\x02 \x03(\x0b\x32\x14.ss.sylva.ds.AppEdge\"\xae\x01\n\x07\x41ppNode\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04\x66unc\x18\x02 \x01(\t\x12-\n\x0binput_ports\x18\x03 \x03(\x0b\x32\x18.ss.sylva.ds.AppNodePort\x12.\n\x0coutput_ports\x18\x04 \x03(\x0b\x32\x18.ss.sylva.ds.AppNodePort\x12\x12\n\nrepetition\x18\x05 \x01(\x05\x12\x16\n\x0e\x65xecution_time\x18\x06 \x01(\x05\"\x86\x01\n\x0b\x41ppNodePort\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04rate\x18\x02 \x01(\x05\x12\x12\n\ntoken_type\x18\x03 \x01(\t\x12\x12\n\ntoken_size\x18\x04 \x01(\x05\x12\x35\n\x12\x61\x64\x64r_time_patterns\x18\x05 \x03(\x0b\x32\x19.ss.sylva.ds.pair_int_int\"\x94\x01\n\x07\x41ppEdge\x12\x13\n\x0bsource_node\x18\x01 \x01(\t\x12\x13\n\x0btarget_node\x18\x02 \x01(\t\x12\x13\n\x0bsource_port\x18\x03 \x01(\t\x12\x13\n\x0btarget_port\x18\x04 \x01(\t\x12\x12\n\ntoken_type\x18\x05 \x01(\t\x12\x12\n\ntoken_size\x18\x06 \x01(\x05\x12\r\n\x05\x64\x65lay\x18\x07 \x01(\x05\"7\n\x0e\x41ppNodeMapping\x12\x13\n\x0b\x61pp_node_id\x18\x01 \x01(\t\x12\x10\n\x08\x61limp_id\x18\x02 \x01(\t\"8\n\x0c\x41limpLibrary\x12(\n\x07\x65ntries\x18\x01 \x03(\x0b\x32\x17.ss.sylva.ds.AlimpEntry\"I\n\nAlimpEntry\x12\x0c\n\x04\x66unc\x18\x01 \x01(\t\x12-\n\tinstances\x18\x02 \x03(\x0b\x32\x1a.ss.sylva.ds.AlimpInstance\"\xb5\x02\n\rAlimpInstance\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05width\x18\x02 \x01(\x05\x12\x0e\n\x06height\x18\x03 \x01(\x05\x12\x1c\n\x14input_port_positions\x18\x04 \x03(\x05\x12\x1d\n\x15output_port_positions\x18\x05 \x03(\x05\x12\x11\n\tfrequency\x18\x06 \x01(\x05\x12\x0f\n\x07latency\x18\x07 \x01(\x05\x12\r\n\x05power\x18\x08 \x01(\x05\x12\x0e\n\x06\x65nergy\x18\t \x01(\x05\x12;\n\x18input_addr_time_patterns\x18\n \x03(\x0b\x32\x19.ss.sylva.ds.pair_int_int\x12<\n\x19output_addr_time_patterns\x18\x0b \x03(\x0b\x32\x19.ss.sylva.ds.pair_int_int\"*\n\x0cpair_int_int\x12\x0b\n\x03key\x18\x01 \x01(\x05\x12\r\n\x05value\x18\x02 \x01(\x05\"\xb9\x01\n\x0b\x43onstraints\x12\x11\n\tmax_width\x18\x01 \x01(\x05\x12\x12\n\nmax_height\x18\x02 \x01(\x05\x12\x10\n\x08max_area\x18\x03 \x01(\x05\x12\x11\n\tmax_power\x18\x04 \x01(\x02\x12\x13\n\x0bmax_latency\x18\x05 \x01(\x02\x12\x12\n\nmax_period\x18\x06 \x01(\x02\x12\x1e\n\x16\x64\x61ta_movement_overhead\x18\x07 \x01(\x02\x12\x15\n\rarea_overhead\x18\x08 \x01(\x02\"\x97\x01\n\tFloorPlan\x12\x11\n\tmax_width\x18\x01 \x01(\x05\x12\x12\n\nmax_height\x18\x02 \x01(\x05\x12)\n\x03pos\x18\x03 \x03(\x0b\x32\x1c.ss.sylva.ds.RectanglePosion\x12*\n\x05shape\x18\x04 \x03(\x0b\x32\x1b.ss.sylva.ds.RectangleShape\x12\x0c\n\x04\x63onn\x18\x05 \x03(\x05\"\'\n\x0fRectanglePosion\x12\t\n\x01x\x18\x01 \x01(\x05\x12\t\n\x01y\x18\x02 \x01(\x05\"/\n\x0eRectangleShape\x12\r\n\x05width\x18\x01 \x01(\x05\x12\x0e\n\x06height\x18\x02 \x01(\x05\"z\n\x0cRoutingGraph\x12 \n\x05nodes\x18\x01 \x03(\x0b\x32\x11.ss.sylva.ds.Node\x12 \n\x05\x65\x64ges\x18\x02 \x03(\x0b\x32\x11.ss.sylva.ds.Edge\x12&\n\x08\x63hannels\x18\x03 \x03(\x0b\x32\x14.ss.sylva.ds.Channel\"\"\n\x04Node\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0e\n\x06weight\x18\x02 \x01(\x01\"6\n\x04\x45\x64ge\x12\x0e\n\x06source\x18\x01 \x01(\t\x12\x0e\n\x06target\x18\x02 \x01(\t\x12\x0e\n\x06weight\x18\x03 \x01(\x01\"H\n\x07\x43hannel\x12\x0e\n\x06source\x18\x01 \x01(\t\x12\x0e\n\x06target\x18\x02 \x01(\t\x12\x0f\n\x07traffic\x18\x03 \x01(\x01\x12\x0c\n\x04path\x18\x04 \x03(\tb\x06proto3'
 )
 
 
@@ -34,15 +34,43 @@ _DATABASE = _descriptor.Descriptor(
   create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
-      name='routing_graph', full_name='ss.sylva.ds.DataBase.routing_graph', index=0,
+      name='app_graph', full_name='ss.sylva.ds.DataBase.app_graph', index=0,
       number=1, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='floor_plan', full_name='ss.sylva.ds.DataBase.floor_plan', index=1,
+      name='global_constraint', full_name='ss.sylva.ds.DataBase.global_constraint', index=1,
       number=2, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='routing_graph', full_name='ss.sylva.ds.DataBase.routing_graph', index=2,
+      number=3, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='floor_plan', full_name='ss.sylva.ds.DataBase.floor_plan', index=3,
+      number=4, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='alimp_lib', full_name='ss.sylva.ds.DataBase.alimp_lib', index=4,
+      number=5, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='hyper_parameter', full_name='ss.sylva.ds.DataBase.hyper_parameter', index=5,
+      number=6, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -59,8 +87,128 @@ _DATABASE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=37,
-  serialized_end=141,
+  serialized_start=38,
+  serialized_end=342,
+)
+
+
+_HYPERPARAMETER = _descriptor.Descriptor(
+  name='HyperParameter',
+  full_name='ss.sylva.ds.HyperParameter',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='bind_w_area', full_name='ss.sylva.ds.HyperParameter.bind_w_area', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='bind_w_energy', full_name='ss.sylva.ds.HyperParameter.bind_w_energy', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='bind_w_latency', full_name='ss.sylva.ds.HyperParameter.bind_w_latency', index=2,
+      number=3, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='bind_relaxation_factor', full_name='ss.sylva.ds.HyperParameter.bind_relaxation_factor', index=3,
+      number=4, type=2, cpp_type=6, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=344,
+  serialized_end=460,
+)
+
+
+_GLOBALCONSTRAINT = _descriptor.Descriptor(
+  name='GlobalConstraint',
+  full_name='ss.sylva.ds.GlobalConstraint',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='max_height', full_name='ss.sylva.ds.GlobalConstraint.max_height', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='max_width', full_name='ss.sylva.ds.GlobalConstraint.max_width', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='max_area', full_name='ss.sylva.ds.GlobalConstraint.max_area', index=2,
+      number=3, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='max_latency', full_name='ss.sylva.ds.GlobalConstraint.max_latency', index=3,
+      number=4, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='max_period', full_name='ss.sylva.ds.GlobalConstraint.max_period', index=4,
+      number=5, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='max_energy', full_name='ss.sylva.ds.GlobalConstraint.max_energy', index=5,
+      number=6, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=463,
+  serialized_end=599,
 )
 
 
@@ -98,8 +246,8 @@ _APPGRAPH = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=143,
-  serialized_end=227,
+  serialized_start=601,
+  serialized_end=685,
 )
 
 
@@ -165,8 +313,8 @@ _APPNODE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=230,
-  serialized_end=404,
+  serialized_start=688,
+  serialized_end=862,
 )
 
 
@@ -225,8 +373,8 @@ _APPNODEPORT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=407,
-  serialized_end=541,
+  serialized_start=865,
+  serialized_end=999,
 )
 
 
@@ -299,8 +447,8 @@ _APPEDGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=544,
-  serialized_end=692,
+  serialized_start=1002,
+  serialized_end=1150,
 )
 
 
@@ -338,8 +486,8 @@ _APPNODEMAPPING = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=694,
-  serialized_end=749,
+  serialized_start=1152,
+  serialized_end=1207,
 )
 
 
@@ -370,8 +518,8 @@ _ALIMPLIBRARY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=751,
-  serialized_end=807,
+  serialized_start=1209,
+  serialized_end=1265,
 )
 
 
@@ -409,8 +557,8 @@ _ALIMPENTRY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=809,
-  serialized_end=882,
+  serialized_start=1267,
+  serialized_end=1340,
 )
 
 
@@ -459,35 +607,42 @@ _ALIMPINSTANCE = _descriptor.Descriptor(
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
       name='frequency', full_name='ss.sylva.ds.AlimpInstance.frequency', index=5,
-      number=6, type=2, cpp_type=6, label=1,
-      has_default_value=False, default_value=float(0),
+      number=6, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
       name='latency', full_name='ss.sylva.ds.AlimpInstance.latency', index=6,
-      number=7, type=2, cpp_type=6, label=1,
-      has_default_value=False, default_value=float(0),
+      number=7, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
       name='power', full_name='ss.sylva.ds.AlimpInstance.power', index=7,
-      number=8, type=2, cpp_type=6, label=1,
-      has_default_value=False, default_value=float(0),
+      number=8, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='input_addr_time_patterns', full_name='ss.sylva.ds.AlimpInstance.input_addr_time_patterns', index=8,
-      number=9, type=11, cpp_type=10, label=3,
+      name='energy', full_name='ss.sylva.ds.AlimpInstance.energy', index=8,
+      number=9, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='input_addr_time_patterns', full_name='ss.sylva.ds.AlimpInstance.input_addr_time_patterns', index=9,
+      number=10, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='output_addr_time_patterns', full_name='ss.sylva.ds.AlimpInstance.output_addr_time_patterns', index=9,
-      number=10, type=11, cpp_type=10, label=3,
+      name='output_addr_time_patterns', full_name='ss.sylva.ds.AlimpInstance.output_addr_time_patterns', index=10,
+      number=11, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -504,8 +659,8 @@ _ALIMPINSTANCE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=885,
-  serialized_end=1178,
+  serialized_start=1343,
+  serialized_end=1652,
 )
 
 
@@ -543,8 +698,8 @@ _PAIR_INT_INT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1180,
-  serialized_end=1222,
+  serialized_start=1654,
+  serialized_end=1696,
 )
 
 
@@ -624,8 +779,8 @@ _CONSTRAINTS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1225,
-  serialized_end=1410,
+  serialized_start=1699,
+  serialized_end=1884,
 )
 
 
@@ -684,8 +839,8 @@ _FLOORPLAN = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1413,
-  serialized_end=1564,
+  serialized_start=1887,
+  serialized_end=2038,
 )
 
 
@@ -723,8 +878,8 @@ _RECTANGLEPOSION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1566,
-  serialized_end=1605,
+  serialized_start=2040,
+  serialized_end=2079,
 )
 
 
@@ -762,8 +917,8 @@ _RECTANGLESHAPE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1607,
-  serialized_end=1654,
+  serialized_start=2081,
+  serialized_end=2128,
 )
 
 
@@ -808,8 +963,8 @@ _ROUTINGGRAPH = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1656,
-  serialized_end=1778,
+  serialized_start=2130,
+  serialized_end=2252,
 )
 
 
@@ -847,8 +1002,8 @@ _NODE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1780,
-  serialized_end=1814,
+  serialized_start=2254,
+  serialized_end=2288,
 )
 
 
@@ -893,8 +1048,8 @@ _EDGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1816,
-  serialized_end=1870,
+  serialized_start=2290,
+  serialized_end=2344,
 )
 
 
@@ -946,12 +1101,16 @@ _CHANNEL = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1872,
-  serialized_end=1944,
+  serialized_start=2346,
+  serialized_end=2418,
 )
 
+_DATABASE.fields_by_name['app_graph'].message_type = _APPGRAPH
+_DATABASE.fields_by_name['global_constraint'].message_type = _GLOBALCONSTRAINT
 _DATABASE.fields_by_name['routing_graph'].message_type = _ROUTINGGRAPH
 _DATABASE.fields_by_name['floor_plan'].message_type = _FLOORPLAN
+_DATABASE.fields_by_name['alimp_lib'].message_type = _ALIMPLIBRARY
+_DATABASE.fields_by_name['hyper_parameter'].message_type = _HYPERPARAMETER
 _APPGRAPH.fields_by_name['nodes'].message_type = _APPNODE
 _APPGRAPH.fields_by_name['edges'].message_type = _APPEDGE
 _APPNODE.fields_by_name['input_ports'].message_type = _APPNODEPORT
@@ -967,6 +1126,8 @@ _ROUTINGGRAPH.fields_by_name['nodes'].message_type = _NODE
 _ROUTINGGRAPH.fields_by_name['edges'].message_type = _EDGE
 _ROUTINGGRAPH.fields_by_name['channels'].message_type = _CHANNEL
 DESCRIPTOR.message_types_by_name['DataBase'] = _DATABASE
+DESCRIPTOR.message_types_by_name['HyperParameter'] = _HYPERPARAMETER
+DESCRIPTOR.message_types_by_name['GlobalConstraint'] = _GLOBALCONSTRAINT
 DESCRIPTOR.message_types_by_name['AppGraph'] = _APPGRAPH
 DESCRIPTOR.message_types_by_name['AppNode'] = _APPNODE
 DESCRIPTOR.message_types_by_name['AppNodePort'] = _APPNODEPORT
@@ -992,6 +1153,20 @@ DataBase = _reflection.GeneratedProtocolMessageType('DataBase', (_message.Messag
   # @@protoc_insertion_point(class_scope:ss.sylva.ds.DataBase)
   })
 _sym_db.RegisterMessage(DataBase)
+
+HyperParameter = _reflection.GeneratedProtocolMessageType('HyperParameter', (_message.Message,), {
+  'DESCRIPTOR' : _HYPERPARAMETER,
+  '__module__' : 'data_structure_pb2'
+  # @@protoc_insertion_point(class_scope:ss.sylva.ds.HyperParameter)
+  })
+_sym_db.RegisterMessage(HyperParameter)
+
+GlobalConstraint = _reflection.GeneratedProtocolMessageType('GlobalConstraint', (_message.Message,), {
+  'DESCRIPTOR' : _GLOBALCONSTRAINT,
+  '__module__' : 'data_structure_pb2'
+  # @@protoc_insertion_point(class_scope:ss.sylva.ds.GlobalConstraint)
+  })
+_sym_db.RegisterMessage(GlobalConstraint)
 
 AppGraph = _reflection.GeneratedProtocolMessageType('AppGraph', (_message.Message,), {
   'DESCRIPTOR' : _APPGRAPH,
