@@ -59,15 +59,15 @@ def bind_solve_optimal (db: ds.DataBase) -> int:
             sys.exit(1)
         BINDING_VARS[node.id] = model.NewIntVar(0, len(alimp_entry.instances) - 1, node.id)
         BINDING_VECS[node.id] = []
-        ALIMP_AREA[node.id] = model.NewIntVar(0, db.global_constraint.max_area, node.id + "_area")
+        ALIMP_AREA[node.id] = model.NewIntVar(0, db.global_constraint.max_size * db.global_constraint.max_size, node.id + "_area")
         ALIMP_ENERGY[node.id] = model.NewIntVar(0, db.global_constraint.max_energy, node.id + "_energy")
         for i in range(len(alimp_entry.instances)):
             BINDING_VECS[node.id].append(model.NewBoolVar(node.id + "_" + str(i)))
             model.Add(BINDING_VARS[node.id] == i).OnlyEnforceIf(BINDING_VECS[node.id][i])
 
             # Geometry constraint
-            model.Add(alimp_entry.instances[i].width <= db.global_constraint.max_width).OnlyEnforceIf(BINDING_VECS[node.id][i])
-            model.Add(alimp_entry.instances[i].height <= db.global_constraint.max_height).OnlyEnforceIf(BINDING_VECS[node.id][i])
+            model.Add(alimp_entry.instances[i].width <= db.global_constraint.max_size).OnlyEnforceIf(BINDING_VECS[node.id][i])
+            model.Add(alimp_entry.instances[i].height <= db.global_constraint.max_size).OnlyEnforceIf(BINDING_VECS[node.id][i])
             model.Add(alimp_entry.instances[i].width * alimp_entry.instances[i].height == ALIMP_AREA[node.id]).OnlyEnforceIf(BINDING_VECS[node.id][i])
 
             # Energy constraint
@@ -76,7 +76,7 @@ def bind_solve_optimal (db: ds.DataBase) -> int:
         
         model.Add(sum(BINDING_VECS[node.id]) == 1)
         # Geometry constraint
-        model.Add(sum(ALIMP_AREA.values()) <= db.global_constraint.max_area)
+        model.Add(sum(ALIMP_AREA.values()) <= db.global_constraint.max_size * db.global_constraint.max_size)
 
         # Energy constraint
         model.Add(sum(ALIMP_ENERGY.values()) <= db.global_constraint.max_energy)  
@@ -87,28 +87,34 @@ def bind_solve_optimal (db: ds.DataBase) -> int:
     for edge in db.app_graph.edges:
         node = None
         for n in db.app_graph.nodes:
-            if n.id == edge.source:
+            if n.id == edge.source_node:
                 node = n
                 break
         if node is None:
-            logging.error("Cannot find node %s", edge.source)
+            logging.error("Cannot find node %s", edge.source_node)
             sys.exit(1)
         if node.id not in predecessors:
             predecessors[node.id] = []
-        predecessors[node.id].append(edge.target)
+        predecessors[node.id].append(edge.target_node)
 
     # create a start time variable for each node
     START_TIME = {}
     LATENCY = {}
     END_TIME = {}
+    HALF_LATENCY = {}
 
     for node in db.app_graph.nodes:
         START_TIME[node.id] = model.NewIntVar(0, db.global_constraint.max_latency, node.id + "_start_time")
         LATENCY[node.id] = model.NewIntVar(0, db.global_constraint.max_latency, node.id + "_latency")
+        HALF_LATENCY[node.id] = model.NewIntVar(0, db.global_constraint.max_latency, node.id + "_half_latency")
+        # post constraint: start_time is the max of all predecessors' start_time + 0.5*latency
+        model.AddDivisionEquality(HALF_LATENCY[node.id], LATENCY[node.id], 2)
+    for node in db.app_graph.nodes:
         # post constraint: start_time is the max of all predecessors' start_time + 0.5*latency
         if node.id in predecessors:
             for predecessor in predecessors[node.id]:
-                model.Add(START_TIME[node.id] == START_TIME[predecessor] + 0.5 * LATENCY[predecessor])
+                print(START_TIME)
+                model.Add(START_TIME[node.id] == START_TIME[predecessor] + HALF_LATENCY[predecessor])
         else:
             model.Add(START_TIME[node.id] == 0)
         # post constraint: start_time + latency <= max_latency
@@ -196,15 +202,15 @@ def bind_solve_approx_optimal(db: ds.DataBase, obj_optimal) -> list:
             sys.exit(1)
         BINDING_VARS[node.id] = model.NewIntVar(0, len(alimp_entry.instances) - 1, node.id)
         BINDING_VECS[node.id] = []
-        ALIMP_AREA[node.id] = model.NewIntVar(0, db.global_constraint.max_area, node.id + "_area")
+        ALIMP_AREA[node.id] = model.NewIntVar(0, db.global_constraint.max_size * db.global_constraint.max_size, node.id + "_area")
         ALIMP_ENERGY[node.id] = model.NewIntVar(0, db.global_constraint.max_energy, node.id + "_energy")
         for i in range(len(alimp_entry.instances)):
             BINDING_VECS[node.id].append(model.NewBoolVar(node.id + "_" + str(i)))
             model.Add(BINDING_VARS[node.id] == i).OnlyEnforceIf(BINDING_VECS[node.id][i])
 
             # Geometry constraint
-            model.Add(alimp_entry.instances[i].width <= db.global_constraint.max_width).OnlyEnforceIf(BINDING_VECS[node.id][i])
-            model.Add(alimp_entry.instances[i].height <= db.global_constraint.max_height).OnlyEnforceIf(BINDING_VECS[node.id][i])
+            model.Add(alimp_entry.instances[i].width <= db.global_constraint.max_size).OnlyEnforceIf(BINDING_VECS[node.id][i])
+            model.Add(alimp_entry.instances[i].height <= db.global_constraint.max_size).OnlyEnforceIf(BINDING_VECS[node.id][i])
             model.Add(alimp_entry.instances[i].width * alimp_entry.instances[i].height == ALIMP_AREA[node.id]).OnlyEnforceIf(BINDING_VECS[node.id][i])
 
             # Energy constraint
@@ -213,7 +219,7 @@ def bind_solve_approx_optimal(db: ds.DataBase, obj_optimal) -> list:
         
         model.Add(sum(BINDING_VECS[node.id]) == 1)
         # Geometry constraint
-        model.Add(sum(ALIMP_AREA.values()) <= db.global_constraint.max_area)
+        model.Add(sum(ALIMP_AREA.values()) <= db.global_constraint.max_size * db.global_constraint.max_size)
 
         # Energy constraint
         model.Add(sum(ALIMP_ENERGY.values()) <= db.global_constraint.max_energy)  
@@ -224,28 +230,34 @@ def bind_solve_approx_optimal(db: ds.DataBase, obj_optimal) -> list:
     for edge in db.app_graph.edges:
         node = None
         for n in db.app_graph.nodes:
-            if n.id == edge.source:
+            if n.id == edge.source_node:
                 node = n
                 break
         if node is None:
-            logging.error("Cannot find node %s", edge.source)
+            logging.error("Cannot find node %s", edge.source_node)
             sys.exit(1)
         if node.id not in predecessors:
             predecessors[node.id] = []
-        predecessors[node.id].append(edge.target)
+        predecessors[node.id].append(edge.target_node)
 
     # create a start time variable for each node
     START_TIME = {}
     LATENCY = {}
     END_TIME = {}
+    HALF_LATENCY = {}
 
     for node in db.app_graph.nodes:
         START_TIME[node.id] = model.NewIntVar(0, db.global_constraint.max_latency, node.id + "_start_time")
         LATENCY[node.id] = model.NewIntVar(0, db.global_constraint.max_latency, node.id + "_latency")
+        HALF_LATENCY[node.id] = model.NewIntVar(0, db.global_constraint.max_latency, node.id + "_half_latency")
+        # post constraint: start_time is the max of all predecessors' start_time + 0.5*latency
+        model.AddDivisionEquality(HALF_LATENCY[node.id], LATENCY[node.id], 2)
+    for node in db.app_graph.nodes:
         # post constraint: start_time is the max of all predecessors' start_time + 0.5*latency
         if node.id in predecessors:
             for predecessor in predecessors[node.id]:
-                model.Add(START_TIME[node.id] == START_TIME[predecessor] + 0.5 * LATENCY[predecessor])
+                print(START_TIME)
+                model.Add(START_TIME[node.id] == START_TIME[predecessor] + HALF_LATENCY[predecessor])
         else:
             model.Add(START_TIME[node.id] == 0)
         # post constraint: start_time + latency <= max_latency
@@ -294,47 +306,39 @@ def bind_solve_approx_optimal(db: ds.DataBase, obj_optimal) -> list:
 
     return callback.solutions
 
-def create_test_db():
-    db = ds.DataBase()
-    db.global_constraint.max_area = 100
-    db.global_constraint.max_energy = 100
-    db.global_constraint.max_width = 100
-    db.global_constraint.max_height = 100
-    db.global_constraint.max_latency = 100
-    db.global_constraint.max_period = 70
+def apply_binding_options(db: ds.DataBase, binding_options: dict):
+    ''' This function applies the binding to the app_graph and alimp_lib '''
+    db.alimp_binding_options.clear()
 
-    db.hyper_parameter.bind_w_area = 1
-    db.hyper_parameter.bind_w_energy = 1
-    db.hyper_parameter.bind_w_latency = 1
-    db.hyper_parameter.bind_relaxation_factor = 2
+    # for each binding option:
+    for option in binding_options:
+        db.alimp_binding_options.append(ds.AlimpBindingOption())
+        # apply binding to app_graph
+        for node in db.app_graph.nodes:
+            alimp_entry = None
+            for entry in db.alimp_lib.entries:
+                if entry.func == node.func:
+                    alimp_entry = entry
+                    break
+            if alimp_entry is None:
+                logging.error("Cannot find alimp entry for function %s", node.func)
+                sys.exit(1)
+            
+            app_node_id = node.id
+            alimp_instance = alimp_entry.instances[option[node.id]]
+            db.alimp_binding_options[-1].alimp_bindings.append(ds.AlimpBinding(app_node_id=app_node_id, alimp_instance=alimp_instance))
 
-    func_1_entry = ds.AlimpEntry()
-    func_1_entry.func = "func_1"
-    func_1_entry.instances.append(ds.AlimpInstance(width=2, height=2, energy=1, latency=80))
-    func_1_entry.instances.append(ds.AlimpInstance(width=4, height=4, energy=2, latency=50))
-    func_1_entry.instances.append(ds.AlimpInstance(width=8, height=8, energy=3, latency=10))
-    db.alimp_lib.entries.append(func_1_entry)
-    func_2_entry = ds.AlimpEntry()
-    func_2_entry.func = "func_2"
-    func_2_entry.instances.append(ds.AlimpInstance(width=2, height=2, energy=1, latency=80))
-    func_2_entry.instances.append(ds.AlimpInstance(width=3, height=3, energy=2, latency=30))
-    func_2_entry.instances.append(ds.AlimpInstance(width=8, height=8, energy=3, latency=10))
-    db.alimp_lib.entries.append(func_2_entry)
-
-    db.app_graph.nodes.append(ds.AppNode(id="node_1", func="func_1"))
-    db.app_graph.nodes.append(ds.AppNode(id="node_2", func="func_2"))
-    db.app_graph.nodes.append(ds.AppNode(id="node_3", func="func_1"))
-    db.app_graph.nodes.append(ds.AppNode(id="node_4", func="func_2"))
-    return db
-
-def run():
-    db = create_test_db()
+def run(db: ds.DataBase):
+    print(db)
     obj = bind_solve_optimal(db)
     logging.info("Optimal obj value: %d", obj)
     logging.info("Obj will be relaxed by relaxation factor: %f", db.hyper_parameter.bind_relaxation_factor)
     valid_bindings = bind_solve_approx_optimal(db, obj)
     logging.info("Found solutions:")
     print(valid_bindings)
+    apply_binding_options(db, valid_bindings)
+    for x in db.alimp_binding_options[0].alimp_bindings:
+        db.synthesized_information.alimp_bindings.append(x)
 
 if __name__ == "__main__":
     run()

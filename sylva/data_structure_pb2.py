@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\x14\x64\x61ta_structure.proto\x12\x0bss.sylva.ds\"\xb0\x02\n\x08\x44\x61taBase\x12(\n\tapp_graph\x18\x01 \x01(\x0b\x32\x15.ss.sylva.ds.AppGraph\x12\x38\n\x11global_constraint\x18\x02 \x01(\x0b\x32\x1d.ss.sylva.ds.GlobalConstraint\x12\x30\n\rrouting_graph\x18\x03 \x01(\x0b\x32\x19.ss.sylva.ds.RoutingGraph\x12*\n\nfloor_plan\x18\x04 \x01(\x0b\x32\x16.ss.sylva.ds.FloorPlan\x12,\n\talimp_lib\x18\x05 \x01(\x0b\x32\x19.ss.sylva.ds.AlimpLibrary\x12\x34\n\x0fhyper_parameter\x18\x06 \x01(\x0b\x32\x1b.ss.sylva.ds.HyperParameter\"t\n\x0eHyperParameter\x12\x13\n\x0b\x62ind_w_area\x18\x01 \x01(\x05\x12\x15\n\rbind_w_energy\x18\x02 \x01(\x05\x12\x16\n\x0e\x62ind_w_latency\x18\x03 \x01(\x05\x12\x1e\n\x16\x62ind_relaxation_factor\x18\x04 \x01(\x02\"\x88\x01\n\x10GlobalConstraint\x12\x12\n\nmax_height\x18\x01 \x01(\x05\x12\x11\n\tmax_width\x18\x02 \x01(\x05\x12\x10\n\x08max_area\x18\x03 \x01(\x05\x12\x13\n\x0bmax_latency\x18\x04 \x01(\x05\x12\x12\n\nmax_period\x18\x05 \x01(\x05\x12\x12\n\nmax_energy\x18\x06 \x01(\x05\"T\n\x08\x41ppGraph\x12#\n\x05nodes\x18\x01 \x03(\x0b\x32\x14.ss.sylva.ds.AppNode\x12#\n\x05\x65\x64ges\x18\x02 \x03(\x0b\x32\x14.ss.sylva.ds.AppEdge\"\xae\x01\n\x07\x41ppNode\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04\x66unc\x18\x02 \x01(\t\x12-\n\x0binput_ports\x18\x03 \x03(\x0b\x32\x18.ss.sylva.ds.AppNodePort\x12.\n\x0coutput_ports\x18\x04 \x03(\x0b\x32\x18.ss.sylva.ds.AppNodePort\x12\x12\n\nrepetition\x18\x05 \x01(\x05\x12\x16\n\x0e\x65xecution_time\x18\x06 \x01(\x05\"\x86\x01\n\x0b\x41ppNodePort\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04rate\x18\x02 \x01(\x05\x12\x12\n\ntoken_type\x18\x03 \x01(\t\x12\x12\n\ntoken_size\x18\x04 \x01(\x05\x12\x35\n\x12\x61\x64\x64r_time_patterns\x18\x05 \x03(\x0b\x32\x19.ss.sylva.ds.pair_int_int\"\x94\x01\n\x07\x41ppEdge\x12\x13\n\x0bsource_node\x18\x01 \x01(\t\x12\x13\n\x0btarget_node\x18\x02 \x01(\t\x12\x13\n\x0bsource_port\x18\x03 \x01(\t\x12\x13\n\x0btarget_port\x18\x04 \x01(\t\x12\x12\n\ntoken_type\x18\x05 \x01(\t\x12\x12\n\ntoken_size\x18\x06 \x01(\x05\x12\r\n\x05\x64\x65lay\x18\x07 \x01(\x05\"7\n\x0e\x41ppNodeMapping\x12\x13\n\x0b\x61pp_node_id\x18\x01 \x01(\t\x12\x10\n\x08\x61limp_id\x18\x02 \x01(\t\"8\n\x0c\x41limpLibrary\x12(\n\x07\x65ntries\x18\x01 \x03(\x0b\x32\x17.ss.sylva.ds.AlimpEntry\"I\n\nAlimpEntry\x12\x0c\n\x04\x66unc\x18\x01 \x01(\t\x12-\n\tinstances\x18\x02 \x03(\x0b\x32\x1a.ss.sylva.ds.AlimpInstance\"\xb5\x02\n\rAlimpInstance\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05width\x18\x02 \x01(\x05\x12\x0e\n\x06height\x18\x03 \x01(\x05\x12\x1c\n\x14input_port_positions\x18\x04 \x03(\x05\x12\x1d\n\x15output_port_positions\x18\x05 \x03(\x05\x12\x11\n\tfrequency\x18\x06 \x01(\x05\x12\x0f\n\x07latency\x18\x07 \x01(\x05\x12\r\n\x05power\x18\x08 \x01(\x05\x12\x0e\n\x06\x65nergy\x18\t \x01(\x05\x12;\n\x18input_addr_time_patterns\x18\n \x03(\x0b\x32\x19.ss.sylva.ds.pair_int_int\x12<\n\x19output_addr_time_patterns\x18\x0b \x03(\x0b\x32\x19.ss.sylva.ds.pair_int_int\"*\n\x0cpair_int_int\x12\x0b\n\x03key\x18\x01 \x01(\x05\x12\r\n\x05value\x18\x02 \x01(\x05\"\xb9\x01\n\x0b\x43onstraints\x12\x11\n\tmax_width\x18\x01 \x01(\x05\x12\x12\n\nmax_height\x18\x02 \x01(\x05\x12\x10\n\x08max_area\x18\x03 \x01(\x05\x12\x11\n\tmax_power\x18\x04 \x01(\x02\x12\x13\n\x0bmax_latency\x18\x05 \x01(\x02\x12\x12\n\nmax_period\x18\x06 \x01(\x02\x12\x1e\n\x16\x64\x61ta_movement_overhead\x18\x07 \x01(\x02\x12\x15\n\rarea_overhead\x18\x08 \x01(\x02\"\x97\x01\n\tFloorPlan\x12\x11\n\tmax_width\x18\x01 \x01(\x05\x12\x12\n\nmax_height\x18\x02 \x01(\x05\x12)\n\x03pos\x18\x03 \x03(\x0b\x32\x1c.ss.sylva.ds.RectanglePosion\x12*\n\x05shape\x18\x04 \x03(\x0b\x32\x1b.ss.sylva.ds.RectangleShape\x12\x0c\n\x04\x63onn\x18\x05 \x03(\x05\"\'\n\x0fRectanglePosion\x12\t\n\x01x\x18\x01 \x01(\x05\x12\t\n\x01y\x18\x02 \x01(\x05\"/\n\x0eRectangleShape\x12\r\n\x05width\x18\x01 \x01(\x05\x12\x0e\n\x06height\x18\x02 \x01(\x05\"z\n\x0cRoutingGraph\x12 \n\x05nodes\x18\x01 \x03(\x0b\x32\x11.ss.sylva.ds.Node\x12 \n\x05\x65\x64ges\x18\x02 \x03(\x0b\x32\x11.ss.sylva.ds.Edge\x12&\n\x08\x63hannels\x18\x03 \x03(\x0b\x32\x14.ss.sylva.ds.Channel\"\"\n\x04Node\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0e\n\x06weight\x18\x02 \x01(\x01\"6\n\x04\x45\x64ge\x12\x0e\n\x06source\x18\x01 \x01(\t\x12\x0e\n\x06target\x18\x02 \x01(\t\x12\x0e\n\x06weight\x18\x03 \x01(\x01\"H\n\x07\x43hannel\x12\x0e\n\x06source\x18\x01 \x01(\t\x12\x0e\n\x06target\x18\x02 \x01(\t\x12\x0f\n\x07traffic\x18\x03 \x01(\x01\x12\x0c\n\x04path\x18\x04 \x03(\tb\x06proto3'
+  serialized_pb=b'\n\x14\x64\x61ta_structure.proto\x12\x0bss.sylva.ds\"\xe4\x03\n\x08\x44\x61taBase\x12(\n\tapp_graph\x18\x01 \x01(\x0b\x32\x15.ss.sylva.ds.AppGraph\x12\x38\n\x11global_constraint\x18\x02 \x01(\x0b\x32\x1d.ss.sylva.ds.GlobalConstraint\x12\x30\n\rrouting_graph\x18\x03 \x01(\x0b\x32\x19.ss.sylva.ds.RoutingGraph\x12*\n\nfloor_plan\x18\x04 \x01(\x0b\x32\x16.ss.sylva.ds.FloorPlan\x12,\n\talimp_lib\x18\x05 \x01(\x0b\x32\x19.ss.sylva.ds.AlimpLibrary\x12\x34\n\x0fhyper_parameter\x18\x06 \x01(\x0b\x32\x1b.ss.sylva.ds.HyperParameter\x12,\n\x0b\x63ost_metric\x18\x07 \x01(\x0b\x32\x17.ss.sylva.ds.CostMetric\x12>\n\x15\x61limp_binding_options\x18\x08 \x03(\x0b\x32\x1f.ss.sylva.ds.AlimpBindingOption\x12\x44\n\x17synthesized_information\x18\t \x01(\x0b\x32#.ss.sylva.ds.SynthesizedInformation\"\x92\x07\n\x16SynthesizedInformation\x12\x31\n\x0e\x61limp_bindings\x18\x01 \x03(\x0b\x32\x19.ss.sylva.ds.AlimpBinding\x12*\n\nplacements\x18\x02 \x03(\x0b\x32\x16.ss.sylva.ds.Placement\x12\x10\n\x08max_size\x18\x03 \x01(\x05\x12/\n\rrouting_paths\x18\x04 \x03(\x0b\x32\x18.ss.sylva.ds.RoutingPath\x12\x13\n\x0bmax_latency\x18\x05 \x01(\x05\x12O\n\x0fnode_fire_times\x18\x06 \x03(\x0b\x32\x36.ss.sylva.ds.SynthesizedInformation.NodeFireTimesEntry\x12]\n\x16transporter_fire_times\x18\x07 \x03(\x0b\x32=.ss.sylva.ds.SynthesizedInformation.TransporterFireTimesEntry\x12L\n\rchannel_width\x18\x08 \x03(\x0b\x32\x35.ss.sylva.ds.SynthesizedInformation.ChannelWidthEntry\x12S\n\x11input_buffer_size\x18\t \x03(\x0b\x32\x38.ss.sylva.ds.SynthesizedInformation.InputBufferSizeEntry\x12U\n\x12output_buffer_size\x18\n \x03(\x0b\x32\x39.ss.sylva.ds.SynthesizedInformation.OutputBufferSizeEntry\x1a\x34\n\x12NodeFireTimesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x05:\x02\x38\x01\x1a;\n\x19TransporterFireTimesEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x05:\x02\x38\x01\x1a\x33\n\x11\x43hannelWidthEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x05:\x02\x38\x01\x1a\x36\n\x14InputBufferSizeEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x05:\x02\x38\x01\x1a\x37\n\x15OutputBufferSizeEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x05:\x02\x38\x01\"X\n\x0bRoutingPath\x12\x13\n\x0b\x61pp_edge_id\x18\x01 \x01(\t\x12%\n\x04path\x18\x02 \x03(\x0b\x32\x17.ss.sylva.ds.Coordinate\x12\r\n\x05\x64\x65lay\x18\x03 \x01(\x05\"\"\n\nCoordinate\x12\t\n\x01x\x18\x01 \x01(\x05\x12\t\n\x01y\x18\x02 \x01(\x05\"6\n\tPlacement\x12\x13\n\x0b\x61pp_node_id\x18\x01 \x01(\t\x12\t\n\x01x\x18\x02 \x01(\x05\x12\t\n\x01y\x18\x03 \x01(\x05\"G\n\x12\x41limpBindingOption\x12\x31\n\x0e\x61limp_bindings\x18\x01 \x03(\x0b\x32\x19.ss.sylva.ds.AlimpBinding\"W\n\x0c\x41limpBinding\x12\x13\n\x0b\x61pp_node_id\x18\x01 \x01(\t\x12\x32\n\x0e\x61limp_instance\x18\x02 \x01(\x0b\x32\x1a.ss.sylva.ds.AlimpInstance\"\x95\x01\n\x0eHyperParameter\x12\x13\n\x0b\x62ind_w_area\x18\x01 \x01(\x05\x12\x15\n\rbind_w_energy\x18\x02 \x01(\x05\x12\x16\n\x0e\x62ind_w_latency\x18\x03 \x01(\x05\x12\x1e\n\x16\x62ind_relaxation_factor\x18\x04 \x01(\x02\x12\x1f\n\x17place_relaxation_factor\x18\x05 \x01(\x02\"a\n\x10GlobalConstraint\x12\x10\n\x08max_size\x18\x01 \x01(\x05\x12\x13\n\x0bmax_latency\x18\x04 \x01(\x05\x12\x12\n\nmax_period\x18\x05 \x01(\x05\x12\x12\n\nmax_energy\x18\x06 \x01(\x05\"j\n\nCostMetric\x12\r\n\x05width\x18\x01 \x01(\x05\x12\x0e\n\x06height\x18\x02 \x01(\x05\x12\x0c\n\x04\x61rea\x18\x03 \x01(\x05\x12\x0e\n\x06\x65nergy\x18\x04 \x01(\x05\x12\x0f\n\x07latency\x18\x05 \x01(\x05\x12\x0e\n\x06period\x18\x06 \x01(\x05\"T\n\x08\x41ppGraph\x12#\n\x05nodes\x18\x01 \x03(\x0b\x32\x14.ss.sylva.ds.AppNode\x12#\n\x05\x65\x64ges\x18\x02 \x03(\x0b\x32\x14.ss.sylva.ds.AppEdge\"\xae\x01\n\x07\x41ppNode\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04\x66unc\x18\x02 \x01(\t\x12-\n\x0binput_ports\x18\x03 \x03(\x0b\x32\x18.ss.sylva.ds.AppNodePort\x12.\n\x0coutput_ports\x18\x04 \x03(\x0b\x32\x18.ss.sylva.ds.AppNodePort\x12\x12\n\nrepetition\x18\x05 \x01(\x05\x12\x16\n\x0e\x65xecution_time\x18\x06 \x01(\x05\"\x86\x01\n\x0b\x41ppNodePort\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04rate\x18\x02 \x01(\x05\x12\x12\n\ntoken_type\x18\x03 \x01(\t\x12\x12\n\ntoken_size\x18\x04 \x01(\x05\x12\x35\n\x12\x61\x64\x64r_time_patterns\x18\x05 \x03(\x0b\x32\x19.ss.sylva.ds.pair_int_int\"\x91\x01\n\x07\x41ppEdge\x12\n\n\x02id\x18\x01 \x01(\t\x12\x13\n\x0bsource_node\x18\x02 \x01(\t\x12\x13\n\x0btarget_node\x18\x03 \x01(\t\x12\x13\n\x0bsource_port\x18\x04 \x01(\t\x12\x13\n\x0btarget_port\x18\x05 \x01(\t\x12\x12\n\ntoken_type\x18\x06 \x01(\t\x12\x12\n\ntoken_size\x18\x07 \x01(\x05\"7\n\x0e\x41ppNodeMapping\x12\x13\n\x0b\x61pp_node_id\x18\x01 \x01(\t\x12\x10\n\x08\x61limp_id\x18\x02 \x01(\t\"8\n\x0c\x41limpLibrary\x12(\n\x07\x65ntries\x18\x01 \x03(\x0b\x32\x17.ss.sylva.ds.AlimpEntry\"I\n\nAlimpEntry\x12\x0c\n\x04\x66unc\x18\x01 \x01(\t\x12-\n\tinstances\x18\x02 \x03(\x0b\x32\x1a.ss.sylva.ds.AlimpInstance\"\xb5\x02\n\rAlimpInstance\x12\n\n\x02id\x18\x01 \x01(\t\x12\r\n\x05width\x18\x02 \x01(\x05\x12\x0e\n\x06height\x18\x03 \x01(\x05\x12\x1c\n\x14input_port_positions\x18\x04 \x03(\x05\x12\x1d\n\x15output_port_positions\x18\x05 \x03(\x05\x12\x11\n\tfrequency\x18\x06 \x01(\x05\x12\x0f\n\x07latency\x18\x07 \x01(\x05\x12\r\n\x05power\x18\x08 \x01(\x05\x12\x0e\n\x06\x65nergy\x18\t \x01(\x05\x12;\n\x18input_addr_time_patterns\x18\n \x03(\x0b\x32\x19.ss.sylva.ds.pair_int_int\x12<\n\x19output_addr_time_patterns\x18\x0b \x03(\x0b\x32\x19.ss.sylva.ds.pair_int_int\"*\n\x0cpair_int_int\x12\x0b\n\x03key\x18\x01 \x01(\x05\x12\r\n\x05value\x18\x02 \x01(\x05\"\xb9\x01\n\x0b\x43onstraints\x12\x11\n\tmax_width\x18\x01 \x01(\x05\x12\x12\n\nmax_height\x18\x02 \x01(\x05\x12\x10\n\x08max_area\x18\x03 \x01(\x05\x12\x11\n\tmax_power\x18\x04 \x01(\x02\x12\x13\n\x0bmax_latency\x18\x05 \x01(\x02\x12\x12\n\nmax_period\x18\x06 \x01(\x02\x12\x1e\n\x16\x64\x61ta_movement_overhead\x18\x07 \x01(\x02\x12\x15\n\rarea_overhead\x18\x08 \x01(\x02\"\x82\x02\n\tFloorPlan\x12\x14\n\x0c\x61pp_node_ids\x18\x01 \x03(\t\x12\x14\n\x0c\x61pp_edge_ids\x18\x02 \x03(\t\x12\x10\n\x08max_size\x18\x03 \x01(\x05\x12)\n\x03pos\x18\x04 \x03(\x0b\x32\x1c.ss.sylva.ds.RectanglePosion\x12*\n\x05shape\x18\x05 \x03(\x0b\x32\x1b.ss.sylva.ds.RectangleShape\x12\x13\n\x0bsource_node\x18\x06 \x03(\x05\x12\x13\n\x0btarget_node\x18\x07 \x03(\x05\x12\x13\n\x0bsource_port\x18\x08 \x03(\x05\x12\x13\n\x0btarget_port\x18\t \x03(\x05\x12\x0c\n\x04\x63onn\x18\n \x03(\x05\"\'\n\x0fRectanglePosion\x12\t\n\x01x\x18\x01 \x01(\x05\x12\t\n\x01y\x18\x02 \x01(\x05\"/\n\x0eRectangleShape\x12\r\n\x05width\x18\x01 \x01(\x05\x12\x0e\n\x06height\x18\x02 \x01(\x05\"z\n\x0cRoutingGraph\x12 \n\x05nodes\x18\x01 \x03(\x0b\x32\x11.ss.sylva.ds.Node\x12 \n\x05\x65\x64ges\x18\x02 \x03(\x0b\x32\x11.ss.sylva.ds.Edge\x12&\n\x08\x63hannels\x18\x03 \x03(\x0b\x32\x14.ss.sylva.ds.Channel\"\"\n\x04Node\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0e\n\x06weight\x18\x02 \x01(\x01\"6\n\x04\x45\x64ge\x12\x0e\n\x06source\x18\x01 \x01(\t\x12\x0e\n\x06target\x18\x02 \x01(\t\x12\x0e\n\x06weight\x18\x03 \x01(\x01\"]\n\x07\x43hannel\x12\x13\n\x0b\x61pp_edge_id\x18\x01 \x01(\t\x12\x0e\n\x06source\x18\x02 \x01(\t\x12\x0e\n\x06target\x18\x03 \x01(\t\x12\x0f\n\x07traffic\x18\x04 \x01(\x01\x12\x0c\n\x04path\x18\x05 \x03(\tb\x06proto3'
 )
 
 
@@ -75,6 +75,27 @@ _DATABASE = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='cost_metric', full_name='ss.sylva.ds.DataBase.cost_metric', index=6,
+      number=7, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='alimp_binding_options', full_name='ss.sylva.ds.DataBase.alimp_binding_options', index=7,
+      number=8, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='synthesized_information', full_name='ss.sylva.ds.DataBase.synthesized_information', index=8,
+      number=9, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -88,7 +109,494 @@ _DATABASE = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=38,
-  serialized_end=342,
+  serialized_end=522,
+)
+
+
+_SYNTHESIZEDINFORMATION_NODEFIRETIMESENTRY = _descriptor.Descriptor(
+  name='NodeFireTimesEntry',
+  full_name='ss.sylva.ds.SynthesizedInformation.NodeFireTimesEntry',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='key', full_name='ss.sylva.ds.SynthesizedInformation.NodeFireTimesEntry.key', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='value', full_name='ss.sylva.ds.SynthesizedInformation.NodeFireTimesEntry.value', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=b'8\001',
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1160,
+  serialized_end=1212,
+)
+
+_SYNTHESIZEDINFORMATION_TRANSPORTERFIRETIMESENTRY = _descriptor.Descriptor(
+  name='TransporterFireTimesEntry',
+  full_name='ss.sylva.ds.SynthesizedInformation.TransporterFireTimesEntry',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='key', full_name='ss.sylva.ds.SynthesizedInformation.TransporterFireTimesEntry.key', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='value', full_name='ss.sylva.ds.SynthesizedInformation.TransporterFireTimesEntry.value', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=b'8\001',
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1214,
+  serialized_end=1273,
+)
+
+_SYNTHESIZEDINFORMATION_CHANNELWIDTHENTRY = _descriptor.Descriptor(
+  name='ChannelWidthEntry',
+  full_name='ss.sylva.ds.SynthesizedInformation.ChannelWidthEntry',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='key', full_name='ss.sylva.ds.SynthesizedInformation.ChannelWidthEntry.key', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='value', full_name='ss.sylva.ds.SynthesizedInformation.ChannelWidthEntry.value', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=b'8\001',
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1275,
+  serialized_end=1326,
+)
+
+_SYNTHESIZEDINFORMATION_INPUTBUFFERSIZEENTRY = _descriptor.Descriptor(
+  name='InputBufferSizeEntry',
+  full_name='ss.sylva.ds.SynthesizedInformation.InputBufferSizeEntry',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='key', full_name='ss.sylva.ds.SynthesizedInformation.InputBufferSizeEntry.key', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='value', full_name='ss.sylva.ds.SynthesizedInformation.InputBufferSizeEntry.value', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=b'8\001',
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1328,
+  serialized_end=1382,
+)
+
+_SYNTHESIZEDINFORMATION_OUTPUTBUFFERSIZEENTRY = _descriptor.Descriptor(
+  name='OutputBufferSizeEntry',
+  full_name='ss.sylva.ds.SynthesizedInformation.OutputBufferSizeEntry',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='key', full_name='ss.sylva.ds.SynthesizedInformation.OutputBufferSizeEntry.key', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='value', full_name='ss.sylva.ds.SynthesizedInformation.OutputBufferSizeEntry.value', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=b'8\001',
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1384,
+  serialized_end=1439,
+)
+
+_SYNTHESIZEDINFORMATION = _descriptor.Descriptor(
+  name='SynthesizedInformation',
+  full_name='ss.sylva.ds.SynthesizedInformation',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='alimp_bindings', full_name='ss.sylva.ds.SynthesizedInformation.alimp_bindings', index=0,
+      number=1, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='placements', full_name='ss.sylva.ds.SynthesizedInformation.placements', index=1,
+      number=2, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='max_size', full_name='ss.sylva.ds.SynthesizedInformation.max_size', index=2,
+      number=3, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='routing_paths', full_name='ss.sylva.ds.SynthesizedInformation.routing_paths', index=3,
+      number=4, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='max_latency', full_name='ss.sylva.ds.SynthesizedInformation.max_latency', index=4,
+      number=5, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='node_fire_times', full_name='ss.sylva.ds.SynthesizedInformation.node_fire_times', index=5,
+      number=6, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='transporter_fire_times', full_name='ss.sylva.ds.SynthesizedInformation.transporter_fire_times', index=6,
+      number=7, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='channel_width', full_name='ss.sylva.ds.SynthesizedInformation.channel_width', index=7,
+      number=8, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='input_buffer_size', full_name='ss.sylva.ds.SynthesizedInformation.input_buffer_size', index=8,
+      number=9, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='output_buffer_size', full_name='ss.sylva.ds.SynthesizedInformation.output_buffer_size', index=9,
+      number=10, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[_SYNTHESIZEDINFORMATION_NODEFIRETIMESENTRY, _SYNTHESIZEDINFORMATION_TRANSPORTERFIRETIMESENTRY, _SYNTHESIZEDINFORMATION_CHANNELWIDTHENTRY, _SYNTHESIZEDINFORMATION_INPUTBUFFERSIZEENTRY, _SYNTHESIZEDINFORMATION_OUTPUTBUFFERSIZEENTRY, ],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=525,
+  serialized_end=1439,
+)
+
+
+_ROUTINGPATH = _descriptor.Descriptor(
+  name='RoutingPath',
+  full_name='ss.sylva.ds.RoutingPath',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='app_edge_id', full_name='ss.sylva.ds.RoutingPath.app_edge_id', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='path', full_name='ss.sylva.ds.RoutingPath.path', index=1,
+      number=2, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='delay', full_name='ss.sylva.ds.RoutingPath.delay', index=2,
+      number=3, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1441,
+  serialized_end=1529,
+)
+
+
+_COORDINATE = _descriptor.Descriptor(
+  name='Coordinate',
+  full_name='ss.sylva.ds.Coordinate',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='x', full_name='ss.sylva.ds.Coordinate.x', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='y', full_name='ss.sylva.ds.Coordinate.y', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1531,
+  serialized_end=1565,
+)
+
+
+_PLACEMENT = _descriptor.Descriptor(
+  name='Placement',
+  full_name='ss.sylva.ds.Placement',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='app_node_id', full_name='ss.sylva.ds.Placement.app_node_id', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='x', full_name='ss.sylva.ds.Placement.x', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='y', full_name='ss.sylva.ds.Placement.y', index=2,
+      number=3, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1567,
+  serialized_end=1621,
+)
+
+
+_ALIMPBINDINGOPTION = _descriptor.Descriptor(
+  name='AlimpBindingOption',
+  full_name='ss.sylva.ds.AlimpBindingOption',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='alimp_bindings', full_name='ss.sylva.ds.AlimpBindingOption.alimp_bindings', index=0,
+      number=1, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1623,
+  serialized_end=1694,
+)
+
+
+_ALIMPBINDING = _descriptor.Descriptor(
+  name='AlimpBinding',
+  full_name='ss.sylva.ds.AlimpBinding',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='app_node_id', full_name='ss.sylva.ds.AlimpBinding.app_node_id', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='alimp_instance', full_name='ss.sylva.ds.AlimpBinding.alimp_instance', index=1,
+      number=2, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1696,
+  serialized_end=1783,
 )
 
 
@@ -128,6 +636,13 @@ _HYPERPARAMETER = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='place_relaxation_factor', full_name='ss.sylva.ds.HyperParameter.place_relaxation_factor', index=4,
+      number=5, type=2, cpp_type=6, label=1,
+      has_default_value=False, default_value=float(0),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
   ],
   extensions=[
   ],
@@ -140,8 +655,8 @@ _HYPERPARAMETER = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=344,
-  serialized_end=460,
+  serialized_start=1786,
+  serialized_end=1935,
 )
 
 
@@ -154,42 +669,28 @@ _GLOBALCONSTRAINT = _descriptor.Descriptor(
   create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
-      name='max_height', full_name='ss.sylva.ds.GlobalConstraint.max_height', index=0,
+      name='max_size', full_name='ss.sylva.ds.GlobalConstraint.max_size', index=0,
       number=1, type=5, cpp_type=1, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='max_width', full_name='ss.sylva.ds.GlobalConstraint.max_width', index=1,
-      number=2, type=5, cpp_type=1, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='max_area', full_name='ss.sylva.ds.GlobalConstraint.max_area', index=2,
-      number=3, type=5, cpp_type=1, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='max_latency', full_name='ss.sylva.ds.GlobalConstraint.max_latency', index=3,
+      name='max_latency', full_name='ss.sylva.ds.GlobalConstraint.max_latency', index=1,
       number=4, type=5, cpp_type=1, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='max_period', full_name='ss.sylva.ds.GlobalConstraint.max_period', index=4,
+      name='max_period', full_name='ss.sylva.ds.GlobalConstraint.max_period', index=2,
       number=5, type=5, cpp_type=1, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='max_energy', full_name='ss.sylva.ds.GlobalConstraint.max_energy', index=5,
+      name='max_energy', full_name='ss.sylva.ds.GlobalConstraint.max_energy', index=3,
       number=6, type=5, cpp_type=1, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
@@ -207,8 +708,75 @@ _GLOBALCONSTRAINT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=463,
-  serialized_end=599,
+  serialized_start=1937,
+  serialized_end=2034,
+)
+
+
+_COSTMETRIC = _descriptor.Descriptor(
+  name='CostMetric',
+  full_name='ss.sylva.ds.CostMetric',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  create_key=_descriptor._internal_create_key,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='width', full_name='ss.sylva.ds.CostMetric.width', index=0,
+      number=1, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='height', full_name='ss.sylva.ds.CostMetric.height', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='area', full_name='ss.sylva.ds.CostMetric.area', index=2,
+      number=3, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='energy', full_name='ss.sylva.ds.CostMetric.energy', index=3,
+      number=4, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='latency', full_name='ss.sylva.ds.CostMetric.latency', index=4,
+      number=5, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='period', full_name='ss.sylva.ds.CostMetric.period', index=5,
+      number=6, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=2036,
+  serialized_end=2142,
 )
 
 
@@ -246,8 +814,8 @@ _APPGRAPH = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=601,
-  serialized_end=685,
+  serialized_start=2144,
+  serialized_end=2228,
 )
 
 
@@ -313,8 +881,8 @@ _APPNODE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=688,
-  serialized_end=862,
+  serialized_start=2231,
+  serialized_end=2405,
 )
 
 
@@ -373,8 +941,8 @@ _APPNODEPORT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=865,
-  serialized_end=999,
+  serialized_start=2408,
+  serialized_end=2542,
 )
 
 
@@ -387,49 +955,49 @@ _APPEDGE = _descriptor.Descriptor(
   create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
-      name='source_node', full_name='ss.sylva.ds.AppEdge.source_node', index=0,
+      name='id', full_name='ss.sylva.ds.AppEdge.id', index=0,
       number=1, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=b"".decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='target_node', full_name='ss.sylva.ds.AppEdge.target_node', index=1,
+      name='source_node', full_name='ss.sylva.ds.AppEdge.source_node', index=1,
       number=2, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=b"".decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='source_port', full_name='ss.sylva.ds.AppEdge.source_port', index=2,
+      name='target_node', full_name='ss.sylva.ds.AppEdge.target_node', index=2,
       number=3, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=b"".decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='target_port', full_name='ss.sylva.ds.AppEdge.target_port', index=3,
+      name='source_port', full_name='ss.sylva.ds.AppEdge.source_port', index=3,
       number=4, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=b"".decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='token_type', full_name='ss.sylva.ds.AppEdge.token_type', index=4,
+      name='target_port', full_name='ss.sylva.ds.AppEdge.target_port', index=4,
       number=5, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=b"".decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='token_size', full_name='ss.sylva.ds.AppEdge.token_size', index=5,
-      number=6, type=5, cpp_type=1, label=1,
-      has_default_value=False, default_value=0,
+      name='token_type', full_name='ss.sylva.ds.AppEdge.token_type', index=5,
+      number=6, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='delay', full_name='ss.sylva.ds.AppEdge.delay', index=6,
+      name='token_size', full_name='ss.sylva.ds.AppEdge.token_size', index=6,
       number=7, type=5, cpp_type=1, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
@@ -447,8 +1015,8 @@ _APPEDGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1002,
-  serialized_end=1150,
+  serialized_start=2545,
+  serialized_end=2690,
 )
 
 
@@ -486,8 +1054,8 @@ _APPNODEMAPPING = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1152,
-  serialized_end=1207,
+  serialized_start=2692,
+  serialized_end=2747,
 )
 
 
@@ -518,8 +1086,8 @@ _ALIMPLIBRARY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1209,
-  serialized_end=1265,
+  serialized_start=2749,
+  serialized_end=2805,
 )
 
 
@@ -557,8 +1125,8 @@ _ALIMPENTRY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1267,
-  serialized_end=1340,
+  serialized_start=2807,
+  serialized_end=2880,
 )
 
 
@@ -659,8 +1227,8 @@ _ALIMPINSTANCE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1343,
-  serialized_end=1652,
+  serialized_start=2883,
+  serialized_end=3192,
 )
 
 
@@ -698,8 +1266,8 @@ _PAIR_INT_INT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1654,
-  serialized_end=1696,
+  serialized_start=3194,
+  serialized_end=3236,
 )
 
 
@@ -779,8 +1347,8 @@ _CONSTRAINTS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1699,
-  serialized_end=1884,
+  serialized_start=3239,
+  serialized_end=3424,
 )
 
 
@@ -793,36 +1361,71 @@ _FLOORPLAN = _descriptor.Descriptor(
   create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
-      name='max_width', full_name='ss.sylva.ds.FloorPlan.max_width', index=0,
-      number=1, type=5, cpp_type=1, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='max_height', full_name='ss.sylva.ds.FloorPlan.max_height', index=1,
-      number=2, type=5, cpp_type=1, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='pos', full_name='ss.sylva.ds.FloorPlan.pos', index=2,
-      number=3, type=11, cpp_type=10, label=3,
+      name='app_node_ids', full_name='ss.sylva.ds.FloorPlan.app_node_ids', index=0,
+      number=1, type=9, cpp_type=9, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='shape', full_name='ss.sylva.ds.FloorPlan.shape', index=3,
+      name='app_edge_ids', full_name='ss.sylva.ds.FloorPlan.app_edge_ids', index=1,
+      number=2, type=9, cpp_type=9, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='max_size', full_name='ss.sylva.ds.FloorPlan.max_size', index=2,
+      number=3, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='pos', full_name='ss.sylva.ds.FloorPlan.pos', index=3,
       number=4, type=11, cpp_type=10, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='conn', full_name='ss.sylva.ds.FloorPlan.conn', index=4,
-      number=5, type=5, cpp_type=1, label=3,
+      name='shape', full_name='ss.sylva.ds.FloorPlan.shape', index=4,
+      number=5, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='source_node', full_name='ss.sylva.ds.FloorPlan.source_node', index=5,
+      number=6, type=5, cpp_type=1, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='target_node', full_name='ss.sylva.ds.FloorPlan.target_node', index=6,
+      number=7, type=5, cpp_type=1, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='source_port', full_name='ss.sylva.ds.FloorPlan.source_port', index=7,
+      number=8, type=5, cpp_type=1, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='target_port', full_name='ss.sylva.ds.FloorPlan.target_port', index=8,
+      number=9, type=5, cpp_type=1, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='conn', full_name='ss.sylva.ds.FloorPlan.conn', index=9,
+      number=10, type=5, cpp_type=1, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -839,8 +1442,8 @@ _FLOORPLAN = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1887,
-  serialized_end=2038,
+  serialized_start=3427,
+  serialized_end=3685,
 )
 
 
@@ -878,8 +1481,8 @@ _RECTANGLEPOSION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2040,
-  serialized_end=2079,
+  serialized_start=3687,
+  serialized_end=3726,
 )
 
 
@@ -917,8 +1520,8 @@ _RECTANGLESHAPE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2081,
-  serialized_end=2128,
+  serialized_start=3728,
+  serialized_end=3775,
 )
 
 
@@ -963,8 +1566,8 @@ _ROUTINGGRAPH = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2130,
-  serialized_end=2252,
+  serialized_start=3777,
+  serialized_end=3899,
 )
 
 
@@ -1002,8 +1605,8 @@ _NODE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2254,
-  serialized_end=2288,
+  serialized_start=3901,
+  serialized_end=3935,
 )
 
 
@@ -1048,8 +1651,8 @@ _EDGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2290,
-  serialized_end=2344,
+  serialized_start=3937,
+  serialized_end=3991,
 )
 
 
@@ -1062,29 +1665,36 @@ _CHANNEL = _descriptor.Descriptor(
   create_key=_descriptor._internal_create_key,
   fields=[
     _descriptor.FieldDescriptor(
-      name='source', full_name='ss.sylva.ds.Channel.source', index=0,
+      name='app_edge_id', full_name='ss.sylva.ds.Channel.app_edge_id', index=0,
       number=1, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=b"".decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='target', full_name='ss.sylva.ds.Channel.target', index=1,
+      name='source', full_name='ss.sylva.ds.Channel.source', index=1,
       number=2, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=b"".decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='traffic', full_name='ss.sylva.ds.Channel.traffic', index=2,
-      number=3, type=1, cpp_type=5, label=1,
+      name='target', full_name='ss.sylva.ds.Channel.target', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='traffic', full_name='ss.sylva.ds.Channel.traffic', index=3,
+      number=4, type=1, cpp_type=5, label=1,
       has_default_value=False, default_value=float(0),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='path', full_name='ss.sylva.ds.Channel.path', index=3,
-      number=4, type=9, cpp_type=9, label=3,
+      name='path', full_name='ss.sylva.ds.Channel.path', index=4,
+      number=5, type=9, cpp_type=9, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -1101,8 +1711,8 @@ _CHANNEL = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2346,
-  serialized_end=2418,
+  serialized_start=3993,
+  serialized_end=4086,
 )
 
 _DATABASE.fields_by_name['app_graph'].message_type = _APPGRAPH
@@ -1111,6 +1721,25 @@ _DATABASE.fields_by_name['routing_graph'].message_type = _ROUTINGGRAPH
 _DATABASE.fields_by_name['floor_plan'].message_type = _FLOORPLAN
 _DATABASE.fields_by_name['alimp_lib'].message_type = _ALIMPLIBRARY
 _DATABASE.fields_by_name['hyper_parameter'].message_type = _HYPERPARAMETER
+_DATABASE.fields_by_name['cost_metric'].message_type = _COSTMETRIC
+_DATABASE.fields_by_name['alimp_binding_options'].message_type = _ALIMPBINDINGOPTION
+_DATABASE.fields_by_name['synthesized_information'].message_type = _SYNTHESIZEDINFORMATION
+_SYNTHESIZEDINFORMATION_NODEFIRETIMESENTRY.containing_type = _SYNTHESIZEDINFORMATION
+_SYNTHESIZEDINFORMATION_TRANSPORTERFIRETIMESENTRY.containing_type = _SYNTHESIZEDINFORMATION
+_SYNTHESIZEDINFORMATION_CHANNELWIDTHENTRY.containing_type = _SYNTHESIZEDINFORMATION
+_SYNTHESIZEDINFORMATION_INPUTBUFFERSIZEENTRY.containing_type = _SYNTHESIZEDINFORMATION
+_SYNTHESIZEDINFORMATION_OUTPUTBUFFERSIZEENTRY.containing_type = _SYNTHESIZEDINFORMATION
+_SYNTHESIZEDINFORMATION.fields_by_name['alimp_bindings'].message_type = _ALIMPBINDING
+_SYNTHESIZEDINFORMATION.fields_by_name['placements'].message_type = _PLACEMENT
+_SYNTHESIZEDINFORMATION.fields_by_name['routing_paths'].message_type = _ROUTINGPATH
+_SYNTHESIZEDINFORMATION.fields_by_name['node_fire_times'].message_type = _SYNTHESIZEDINFORMATION_NODEFIRETIMESENTRY
+_SYNTHESIZEDINFORMATION.fields_by_name['transporter_fire_times'].message_type = _SYNTHESIZEDINFORMATION_TRANSPORTERFIRETIMESENTRY
+_SYNTHESIZEDINFORMATION.fields_by_name['channel_width'].message_type = _SYNTHESIZEDINFORMATION_CHANNELWIDTHENTRY
+_SYNTHESIZEDINFORMATION.fields_by_name['input_buffer_size'].message_type = _SYNTHESIZEDINFORMATION_INPUTBUFFERSIZEENTRY
+_SYNTHESIZEDINFORMATION.fields_by_name['output_buffer_size'].message_type = _SYNTHESIZEDINFORMATION_OUTPUTBUFFERSIZEENTRY
+_ROUTINGPATH.fields_by_name['path'].message_type = _COORDINATE
+_ALIMPBINDINGOPTION.fields_by_name['alimp_bindings'].message_type = _ALIMPBINDING
+_ALIMPBINDING.fields_by_name['alimp_instance'].message_type = _ALIMPINSTANCE
 _APPGRAPH.fields_by_name['nodes'].message_type = _APPNODE
 _APPGRAPH.fields_by_name['edges'].message_type = _APPEDGE
 _APPNODE.fields_by_name['input_ports'].message_type = _APPNODEPORT
@@ -1126,8 +1755,15 @@ _ROUTINGGRAPH.fields_by_name['nodes'].message_type = _NODE
 _ROUTINGGRAPH.fields_by_name['edges'].message_type = _EDGE
 _ROUTINGGRAPH.fields_by_name['channels'].message_type = _CHANNEL
 DESCRIPTOR.message_types_by_name['DataBase'] = _DATABASE
+DESCRIPTOR.message_types_by_name['SynthesizedInformation'] = _SYNTHESIZEDINFORMATION
+DESCRIPTOR.message_types_by_name['RoutingPath'] = _ROUTINGPATH
+DESCRIPTOR.message_types_by_name['Coordinate'] = _COORDINATE
+DESCRIPTOR.message_types_by_name['Placement'] = _PLACEMENT
+DESCRIPTOR.message_types_by_name['AlimpBindingOption'] = _ALIMPBINDINGOPTION
+DESCRIPTOR.message_types_by_name['AlimpBinding'] = _ALIMPBINDING
 DESCRIPTOR.message_types_by_name['HyperParameter'] = _HYPERPARAMETER
 DESCRIPTOR.message_types_by_name['GlobalConstraint'] = _GLOBALCONSTRAINT
+DESCRIPTOR.message_types_by_name['CostMetric'] = _COSTMETRIC
 DESCRIPTOR.message_types_by_name['AppGraph'] = _APPGRAPH
 DESCRIPTOR.message_types_by_name['AppNode'] = _APPNODE
 DESCRIPTOR.message_types_by_name['AppNodePort'] = _APPNODEPORT
@@ -1154,6 +1790,88 @@ DataBase = _reflection.GeneratedProtocolMessageType('DataBase', (_message.Messag
   })
 _sym_db.RegisterMessage(DataBase)
 
+SynthesizedInformation = _reflection.GeneratedProtocolMessageType('SynthesizedInformation', (_message.Message,), {
+
+  'NodeFireTimesEntry' : _reflection.GeneratedProtocolMessageType('NodeFireTimesEntry', (_message.Message,), {
+    'DESCRIPTOR' : _SYNTHESIZEDINFORMATION_NODEFIRETIMESENTRY,
+    '__module__' : 'data_structure_pb2'
+    # @@protoc_insertion_point(class_scope:ss.sylva.ds.SynthesizedInformation.NodeFireTimesEntry)
+    })
+  ,
+
+  'TransporterFireTimesEntry' : _reflection.GeneratedProtocolMessageType('TransporterFireTimesEntry', (_message.Message,), {
+    'DESCRIPTOR' : _SYNTHESIZEDINFORMATION_TRANSPORTERFIRETIMESENTRY,
+    '__module__' : 'data_structure_pb2'
+    # @@protoc_insertion_point(class_scope:ss.sylva.ds.SynthesizedInformation.TransporterFireTimesEntry)
+    })
+  ,
+
+  'ChannelWidthEntry' : _reflection.GeneratedProtocolMessageType('ChannelWidthEntry', (_message.Message,), {
+    'DESCRIPTOR' : _SYNTHESIZEDINFORMATION_CHANNELWIDTHENTRY,
+    '__module__' : 'data_structure_pb2'
+    # @@protoc_insertion_point(class_scope:ss.sylva.ds.SynthesizedInformation.ChannelWidthEntry)
+    })
+  ,
+
+  'InputBufferSizeEntry' : _reflection.GeneratedProtocolMessageType('InputBufferSizeEntry', (_message.Message,), {
+    'DESCRIPTOR' : _SYNTHESIZEDINFORMATION_INPUTBUFFERSIZEENTRY,
+    '__module__' : 'data_structure_pb2'
+    # @@protoc_insertion_point(class_scope:ss.sylva.ds.SynthesizedInformation.InputBufferSizeEntry)
+    })
+  ,
+
+  'OutputBufferSizeEntry' : _reflection.GeneratedProtocolMessageType('OutputBufferSizeEntry', (_message.Message,), {
+    'DESCRIPTOR' : _SYNTHESIZEDINFORMATION_OUTPUTBUFFERSIZEENTRY,
+    '__module__' : 'data_structure_pb2'
+    # @@protoc_insertion_point(class_scope:ss.sylva.ds.SynthesizedInformation.OutputBufferSizeEntry)
+    })
+  ,
+  'DESCRIPTOR' : _SYNTHESIZEDINFORMATION,
+  '__module__' : 'data_structure_pb2'
+  # @@protoc_insertion_point(class_scope:ss.sylva.ds.SynthesizedInformation)
+  })
+_sym_db.RegisterMessage(SynthesizedInformation)
+_sym_db.RegisterMessage(SynthesizedInformation.NodeFireTimesEntry)
+_sym_db.RegisterMessage(SynthesizedInformation.TransporterFireTimesEntry)
+_sym_db.RegisterMessage(SynthesizedInformation.ChannelWidthEntry)
+_sym_db.RegisterMessage(SynthesizedInformation.InputBufferSizeEntry)
+_sym_db.RegisterMessage(SynthesizedInformation.OutputBufferSizeEntry)
+
+RoutingPath = _reflection.GeneratedProtocolMessageType('RoutingPath', (_message.Message,), {
+  'DESCRIPTOR' : _ROUTINGPATH,
+  '__module__' : 'data_structure_pb2'
+  # @@protoc_insertion_point(class_scope:ss.sylva.ds.RoutingPath)
+  })
+_sym_db.RegisterMessage(RoutingPath)
+
+Coordinate = _reflection.GeneratedProtocolMessageType('Coordinate', (_message.Message,), {
+  'DESCRIPTOR' : _COORDINATE,
+  '__module__' : 'data_structure_pb2'
+  # @@protoc_insertion_point(class_scope:ss.sylva.ds.Coordinate)
+  })
+_sym_db.RegisterMessage(Coordinate)
+
+Placement = _reflection.GeneratedProtocolMessageType('Placement', (_message.Message,), {
+  'DESCRIPTOR' : _PLACEMENT,
+  '__module__' : 'data_structure_pb2'
+  # @@protoc_insertion_point(class_scope:ss.sylva.ds.Placement)
+  })
+_sym_db.RegisterMessage(Placement)
+
+AlimpBindingOption = _reflection.GeneratedProtocolMessageType('AlimpBindingOption', (_message.Message,), {
+  'DESCRIPTOR' : _ALIMPBINDINGOPTION,
+  '__module__' : 'data_structure_pb2'
+  # @@protoc_insertion_point(class_scope:ss.sylva.ds.AlimpBindingOption)
+  })
+_sym_db.RegisterMessage(AlimpBindingOption)
+
+AlimpBinding = _reflection.GeneratedProtocolMessageType('AlimpBinding', (_message.Message,), {
+  'DESCRIPTOR' : _ALIMPBINDING,
+  '__module__' : 'data_structure_pb2'
+  # @@protoc_insertion_point(class_scope:ss.sylva.ds.AlimpBinding)
+  })
+_sym_db.RegisterMessage(AlimpBinding)
+
 HyperParameter = _reflection.GeneratedProtocolMessageType('HyperParameter', (_message.Message,), {
   'DESCRIPTOR' : _HYPERPARAMETER,
   '__module__' : 'data_structure_pb2'
@@ -1167,6 +1885,13 @@ GlobalConstraint = _reflection.GeneratedProtocolMessageType('GlobalConstraint', 
   # @@protoc_insertion_point(class_scope:ss.sylva.ds.GlobalConstraint)
   })
 _sym_db.RegisterMessage(GlobalConstraint)
+
+CostMetric = _reflection.GeneratedProtocolMessageType('CostMetric', (_message.Message,), {
+  'DESCRIPTOR' : _COSTMETRIC,
+  '__module__' : 'data_structure_pb2'
+  # @@protoc_insertion_point(class_scope:ss.sylva.ds.CostMetric)
+  })
+_sym_db.RegisterMessage(CostMetric)
 
 AppGraph = _reflection.GeneratedProtocolMessageType('AppGraph', (_message.Message,), {
   'DESCRIPTOR' : _APPGRAPH,
@@ -1288,4 +2013,9 @@ Channel = _reflection.GeneratedProtocolMessageType('Channel', (_message.Message,
 _sym_db.RegisterMessage(Channel)
 
 
+_SYNTHESIZEDINFORMATION_NODEFIRETIMESENTRY._options = None
+_SYNTHESIZEDINFORMATION_TRANSPORTERFIRETIMESENTRY._options = None
+_SYNTHESIZEDINFORMATION_CHANNELWIDTHENTRY._options = None
+_SYNTHESIZEDINFORMATION_INPUTBUFFERSIZEENTRY._options = None
+_SYNTHESIZEDINFORMATION_OUTPUTBUFFERSIZEENTRY._options = None
 # @@protoc_insertion_point(module_scope)

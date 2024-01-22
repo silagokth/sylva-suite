@@ -9,22 +9,71 @@ message DataBase {
   FloorPlan floor_plan = 4;
   AlimpLibrary alimp_lib = 5;
   HyperParameter hyper_parameter = 6;
+  CostMetric cost_metric = 7;
+  repeated AlimpBindingOption alimp_binding_options = 8;
+  SynthesizedInformation synthesized_information = 9;
 }
 
-message HyperParameter{
+message SynthesizedInformation {
+  repeated AlimpBinding alimp_bindings = 1;
+  repeated Placement placements = 2;
+  int32 max_size = 3;
+  repeated RoutingPath routing_paths = 4;
+  int32 max_latency = 5;
+  map<string, int32> node_fire_times = 6;
+  map<string, int32> transporter_fire_times = 7;
+  map<string, int32> channel_width = 8;
+  map<string, int32> input_buffer_size = 9;
+  map<string, int32> output_buffer_size = 10;
+}
+
+message RoutingPath {
+  string app_edge_id = 1;
+  repeated Coordinate path = 2;
+  int32 delay = 3;
+}
+
+message Coordinate {
+  int32 x = 1;
+  int32 y = 2;
+}
+
+message Placement {
+  string app_node_id = 1;
+  int32 x = 2;
+  int32 y = 3;
+}
+
+message AlimpBindingOption { repeated AlimpBinding alimp_bindings = 1; }
+
+message AlimpBinding {
+  string app_node_id = 1;
+  AlimpInstance alimp_instance = 2;
+}
+
+message HyperParameter {
   int32 bind_w_area = 1;
   int32 bind_w_energy = 2;
   int32 bind_w_latency = 3;
   float bind_relaxation_factor = 4;
+
+  float place_relaxation_factor = 5;
 }
 
-message GlobalConstraint{
-  int32 max_height = 1;
-  int32 max_width = 2;
-  int32 max_area = 3;
+message GlobalConstraint {
+  int32 max_size = 1;
   int32 max_latency = 4;
   int32 max_period = 5;
   int32 max_energy = 6;
+}
+
+message CostMetric {
+  int32 width = 1;
+  int32 height = 2;
+  int32 area = 3;
+  int32 energy = 4;
+  int32 latency = 5;
+  int32 period = 6;
 }
 
 message AppGraph {
@@ -49,13 +98,13 @@ message AppNodePort {
 }
 
 message AppEdge {
-  string source_node = 1;
-  string target_node = 2;
-  string source_port = 3;
-  string target_port = 4;
-  string token_type = 5;
-  int32 token_size = 6;
-  int32 delay = 7;
+  string id = 1;
+  string source_node = 2;
+  string target_node = 3;
+  string source_port = 4;
+  string target_port = 5;
+  string token_type = 6;
+  int32 token_size = 7;
 }
 
 message AppNodeMapping {
@@ -101,11 +150,16 @@ message Constraints {
 }
 
 message FloorPlan {
-  int32 max_width = 1;
-  int32 max_height = 2;
-  repeated RectanglePosion pos = 3;
-  repeated RectangleShape shape = 4;
-  repeated int32 conn = 5;
+  repeated string app_node_ids = 1;
+  repeated string app_edge_ids = 2;
+  int32 max_size = 3;
+  repeated RectanglePosion pos = 4;
+  repeated RectangleShape shape = 5;
+  repeated int32 source_node = 6;
+  repeated int32 target_node = 7;
+  repeated int32 source_port = 8;
+  repeated int32 target_port = 9;
+  repeated int32 conn = 10;
 }
 
 message RectanglePosion {
@@ -136,8 +190,9 @@ message Edge {
 }
 
 message Channel {
-  string source = 1;
-  string target = 2;
-  double traffic = 3;
-  repeated string path = 4;
+  string app_edge_id = 1;
+  string source = 2;
+  string target = 3;
+  double traffic = 4;
+  repeated string path = 5;
 }

@@ -13,6 +13,67 @@ from google.protobuf.json_format import Parse
 
 import logging
 
+def create_routing_graph(db: ds.DataBase) -> ds.RoutingGraph:
+    routing_graph = create_fully_connected_routing_graph(db.synthesized_information.max_size, db.synthesized_information.max_size)
+    node_map = {}
+    for node in db.app_graph.nodes:
+        x = -1
+        y = -1
+        width = -1
+        height = -1
+        print(db.synthesized_information.placements)
+        for placement in db.synthesized_information.placements:
+            if placement.app_node_id == node.id:
+                x = placement.x
+                y = placement.y-1
+                break
+        for binding in db.synthesized_information.alimp_bindings:
+            if binding.app_node_id == node.id:
+                width = binding.alimp_instance.width
+                height = binding.alimp_instance.height+3
+                break
+        if x == -1 or y == -1 or width == -1 or height == -1:
+            print("Error: cannot find placement or binding for node %s" % node.id)
+            sys.exit(1)
+        node_map[node.id] = (x, y, width, height)
+        exclude_nodes = []
+        for i in range(len(node.input_ports)):
+            exclude_nodes.append("s_" + str(i))
+        for i in range(len(node.output_ports)):
+            exclude_nodes.append("n_" + str(i))
+        add_obstacle(routing_graph, x, y, width, height, exclude_nodes)
+
+    for edge in db.app_graph.edges:
+        source_node = edge.source_node
+        target_node = edge.target_node
+        source_port = edge.source_port
+        target_port = edge.target_port
+        source_x, source_y, source_width, source_height = node_map[source_node]
+        target_x, target_y, target_width, target_height = node_map[target_node]
+        source_port_idx = -1
+        target_port_idx = -1
+        for i in range(len(db.app_graph.nodes)):
+            if db.app_graph.nodes[i].id == source_node:
+                for j in range(len(db.app_graph.nodes[i].output_ports)):
+                    if db.app_graph.nodes[i].output_ports[j].id == source_port:
+                        source_port_idx = j
+                        break
+                break
+        for i in range(len(db.app_graph.nodes)):
+            if db.app_graph.nodes[i].id == target_node:
+                for j in range(len(db.app_graph.nodes[i].input_ports)):
+                    if db.app_graph.nodes[i].input_ports[j].id == target_port:
+                        target_port_idx = j
+                        break
+                break
+        source_port = "n_" + str(source_port_idx)
+        target_port = "s_" + str(target_port_idx)
+        source = block_port_id_to_node_id(source_x, source_y, source_width, source_height, source_port)
+        target = block_port_id_to_node_id(target_x, target_y, target_width, target_height, target_port)
+        routing_graph.channels.add(app_edge_id = edge.id, source=source, target=target, traffic=edge.token_size)
+    
+    return routing_graph
+
 
 def load_routing_graph_from_bin(file_name) -> ds.RoutingGraph:
     with open(file_name, 'rb') as f:
@@ -73,16 +134,20 @@ def test_log():
 def dijkstra(routing_graph, source_id: str, target_id: str) -> list:
     # use dijkstra algorithm to find a path from source to target
     # return a list of node ids
+    
+
     source = None
     target = None
     for node in routing_graph.nodes:
+        if node.id.startswith("3"):
+            print(node.id)
         if node.id == source_id:
             source = node
         elif node.id == target_id:
             target = node
-
+    print(source_id, target_id)
     if source is None or target is None:
-        print("Error: source or target does not exist!")
+        logging.error("Error: source or target does not exist!")
         sys.exit(1)
 
     distances = {}
@@ -327,14 +392,12 @@ def node_id_to_xy(node_id) -> tuple:
     return (x+dx, y+dy)
 
 
-def plot(routing_graph):
+def plot(routing_graph, max_x, max_y):
     # create figure
     fig = plt.figure()
     ax = fig.add_subplot(111)
 
     # plot grid with light grey color
-    max_x = 10
-    max_y = 10
     for i in range(max_x+1):
         ax.plot([i, i], [0, max_y], color='lightgrey')
     for i in range(max_y+1):
@@ -363,8 +426,8 @@ def plot(routing_graph):
             ax.plot([x1+random_dx, x2+random_dx],
                     [y1+random_dy, y2+random_dy], color='blue', linewidth=2)
 
-    # show plot
-    plt.show()
+    # save to pdf file
+    plt.savefig('routing_graph.pdf')
 
 
 def create_fully_connected_routing_graph(max_x, max_y):
@@ -411,6 +474,7 @@ def create_fully_connected_routing_graph(max_x, max_y):
 
 
 def block_port_id_to_node_id(x, y, width, height, port_id):
+    print(x, y, width, height, port_id)
     d, i = port_id.split('_')
     i = int(i)
     if d == 'N' or d == 'n':
@@ -423,6 +487,56 @@ def block_port_id_to_node_id(x, y, width, height, port_id):
         return '%d_%d_%d' % (x+width-1, y+i, 0)
     else:
         print("Error: invalid direction %s" % d)
+        sys.exit(1)
+
+def path_segment_to_coord(node_id_0, node_id_1):
+    x0, y0, d0 = node_id_0.split('_')
+    x1, y1, d1 = node_id_1.split('_')
+    x0 = int(x0)
+    y0 = int(y0)
+    d0 = int(d0)
+    x1 = int(x1)
+    y1 = int(y1)
+    d1 = int(d1)
+
+    # west to east
+    if x0 == x1-1 and y0 == y1 and d0 == d1 and d0 == 0:
+        return ds.Coordinate(x=x1, y=y1)
+    # east to west
+    elif x0 == x1+1 and y0 == y1 and d0 == d1 and d0 == 0:
+        return ds.Coordinate(x=x0, y=y0)
+    # south to north
+    elif x0 == x1 and y0 == y1-1 and d0 == d1 and d0 == 1:
+        return ds.Coordinate(x=x1, y=y1)
+    # north to south
+    elif x0 == x1 and y0 == y1+1 and d0 == d1 and d0 == 1:
+        return ds.Coordinate(x=x0, y=y0)
+    # east to north
+    elif x0 == x1 and y0 == y1 and d0 == 0 and d1 == 1:
+        return ds.Coordinate(x=x1, y=y1)
+    # north to east
+    elif x0 == x1 and y0 == y1 and d0 == 1 and d1 == 0:
+        return ds.Coordinate(x=x0, y=y0)
+    # west to north
+    elif x0 == x1-1 and y0 == y1 and d0 == 0 and d1 == 1:
+        return ds.Coordinate(x=x1, y=y1)
+    # north to west
+    elif x0 == x1+1 and y0 == y1 and d0 == 1 and d1 == 0:
+        return ds.Coordinate(x=x0, y=y0)
+    # east to south
+    elif x0 == x1 and y0 == y1+1 and d0 == 0 and d1 == 1:
+        return ds.Coordinate(x=x0, y=y0)
+    # south to east
+    elif x0 == x1 and y0 == y1-1 and d0 == 1 and d1 == 0:
+        return ds.Coordinate(x=x1, y=y1)
+    # west to south
+    elif x0 == x1-1 and y0 == y1+1 and d0 == 0 and d1 == 1:
+        return ds.Coordinate(x=x0+1, y=y0)
+    # south to west
+    elif x0 == x1+1 and y0 == y1-1 and d0 == 1 and d1 == 0:
+        return ds.Coordinate(x=x0, y=y0+1)
+    else:
+        print("Error: invalid path segment %s -> %s" % (node_id_0, node_id_1))
         sys.exit(1)
 
 
@@ -486,6 +600,89 @@ def add_obstacle(routing_graph, x, y, width, height, exclude_nodes):
     # add edges back to routing_graph.edges
     routing_graph.edges.extend(edges)
 
+def generate_picture(db: ds.DataBase):
+    # create plt
+    fig = plt.figure()
+
+    # set max_x and max_y to be db.synthesized_information.max_size
+    max_x = db.synthesized_information.max_size
+    max_y = db.synthesized_information.max_size
+
+    # plot grid with light grey color, the center of each block is the coordinate of the block
+    for i in range(max_x+2):
+        plt.plot([i-0.5, i-0.5], [-0.5, max_y+0.5], color='lightgrey')
+    for i in range(max_y+2):
+        plt.plot([-0.5, max_x+0.5], [i-0.5, i-0.5], color='lightgrey')
+    
+    # plot nodes
+    for node in db.app_graph.nodes:
+        x = -1
+        y = -1
+        width = -1
+        height = -1
+        for placement in db.synthesized_information.placements:
+            if placement.app_node_id == node.id:
+                x = placement.x
+                y = placement.y
+                break
+        for binding in db.synthesized_information.alimp_bindings:
+            if binding.app_node_id == node.id:
+                width = binding.alimp_instance.width
+                height = binding.alimp_instance.height
+                break
+        if x == -1 or y == -1 or width == -1 or height == -1:
+            print("Error: cannot find placement or binding for node %s" % node.id)
+            sys.exit(1)
+        
+        # draw a rectangle with orange color to represent the node
+        plt.gca().add_patch(plt.Rectangle((x-0.5, y-0.5), width, height, color='orange'))
+        # add label to the center of the rectangle
+        plt.text(x+1, y+1, node.id, horizontalalignment='center', verticalalignment='center')
+
+        # draw a rectangle with red color to represent the output buffer, the buffer coordinate is +0 offset to the north of the node
+        plt.gca().add_patch(plt.Rectangle((x-0.5, y+height-0.5), width, 1, color='red'))
+
+        # draw a rectangle with purple color to represent the input buffer, the buffer coordinate is -1 offset to the south of the node
+        plt.gca().add_patch(plt.Rectangle((x-0.5, y-1-0.5), width, 1, color='purple'))
+
+        # draw a rectangle with green color to represent the data transporter, the transporter coordinate is +1 offset to the north of the node
+        plt.gca().add_patch(plt.Rectangle((x-0.5, y+height+1-0.5), width, 1, color='green'))
+
+
+
+    # plot routing path
+    for path in db.synthesized_information.routing_paths:
+        for i in range(len(path.path)):
+            # plot a block with width=1 and height=1 to represent a path node
+            x = path.path[i].x
+            y = path.path[i].y
+            # draw a rectangle with blue color
+            plt.gca().add_patch(plt.Rectangle((x-0.5, y-0.5), 1, 1, color='blue'))
+    
+    # save to pdf file
+    plt.savefig('routing_graph.pdf')
+
+
+
+def update_synthesized_info(db: ds.DataBase, routing_graph: ds.RoutingGraph):
+    for channel in routing_graph.channels:
+        for edge in db.app_graph.edges:
+            if edge.id == channel.app_edge_id:
+                db.synthesized_information.routing_paths.append(ds.RoutingPath(app_edge_id=edge.id))
+                idx = len(db.synthesized_information.routing_paths)-1
+                for x in range(len(channel.path)-1):
+                    db.synthesized_information.routing_paths[idx].path.append(path_segment_to_coord(channel.path[x], channel.path[x+1]))
+                db.synthesized_information.routing_paths[idx].delay = 1 + len(channel.path) % 5
+                break
+    print(db.synthesized_information.routing_paths)
+                    
+
+def run (db: ds.DataBase):
+    routing_graph = create_routing_graph(db)
+    route(routing_graph)
+    #plot(routing_graph, db.synthesized_information.max_size, db.synthesized_information.max_size)
+    update_synthesized_info(db, routing_graph)
+    generate_picture(db)
 
 if __name__ == '__main__':
     routing_graph = create_fully_connected_routing_graph(10, 10)
