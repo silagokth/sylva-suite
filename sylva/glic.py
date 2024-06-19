@@ -1,5 +1,6 @@
 import os
 import sys
+import logging
 
 from google.protobuf.json_format import MessageToJson
 from google.protobuf.json_format import Parse
@@ -42,7 +43,7 @@ def find_min_delay(src_addr_pattern: dict, dest_addr_pattern: dict, channel_widt
     # Use OR-tools to find the minimum delay
     model = cp_model.CpModel()
     # create variables
-    DELAY = model.NewIntVar(3, max_delay, "DELAY")
+    DELAY = model.NewIntVar(2, max_delay, "DELAY")
     # create TRANSPORTER VARIABLES for READ for each address
     TR_READ = {}
     for addr in common_addr:
@@ -50,7 +51,7 @@ def find_min_delay(src_addr_pattern: dict, dest_addr_pattern: dict, channel_widt
     # add constraints
     for addr in common_addr:
         model.Add(TR_READ[addr] > src_addr_pattern[addr])
-        model.Add(dest_addr_pattern[addr] + DELAY > TR_READ[addr]+1)
+        model.Add(dest_addr_pattern[addr] + DELAY > TR_READ[addr])
     
     # cummulative constraint
     INTERVAL = [model.NewIntervalVar(TR_READ[addr], 1, TR_READ[addr]+1, f"interval[{addr}]") for addr in common_addr]
@@ -205,8 +206,73 @@ def optimize_channel_width(db: ds.DataBase):
         print("No solution found!")
         return None
 
+def equitable_address_assignment(T0, T1, buffer_capacity) -> list:
+
+    print(T0, T1, buffer_capacity)
+
+    # T0 is the start time of each chunk
+    # T1 is the end time of each chunk
+    # buffer_capacity is the capacity of the buffer
+    # return the assigned address for each chunk
+
+    # build a conflict graph for each chunk
+    conflict_graph = {}
+    for i in range(len(T0)):
+        conflict_graph[i] = []
+        for j in range(len(T0)):
+            if i != j:
+                if T0[i] < T0[j] and T0[j] < T1[i]:
+                    conflict_graph[i].append(j)
+                elif T0[i] < T1[j] and T1[j] < T1[i]:
+                    conflict_graph[i].append(j)
+                elif T0[j] < T0[i] and T1[i] < T1[j]:
+                    conflict_graph[i].append(j)
+
+    # create a list of index of elements in T0 sorted by their value
+    sorted_index = sorted(range(len(T0)), key=lambda k: T0[k])
+
+    assigned_address = [-1 for i in range(len(T0))]
+    for i in sorted_index:
+        # order the address in buffer based on its assigned chunk count
+        address_count = [0 for i in range(buffer_capacity)]
+        for j in range(len(assigned_address)):
+            if assigned_address[j] >= 0:
+                address_count[assigned_address[j]] += 1
+        # create a list of available address based on the address_count, smaller address_count has higher priority
+        available_address = sorted(range(len(address_count)), key=lambda k: address_count[k])
+        # assign the chunk to the first available address, if it has conflict with other chunks, assign to the next available address, and so on
+        for j in range(len(available_address)):
+            candidate_address = available_address[j]
+            # find all chunks that have been assigned to address candidate_address
+            assigned_chunks = []
+            for k in range(len(assigned_address)):
+                if assigned_address[k] == candidate_address:
+                    assigned_chunks.append(k)
+            # check if the current chunk has conflict with any of the assigned chunks
+            has_conflict = False
+            for k in range(len(assigned_chunks)):
+                if assigned_chunks[k] in conflict_graph[i]:
+                    has_conflict = True
+                    break
+            if not has_conflict:
+                assigned_address[i] = candidate_address
+                break
+    
+    # check if all chunks have been assigned an address
+    for i in range(len(assigned_address)):
+        if assigned_address[i] < 0:
+            logging.log("Error: equitable address assignment failed!")
+            sys.exit(1)
+
+    print(assigned_address)
+    return assigned_address
+
+
+
 
 def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> cp_model.CpModel:
+
+    print("channel bandwidth and delay=", channel_bandwidth_and_delay)
     MAX_LATENCY = db.synthesized_information.max_latency+10
     MAX_BUFFER_SIZE = 1000
     MAX_OBJ = 10000
@@ -239,6 +305,10 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
             0, MAX_BUFFER_SIZE, "OB_"+edge.source_port)
 
     TR = {}
+    T0_ALL = {}
+    T1_ALL = {}
+    T2_ALL = {}
+    T3_ALL = {}
     K = {}
     # add constraints for token chunk of each edge
     for edge in db.app_graph.edges:
@@ -267,6 +337,11 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
             sys.exit(1)
 
         TR[edge.id] = {}
+        T0_ALL[edge.id] = {}
+        T1_ALL[edge.id] = {}
+        T2_ALL[edge.id] = {}
+        T3_ALL[edge.id] = {}
+
         T0 = [model.NewIntVar(0, MAX_LATENCY, "T0_"+str(i))
               for i in range(edge.token_size)]
         T1 = [model.NewIntVar(0, MAX_LATENCY, "T1_"+str(i))
@@ -275,9 +350,9 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
               for i in range(edge.token_size)]
         T3 = [model.NewIntVar(0, MAX_LATENCY, "T3_"+str(i))
               for i in range(edge.token_size)]
-        D01 = [model.NewIntVar(0, MAX_LATENCY, "D01_"+str(i))
+        D01 = [model.NewIntVar(1, MAX_LATENCY, "D01_"+str(i))
                for i in range(edge.token_size)]
-        D23 = [model.NewIntVar(0, MAX_LATENCY, "D23_"+str(i))
+        D23 = [model.NewIntVar(1, MAX_LATENCY, "D23_"+str(i))
                for i in range(edge.token_size)]
         # create variable for channel width
         K[edge.id] = channel_bandwidth_and_delay[edge.id][0]
@@ -285,6 +360,11 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
         # for each chunk, compute its address in source and target node
         idx = 0
         for addr in range(edge.token_size):
+            T0_ALL[edge.id][addr] = T0[idx]
+            T1_ALL[edge.id][addr] = T1[idx]
+            T2_ALL[edge.id][addr] = T2[idx]
+            T3_ALL[edge.id][addr] = T3[idx]
+
             # translate address in source node
             source_addr = translate_source_addr(db.app_graph,
                                                 edge.source_node, edge.source_port, addr)
@@ -348,10 +428,22 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
     solver = cp_model.CpSolver()
     status = solver.Solve(model)
     if status == cp_model.OPTIMAL:
+        print("OBJ=", solver.Value(OBJ))
+        print("IB AND OB=")
+        for var in IB:
+            print(var, solver.Value(IB[var]))
+        for var in OB:
+            print(var, solver.Value(OB[var]))
+        # print all var in T0_ALL, T1_ALL, T2_ALL, T3_ALL
+        for edge in db.app_graph.edges:
+            print(edge.id)
+            for i in range(edge.token_size):
+                print("T0=", solver.Value(T0_ALL[edge.id][i]), "T1=", solver.Value(T1_ALL[edge.id][i]), "T2=", solver.Value(T2_ALL[edge.id][i]), "T3=", solver.Value(T3_ALL[edge.id][i]))
+
         for node in db.app_graph.nodes:
             db.synthesized_information.node_fire_times[node.id] = solver.Value(F[node.id][0])
         for edge in db.app_graph.edges:
-            db.synthesized_information.transporter_fire_times[edge.id] = solver.Value(F["transporter_"+edge.id][0])
+            db.synthesized_information.node_fire_times[edge.id] = solver.Value(F["transporter_"+edge.id][0])
             db.synthesized_information.channel_width[edge.id] = solver.Value(K[edge.id])
         
         for node in db.app_graph.nodes:
@@ -361,6 +453,68 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
                 db.synthesized_information.input_buffer_size[node.id] += solver.Value(IB[input_port.id])
             for output_port in node.output_ports:
                 db.synthesized_information.output_buffer_size[node.id] += solver.Value(OB[output_port.id])
+
+        for node in db.app_graph.nodes:
+            for output_port in node.output_ports:
+                for edge in db.app_graph.edges:
+                    # find the edge that use this port as source port
+                    if edge.source_node == node.id and edge.source_port == output_port.id:
+                        T0 = [solver.Value(x) for _,x in enumerate(T0_ALL[edge.id])]
+                        T1 = [solver.Value(x) for _,x in enumerate(T1_ALL[edge.id])]
+                        buffer_capacity = solver.Value(OB[output_port.id])
+
+                        assigned_address = equitable_address_assignment(T0, T1, buffer_capacity)
+
+                        chunk_address_assignment = ds.ChunkAddressAssignment()
+                        chunk_address_assignment.app_node_id = node.id
+                        chunk_address_assignment.port_id = output_port.id
+
+                        for i in range(len(T0)):
+                            chunk_address_assignment.address_assignment[translate_source_addr(db.app_graph, edge.source_node, edge.source_port, i)] = assigned_address[i]
+                        
+                        db.synthesized_information.chunk_address_assignments.append(chunk_address_assignment)
+            for input_port in node.input_ports:
+                for edge in db.app_graph.edges:
+                    # find the edge that use this port as target port
+                    if edge.target_node == node.id and edge.target_port == input_port.id:
+                        T0 = [solver.Value(x) for _,x in enumerate(T2_ALL[edge.id])]
+                        T1 = [solver.Value(x) for _,x in enumerate(T3_ALL[edge.id])]
+                        buffer_capacity = solver.Value(IB[input_port.id])
+
+                        assigned_address = equitable_address_assignment(T0, T1, buffer_capacity)
+
+                        chunk_address_assignment = ds.ChunkAddressAssignment()
+                        chunk_address_assignment.app_node_id = node.id
+                        chunk_address_assignment.port_id = input_port.id
+
+                        for i in range(len(T0)):
+                            chunk_address_assignment.address_assignment[translate_target_addr(db.app_graph, edge.target_node, edge.target_port, i)] = assigned_address[i]
+                        
+                        db.synthesized_information.chunk_address_assignments.append(chunk_address_assignment)
+        for edge in db.app_graph.edges:
+            #db.synthesized_information.transport_tables[edge.id]=ds.TransportTable(app_edge_id=edge.id, entries=[])
+            for x in T1_ALL[edge.id]:
+                time = solver.Value(T1_ALL[edge.id][x]) - db.synthesized_information.node_fire_times[edge.id]
+                print("time=", time, "abs_time=", solver.Value(x), "fire_time=", db.synthesized_information.node_fire_times[edge.id])
+                virtual_source_address = translate_source_addr(db.app_graph, edge.source_node, edge.source_port, x)
+                virtual_target_address = translate_target_addr(db.app_graph, edge.target_node, edge.target_port, x)
+                for chunk_address_assignment in db.synthesized_information.chunk_address_assignments:
+                    if chunk_address_assignment.app_node_id == edge.source_node and chunk_address_assignment.port_id == edge.source_port:
+                        if virtual_source_address in chunk_address_assignment.address_assignment:
+                            source_address = chunk_address_assignment.address_assignment[virtual_source_address]
+                            break
+                        else:
+                            logging.error("Error: source address not found in node "+edge.source_node)
+                            sys.exit(1)
+                for chunk_address_assignment in db.synthesized_information.chunk_address_assignments:
+                    if chunk_address_assignment.app_node_id == edge.target_node and chunk_address_assignment.port_id == edge.target_port:
+                        if virtual_target_address in chunk_address_assignment.address_assignment:
+                            target_address = chunk_address_assignment.address_assignment[virtual_target_address]
+                            break
+                        else:
+                            logging.error("Error: target address not found in node "+edge.target_node)
+                            sys.exit(1)
+                db.synthesized_information.transport_tables[edge.id].entries.append(ds.TransportTableEntry(source_address=source_address, target_address=target_address, time=time))
     else:
         print("No solution found!")
 
@@ -384,16 +538,14 @@ def run(db: ds.DataBase):
 
     # print node_fire_times, transporter_fire_times, channel_width, input_buffer_size, output buffer_size in db.synthesized_information
     print("node_fire_times=", db.synthesized_information.node_fire_times)
-    print("transporter_fire_times=", db.synthesized_information.transporter_fire_times)
     print("channel_width=", db.synthesized_information.channel_width)
     print("input_buffer_size=", db.synthesized_information.input_buffer_size)
     print("output_buffer_size=", db.synthesized_information.output_buffer_size)
 
+    # print chunk_address_assignment in db.synthesized_information
+    for chunk_address_assignment in db.synthesized_information.chunk_address_assignments:
+        print(chunk_address_assignment.app_node_id, chunk_address_assignment.port_id, chunk_address_assignment.address_assignment)
+
 if __name__ == "__main__":
-    input_pattern = {}
-    for i in range(10):
-        input_pattern[i] = i//3
-    output_pattern = {}
-    for i in range(10):
-        output_pattern[i] = i//2
-    print(find_min_delay(input_pattern, output_pattern, 1, 100))
+    assignment = equitable_address_assignment([0, 1, 2, 3, 4], [4, 2, 3, 5, 5], 3)
+    print(assignment)

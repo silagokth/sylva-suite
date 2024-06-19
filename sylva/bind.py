@@ -59,15 +59,15 @@ def bind_solve_optimal (db: ds.DataBase) -> int:
             sys.exit(1)
         BINDING_VARS[node.id] = model.NewIntVar(0, len(alimp_entry.instances) - 1, node.id)
         BINDING_VECS[node.id] = []
-        ALIMP_AREA[node.id] = model.NewIntVar(0, db.global_constraint.max_size * db.global_constraint.max_size, node.id + "_area")
+        ALIMP_AREA[node.id] = model.NewIntVar(0, db.global_constraint.max_width * db.global_constraint.max_height, node.id + "_area")
         ALIMP_ENERGY[node.id] = model.NewIntVar(0, db.global_constraint.max_energy, node.id + "_energy")
         for i in range(len(alimp_entry.instances)):
             BINDING_VECS[node.id].append(model.NewBoolVar(node.id + "_" + str(i)))
             model.Add(BINDING_VARS[node.id] == i).OnlyEnforceIf(BINDING_VECS[node.id][i])
 
             # Geometry constraint
-            model.Add(alimp_entry.instances[i].width <= db.global_constraint.max_size).OnlyEnforceIf(BINDING_VECS[node.id][i])
-            model.Add(alimp_entry.instances[i].height <= db.global_constraint.max_size).OnlyEnforceIf(BINDING_VECS[node.id][i])
+            model.Add(alimp_entry.instances[i].width <= db.global_constraint.max_width).OnlyEnforceIf(BINDING_VECS[node.id][i])
+            model.Add(alimp_entry.instances[i].height <= db.global_constraint.max_height).OnlyEnforceIf(BINDING_VECS[node.id][i])
             model.Add(alimp_entry.instances[i].width * alimp_entry.instances[i].height == ALIMP_AREA[node.id]).OnlyEnforceIf(BINDING_VECS[node.id][i])
 
             # Energy constraint
@@ -76,7 +76,7 @@ def bind_solve_optimal (db: ds.DataBase) -> int:
         
         model.Add(sum(BINDING_VECS[node.id]) == 1)
         # Geometry constraint
-        model.Add(sum(ALIMP_AREA.values()) <= db.global_constraint.max_size * db.global_constraint.max_size)
+        model.Add(sum(ALIMP_AREA.values()) <= db.global_constraint.max_width * db.global_constraint.max_height)
 
         # Energy constraint
         model.Add(sum(ALIMP_ENERGY.values()) <= db.global_constraint.max_energy)  
@@ -202,15 +202,15 @@ def bind_solve_approx_optimal(db: ds.DataBase, obj_optimal) -> list:
             sys.exit(1)
         BINDING_VARS[node.id] = model.NewIntVar(0, len(alimp_entry.instances) - 1, node.id)
         BINDING_VECS[node.id] = []
-        ALIMP_AREA[node.id] = model.NewIntVar(0, db.global_constraint.max_size * db.global_constraint.max_size, node.id + "_area")
+        ALIMP_AREA[node.id] = model.NewIntVar(0, db.global_constraint.max_width * db.global_constraint.max_height, node.id + "_area")
         ALIMP_ENERGY[node.id] = model.NewIntVar(0, db.global_constraint.max_energy, node.id + "_energy")
         for i in range(len(alimp_entry.instances)):
             BINDING_VECS[node.id].append(model.NewBoolVar(node.id + "_" + str(i)))
             model.Add(BINDING_VARS[node.id] == i).OnlyEnforceIf(BINDING_VECS[node.id][i])
 
             # Geometry constraint
-            model.Add(alimp_entry.instances[i].width <= db.global_constraint.max_size).OnlyEnforceIf(BINDING_VECS[node.id][i])
-            model.Add(alimp_entry.instances[i].height <= db.global_constraint.max_size).OnlyEnforceIf(BINDING_VECS[node.id][i])
+            model.Add(alimp_entry.instances[i].width <= db.global_constraint.max_width).OnlyEnforceIf(BINDING_VECS[node.id][i])
+            model.Add(alimp_entry.instances[i].height <= db.global_constraint.max_height).OnlyEnforceIf(BINDING_VECS[node.id][i])
             model.Add(alimp_entry.instances[i].width * alimp_entry.instances[i].height == ALIMP_AREA[node.id]).OnlyEnforceIf(BINDING_VECS[node.id][i])
 
             # Energy constraint
@@ -219,7 +219,7 @@ def bind_solve_approx_optimal(db: ds.DataBase, obj_optimal) -> list:
         
         model.Add(sum(BINDING_VECS[node.id]) == 1)
         # Geometry constraint
-        model.Add(sum(ALIMP_AREA.values()) <= db.global_constraint.max_size * db.global_constraint.max_size)
+        model.Add(sum(ALIMP_AREA.values()) <= db.global_constraint.max_width * db.global_constraint.max_height)
 
         # Energy constraint
         model.Add(sum(ALIMP_ENERGY.values()) <= db.global_constraint.max_energy)  
@@ -328,8 +328,26 @@ def apply_binding_options(db: ds.DataBase, binding_options: dict):
             alimp_instance = alimp_entry.instances[option[node.id]]
             db.alimp_binding_options[-1].alimp_bindings.append(ds.AlimpBinding(app_node_id=app_node_id, alimp_instance=alimp_instance))
 
-def run(db: ds.DataBase):
-    print(db)
+def create_app_graph(db: ds.DataBase, output_dir: str):
+    ''' This function creates a graphviz representation of the app_graph and saves it to a file '''
+    import graphviz
+    dot = graphviz.Digraph(comment='App Graph')
+    for node in db.app_graph.nodes:
+        dot.node(node.id, node.id)
+    for edge in db.app_graph.edges:
+        dot.edge(edge.source_node, edge.target_node)
+    dot.render(os.path.join(output_dir, 'app_graph.gv'), view=False)
+
+def run(db: ds.DataBase, output_dir: str):
+    logging.info("Start: binding")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    module_dir = os.path.join(output_dir, 'bind')
+    os.makedirs(module_dir, exist_ok=True)
+
+    # create application graph
+    create_app_graph(db, module_dir)
+
     obj = bind_solve_optimal(db)
     logging.info("Optimal obj value: %d", obj)
     logging.info("Obj will be relaxed by relaxation factor: %f", db.hyper_parameter.bind_relaxation_factor)
@@ -339,6 +357,4 @@ def run(db: ds.DataBase):
     apply_binding_options(db, valid_bindings)
     for x in db.alimp_binding_options[0].alimp_bindings:
         db.synthesized_information.alimp_bindings.append(x)
-
-if __name__ == "__main__":
-    run()
+    logging.info("Finish: binding")

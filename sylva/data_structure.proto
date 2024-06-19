@@ -17,14 +17,35 @@ message DataBase {
 message SynthesizedInformation {
   repeated AlimpBinding alimp_bindings = 1;
   repeated Placement placements = 2;
-  int32 max_size = 3;
-  repeated RoutingPath routing_paths = 4;
-  int32 max_latency = 5;
-  map<string, int32> node_fire_times = 6;
-  map<string, int32> transporter_fire_times = 7;
-  map<string, int32> channel_width = 8;
-  map<string, int32> input_buffer_size = 9;
-  map<string, int32> output_buffer_size = 10;
+  int32 max_width = 3;
+  int32 max_height = 4;
+  repeated RoutingPath routing_paths = 5;
+  int32 max_latency = 6;
+  map<string, int32> node_fire_times = 7;
+  map<string, int32> transporter_fire_times = 8;
+  map<string, int32> channel_width = 9;
+  map<string, int32> input_buffer_size = 10;
+  map<string, int32> output_buffer_size = 11;
+  repeated ChunkAddressAssignment chunk_address_assignments = 12;
+  map<string, string> wire_assignment = 13;
+  map<string, TransportTable> transport_tables = 14;
+}
+
+message TransportTable {
+  string app_edge_id = 1;
+  repeated TransportTableEntry entries = 2;
+}
+
+message TransportTableEntry {
+  int32 time = 1;
+  int32 source_address = 2;
+  int32 target_address = 3;
+}
+
+message ChunkAddressAssignment {
+  string app_node_id = 1;
+  string port_id = 2;
+  map<int32, int32> address_assignment = 3;
 }
 
 message RoutingPath {
@@ -58,10 +79,12 @@ message HyperParameter {
   float bind_relaxation_factor = 4;
 
   float place_relaxation_factor = 5;
+  int32 place_reserved_routing_size = 6;
 }
 
 message GlobalConstraint {
-  int32 max_size = 1;
+  int32 max_width = 1;
+  int32 max_height = 2;
   int32 max_latency = 4;
   int32 max_period = 5;
   int32 max_energy = 6;
@@ -152,14 +175,15 @@ message Constraints {
 message FloorPlan {
   repeated string app_node_ids = 1;
   repeated string app_edge_ids = 2;
-  int32 max_size = 3;
-  repeated RectanglePosion pos = 4;
-  repeated RectangleShape shape = 5;
-  repeated int32 source_node = 6;
-  repeated int32 target_node = 7;
-  repeated int32 source_port = 8;
-  repeated int32 target_port = 9;
-  repeated int32 conn = 10;
+  int32 max_width = 3;
+  int32 max_height = 4;
+  repeated RectanglePosion pos = 5;
+  repeated RectangleShape shape = 6;
+  repeated int32 source_node = 7;
+  repeated int32 target_node = 8;
+  repeated int32 source_port = 9;
+  repeated int32 target_port = 10;
+  repeated int32 conn = 11;
 }
 
 message RectanglePosion {

@@ -14,7 +14,7 @@ from google.protobuf.json_format import Parse
 import logging
 
 def create_routing_graph(db: ds.DataBase) -> ds.RoutingGraph:
-    routing_graph = create_fully_connected_routing_graph(db.synthesized_information.max_size, db.synthesized_information.max_size)
+    routing_graph = create_fully_connected_routing_graph(db.synthesized_information.max_width, db.synthesized_information.max_height)
     node_map = {}
     for node in db.app_graph.nodes:
         x = -1
@@ -26,6 +26,7 @@ def create_routing_graph(db: ds.DataBase) -> ds.RoutingGraph:
             if placement.app_node_id == node.id:
                 x = placement.x
                 y = placement.y-1
+                print(x, y)
                 break
         for binding in db.synthesized_information.alimp_bindings:
             if binding.app_node_id == node.id:
@@ -33,7 +34,7 @@ def create_routing_graph(db: ds.DataBase) -> ds.RoutingGraph:
                 height = binding.alimp_instance.height+3
                 break
         if x == -1 or y == -1 or width == -1 or height == -1:
-            print("Error: cannot find placement or binding for node %s" % node.id)
+            logging.error("Error: cannot find placement or binding for node %s" % node.id)
             sys.exit(1)
         node_map[node.id] = (x, y, width, height)
         exclude_nodes = []
@@ -90,7 +91,7 @@ def load_routing_graph_from_json(file_name) -> ds.RoutingGraph:
 
 def load_routing_graph(file_name) -> ds.RoutingGraph:
     if not os.path.isfile(file_name):
-        print("File %s does not exist!" % file_name)
+        logging.error("File %s does not exist!" % file_name)
         sys.exit(1)
 
     if file_name.endswith('.json'):
@@ -123,29 +124,20 @@ def manhattan_distance(node1: ds.Node, node2: ds.Node) -> int:
     x2, y2, _ = node2.id.split('_')
     return abs(int(x1)-int(x2)) + abs(int(y1)-int(y2))
 
-def test_log():
-    logging.debug("debug")
-    logging.info("info")
-    logging.warning("warning")
-    logging.error("error")
-    logging.critical("critical")
-
 
 def dijkstra(routing_graph, source_id: str, target_id: str) -> list:
     # use dijkstra algorithm to find a path from source to target
     # return a list of node ids
-    
-
+    print("sourceid=", source_id, "targetid=", target_id)
     source = None
     target = None
+    print(routing_graph.nodes)
     for node in routing_graph.nodes:
-        if node.id.startswith("3"):
-            print(node.id)
         if node.id == source_id:
             source = node
         elif node.id == target_id:
             target = node
-    print(source_id, target_id)
+        
     if source is None or target is None:
         logging.error("Error: source or target does not exist!")
         sys.exit(1)
@@ -171,7 +163,7 @@ def dijkstra(routing_graph, source_id: str, target_id: str) -> list:
                 elif distances[node_id] < distances[min_node_id]:
                     min_node_id = node_id
         if min_node_id is None:
-            print("Error: cannot find a path from %s to %s" %
+            logging.error("Error: cannot find a path from %s to %s" %
                   (source_id, target_id))
             sys.exit(1)
         visited.add(min_node_id)
@@ -194,13 +186,10 @@ def dijkstra(routing_graph, source_id: str, target_id: str) -> list:
                 continue
             # if neighbor is not in visited, update its distance
             if neighbor_id not in visited:
-                print(distances[min_node_id],
-                      edge.weight, distances[neighbor_id])
                 if distances[min_node_id] + edge.weight < distances[neighbor_id]:
                     distances[neighbor_id] = distances[min_node_id] + \
                         edge.weight
                     path_map[neighbor_id] = min_node_id
-                    print(path_map)
 
 
 def a_star(routing_graph, source_id: str, target_id: str) -> list:
@@ -214,7 +203,7 @@ def a_star(routing_graph, source_id: str, target_id: str) -> list:
             target = node
 
     if source is None or target is None:
-        print("Error: source or target does not exist!")
+        logging.error("Error: source or target does not exist!")
         sys.exit(1)
 
     # step 1: initialize, set weight of all nodes to its manhattan distance to target
@@ -241,8 +230,6 @@ def a_star(routing_graph, source_id: str, target_id: str) -> list:
             elif edge.target == node.id:
                 neighbor_map[node.id].append(edge.source)
 
-    print(neighbor_map)
-
     # step 3: loop until open list is empty
     while open_list:
 
@@ -251,14 +238,12 @@ def a_star(routing_graph, source_id: str, target_id: str) -> list:
         for node_id in open_list:
             if weight_map[node_id] < weight_map[min_node_id]:
                 min_node_id = node_id
-        print("choose %s" % min_node_id)
         # step 5: remove min_node from open list and add it to closed list
         open_list.remove(min_node_id)
         closed_list.append(min_node_id)
 
         # step 6: if min_node is target, return path
         if min_node_id == target.id:
-            print(parent_map)
             path.append(min_node_id)
             while parent_map[min_node_id] != source.id:
                 path.append(parent_map[min_node_id])
@@ -284,7 +269,7 @@ def a_star(routing_graph, source_id: str, target_id: str) -> list:
                     edge_min_node_neighbor = edge
                     break
             if edge_min_node_neighbor is None:
-                print("Error: edge between %s and %s does not exist!" %
+                logging.error("Error: edge between %s and %s does not exist!" %
                       (min_node_id, neighbor_id))
                 sys.exit(1)
 
@@ -295,12 +280,10 @@ def a_star(routing_graph, source_id: str, target_id: str) -> list:
 
             new_weight = distance_from_start_map[neighbor_id] + \
                 weight_map[neighbor_id]
-            print(new_weight, weight_map[min_node_id], weight_map)
             # step 11: if new weight is smaller than neighbor's weight, update neighbor's weight and parent
             if new_weight < weight_map[min_node_id]:
                 weight_map[neighbor_id] = new_weight
                 parent_map[neighbor_id] = min_node_id
-                print("update %s" % neighbor_id)
 
     # step 12: if open list is empty, return empty path
     return path
@@ -392,7 +375,7 @@ def node_id_to_xy(node_id) -> tuple:
     return (x+dx, y+dy)
 
 
-def plot(routing_graph, max_x, max_y):
+def plot_routing_graph(routing_graph, max_x, max_y, module_dir):
     # create figure
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -427,7 +410,7 @@ def plot(routing_graph, max_x, max_y):
                     [y1+random_dy, y2+random_dy], color='blue', linewidth=2)
 
     # save to pdf file
-    plt.savefig('routing_graph.pdf')
+    plt.savefig(os.path.join(module_dir, 'available_routing_path.pdf'))
 
 
 def create_fully_connected_routing_graph(max_x, max_y):
@@ -474,7 +457,6 @@ def create_fully_connected_routing_graph(max_x, max_y):
 
 
 def block_port_id_to_node_id(x, y, width, height, port_id):
-    print(x, y, width, height, port_id)
     d, i = port_id.split('_')
     i = int(i)
     if d == 'N' or d == 'n':
@@ -486,7 +468,7 @@ def block_port_id_to_node_id(x, y, width, height, port_id):
     elif d == 'E' or d == 'e':
         return '%d_%d_%d' % (x+width-1, y+i, 0)
     else:
-        print("Error: invalid direction %s" % d)
+        logging.error("Error: invalid direction %s" % d)
         sys.exit(1)
 
 def path_segment_to_coord(node_id_0, node_id_1):
@@ -536,7 +518,7 @@ def path_segment_to_coord(node_id_0, node_id_1):
     elif x0 == x1+1 and y0 == y1-1 and d0 == 1 and d1 == 0:
         return ds.Coordinate(x=x0, y=y0+1)
     else:
-        print("Error: invalid path segment %s -> %s" % (node_id_0, node_id_1))
+        logging.error("Error: invalid path segment %s -> %s" % (node_id_0, node_id_1))
         sys.exit(1)
 
 
@@ -560,7 +542,7 @@ def add_obstacle(routing_graph, x, y, width, height, exclude_nodes):
             # east
             exclude_ids.add('%d_%d_%d' % (x+width-1, y+i, 0))
         else:
-            print("Error: invalid direction %s" % d)
+            logging.error("Error: invalid direction %s" % d)
             sys.exit(1)
 
     for node in routing_graph.nodes:
@@ -600,19 +582,21 @@ def add_obstacle(routing_graph, x, y, width, height, exclude_nodes):
     # add edges back to routing_graph.edges
     routing_graph.edges.extend(edges)
 
-def generate_picture(db: ds.DataBase):
+def generate_picture(db: ds.DataBase, dir: str):
     # create plt
     fig = plt.figure()
+    # set aspect to be equal
+    plt.gca().set_aspect('equal', adjustable='box')
 
-    # set max_x and max_y to be db.synthesized_information.max_size
-    max_x = db.synthesized_information.max_size
-    max_y = db.synthesized_information.max_size
+    # set max_x and max_y to be db.synthesized_information.max_width and db.synthesized_information.max_height
+    max_x = db.synthesized_information.max_width
+    max_y = db.synthesized_information.max_height
 
     # plot grid with light grey color, the center of each block is the coordinate of the block
-    for i in range(max_x+2):
-        plt.plot([i-0.5, i-0.5], [-0.5, max_y+0.5], color='lightgrey')
-    for i in range(max_y+2):
-        plt.plot([-0.5, max_x+0.5], [i-0.5, i-0.5], color='lightgrey')
+    for i in range(max_x+1):
+        plt.plot([i-0.5, i-0.5], [-0.5, max_y-0.5], color='lightgrey')
+    for i in range(max_y+1):
+        plt.plot([-0.5, max_x-0.5], [i-0.5, i-0.5], color='lightgrey')
     
     # plot nodes
     for node in db.app_graph.nodes:
@@ -631,7 +615,7 @@ def generate_picture(db: ds.DataBase):
                 height = binding.alimp_instance.height
                 break
         if x == -1 or y == -1 or width == -1 or height == -1:
-            print("Error: cannot find placement or binding for node %s" % node.id)
+            logging.error("Error: cannot find placement or binding for node %s" % node.id)
             sys.exit(1)
         
         # draw a rectangle with orange color to represent the node
@@ -657,10 +641,10 @@ def generate_picture(db: ds.DataBase):
             x = path.path[i].x
             y = path.path[i].y
             # draw a rectangle with blue color
-            plt.gca().add_patch(plt.Rectangle((x-0.5, y-0.5), 1, 1, color='blue'))
+            plt.gca().add_patch(plt.Rectangle((x-0.5, y-0.5), 1, 1, color='lightblue'))
     
     # save to pdf file
-    plt.savefig('routing_graph.pdf')
+    plt.savefig(os.path.join(dir, 'routing_graph.pdf'))
 
 
 
@@ -672,17 +656,22 @@ def update_synthesized_info(db: ds.DataBase, routing_graph: ds.RoutingGraph):
                 idx = len(db.synthesized_information.routing_paths)-1
                 for x in range(len(channel.path)-1):
                     db.synthesized_information.routing_paths[idx].path.append(path_segment_to_coord(channel.path[x], channel.path[x+1]))
-                db.synthesized_information.routing_paths[idx].delay = 1 + len(channel.path) % 5
                 break
-    print(db.synthesized_information.routing_paths)
                     
 
-def run (db: ds.DataBase):
+def run (db: ds.DataBase, output_dir: str):
+    logging.info("Start: Routing")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    module_dir = os.path.join(output_dir, 'route')
+    os.makedirs(module_dir, exist_ok=True)
     routing_graph = create_routing_graph(db)
+    plot_routing_graph(routing_graph, db.synthesized_information.max_width, db.synthesized_information.max_height, module_dir)
     route(routing_graph)
-    #plot(routing_graph, db.synthesized_information.max_size, db.synthesized_information.max_size)
     update_synthesized_info(db, routing_graph)
-    generate_picture(db)
+    generate_picture(db, module_dir)
+    logging.info("Finish: Routing")
+    return True
 
 if __name__ == '__main__':
     routing_graph = create_fully_connected_routing_graph(10, 10)

@@ -20,7 +20,8 @@ from ortools.sat.python import cp_model
 def create_floor_plan(db: ds.DataBase) -> ds.FloorPlan:
     ''' Create a floor plan with a single square. '''
     fp = ds.FloorPlan()
-    fp.max_size = db.global_constraint.max_size
+    fp.max_width = db.global_constraint.max_width
+    fp.max_height = db.global_constraint.max_height
 
     node_map = {}
 
@@ -29,9 +30,9 @@ def create_floor_plan(db: ds.DataBase) -> ds.FloorPlan:
         for binding in db.synthesized_information.alimp_bindings:
             if binding.app_node_id == node.id:
                 instance = binding.alimp_instance
-                # The height is inflated by 7: 1 for input buffer, 1 for output buffer, 1 for the transporters attached to output buffer, and 2 on each side for routing space.
-                # The width is inflated by 4: 2 on each side for routing space.
-                shape = ds.RectangleShape(width=instance.width+4, height=instance.height+7)
+                # The height is inflated: 1 for input buffer, 1 for output buffer, 1 for the transporters attached to output buffer, and 1 on each side for routing space.
+                # The width is inflated: 1 on each side for routing space.
+                shape = ds.RectangleShape(width=instance.width+2*db.hyper_parameter.place_reserved_routing_size, height=instance.height+3+2*db.hyper_parameter.place_reserved_routing_size)
                 fp.shape.append(shape)
                 fp.pos.append(ds.RectanglePosion(x=-1, y=-1))
                 break
@@ -93,10 +94,10 @@ def place_solve_optimal(fp: ds.FloorPlan) -> bool:
 
     # Creates intervals for the NoOverlap2D and size variables.
     for i in range(num_squares):
-        start_x = model.NewIntVar(0, fp.max_size, "sx_%i" % i)
-        end_x = model.NewIntVar(0, fp.max_size, "ex_%i" % i)
-        start_y = model.NewIntVar(0, fp.max_size, "sy_%i" % i)
-        end_y = model.NewIntVar(0, fp.max_size, "ey_%i" % i)
+        start_x = model.NewIntVar(0, fp.max_width, "sx_%i" % i)
+        end_x = model.NewIntVar(0, fp.max_width, "ex_%i" % i)
+        start_y = model.NewIntVar(0, fp.max_height, "sy_%i" % i)
+        end_y = model.NewIntVar(0, fp.max_height, "ey_%i" % i)
 
         interval_x = model.NewIntervalVar(
                 start_x, fp.shape[i].width, end_x, "ix_%i" % i)
@@ -114,18 +115,22 @@ def place_solve_optimal(fp: ds.FloorPlan) -> bool:
     model.AddNoOverlap2D(x_intervals, y_intervals)
 
     # Symmetry breaking 2: first square in one quadrant.
-    model.Add(x_starts[0] < (fp.max_size + 1) // 2)
-    model.Add(y_starts[0] < (fp.max_size + 1) // 2)
+    model.Add(x_starts[0] < (fp.max_width + 1) // 2)
+    model.Add(y_starts[0] < (fp.max_height + 1) // 2)
 
     # Compute the maximum x and y positions.
-    max_x_position = model.NewIntVar(0, fp.max_size, "max_x_position")
+    max_x_position = model.NewIntVar(0, fp.max_width, "max_x_position")
     model.AddMaxEquality(max_x_position, [x for x in x_end])
-    max_y_position = model.NewIntVar(0, fp.max_size, "max_y_position")
+    max_y_position = model.NewIntVar(0, fp.max_height, "max_y_position")
     model.AddMaxEquality(max_y_position, [y for y in y_end])
+
+    # add a restriction of the ration between max_x_position and max_y_position. the ratio should be greater than 0.5 and less than 2
+    model.Add(max_x_position * 2 >= max_y_position)
+    model.Add(max_x_position <= max_y_position * 2)
 
     # Compute the total area=max_x_position*max_y_position.
     total_area = model.NewIntVar(
-            0, fp.max_size * fp.max_size, "total_area")
+            0, fp.max_width * fp.max_height, "total_area")
     model.AddMultiplicationEquality(
             total_area, [max_x_position, max_y_position])
 
@@ -146,21 +151,23 @@ def place_solve_optimal(fp: ds.FloorPlan) -> bool:
                 p.x = solver.Value(x_starts[i])
                 p.y = solver.Value(y_starts[i])
                 fp.pos.append(p)
+                print(p.x, p.y, fp.shape[i].width, fp.shape[i].height)
             max_width = solver.Value(max_x_position)
             max_height = solver.Value(max_y_position)
 
-            fp.max_size = max(max_width, max_height)
+            fp.max_width = max_width
+            fp.max_height = max_height
 
-    return [solution_found]
+    return solution_found
 
-def place_solve_approx_optimal(fp: ds.FloorPlan) -> bool:
+def place_solve_approx_optimal(fp: ds.FloorPlan, db:ds.DataBase) -> bool:
     x_sizes = [r.width for r in fp.shape]
     y_sizes = [r.height for r in fp.shape]
     num_squares = len(x_sizes)
 
     """Try to fill the rectangle with a given number of squares."""
-    size_x = fp.max_size
-    size_y = fp.max_size
+    size_x = fp.max_width
+    size_y = fp.max_height
 
     model = cp_model.CpModel()
 
@@ -207,10 +214,10 @@ def place_solve_approx_optimal(fp: ds.FloorPlan) -> bool:
         target_node = fp.target_node[i]
         source_port = fp.source_port[i]
         target_port = fp.target_port[i]
-        source_x = x_starts[source_node] + source_port + 2
-        source_y = y_starts[source_node] + y_sizes[source_node] + 4
-        target_x = x_starts[target_node] + target_port + 2
-        target_y = y_starts[target_node] + 2
+        source_x = x_starts[source_node] + source_port + db.hyper_parameter.place_reserved_routing_size
+        source_y = y_starts[source_node] + y_sizes[source_node] + 2* db.hyper_parameter.place_reserved_routing_size
+        target_x = x_starts[target_node] + target_port + db.hyper_parameter.place_reserved_routing_size
+        target_y = y_starts[target_node] + db.hyper_parameter.place_reserved_routing_size
         distance_matrix.append(model.NewIntVar(
             0, size_x + size_y, "dist_%i_%i" % (source_node, target_node)))
         dx_0 = model.NewIntVar(-size_x, size_x, "dx0_%i_%i" % (source_node, target_node))
@@ -246,6 +253,10 @@ def place_solve_approx_optimal(fp: ds.FloorPlan) -> bool:
     max_y_position = model.NewIntVar(0, size_y, "max_y_position")
     model.AddMaxEquality(
             max_y_position, [interval.EndExpr() for interval in y_intervals])
+    
+    # add a restriction of the ration between max_x_position and max_y_position. the ratio should be greater than 0.5 and less than 2
+    model.Add(max_x_position * 2 >= max_y_position)
+    model.Add(max_x_position <= max_y_position * 2)
 
     # Creates a solver and solves.
     solver = cp_model.CpSolver()
@@ -265,7 +276,8 @@ def place_solve_approx_optimal(fp: ds.FloorPlan) -> bool:
             max_width = solver.Value(max_x_position)
             max_height = solver.Value(max_y_position)
 
-            fp.max_size = max(max_width, max_height)
+            fp.max_width = max_width
+            fp.max_height = max_height
     return solution_found
 
 # This function generate a picture of the floorplan. It accepts four parameters:
@@ -276,12 +288,12 @@ def place_solve_approx_optimal(fp: ds.FloorPlan) -> bool:
 # In the generated picture, each rectangle is represented by a different light color. The color is generated randomly. The grid is also shown in the picture as dashed line.
 # It also mark the index of each rectangle in bold font in the center of each drawed rectangle. The color of the font is the opposite of the color of the rectangle.
 
-def generate_picture(filename: str, fp: ds.FloorPlan) -> None:
+def generate_picture(fp: ds.FloorPlan, db:ds.DataBase, output_dir:str) -> None:
         import matplotlib.pyplot as plt
         import matplotlib.patches as patches
         import random
-        max_x = fp.max_size
-        max_y = fp.max_size
+        max_x = fp.max_width
+        max_y = fp.max_height
         start = fp.pos
         size = fp.shape
         fig = plt.figure()
@@ -293,14 +305,20 @@ def generate_picture(filename: str, fp: ds.FloorPlan) -> None:
             y = random.random()
             z = random.random()
             ax.add_patch(patches.Rectangle(
-                (start[i].x+2, start[i].y+3), size[i].width-4, size[i].height-7, color=(x, y, z)))
+                (start[i].x+db.hyper_parameter.place_reserved_routing_size , start[i].y+1+db.hyper_parameter.place_reserved_routing_size), size[i].width-2*db.hyper_parameter.place_reserved_routing_size, size[i].height-3-2*db.hyper_parameter.place_reserved_routing_size, color=(x, y, z)))
             ax.text(start[i].x + size[i].width / 2, start[i].y + size[i].height / 2, fp.app_node_ids[i], horizontalalignment='center', verticalalignment='center', weight='bold', color=(1 - x, 1 - y, 1 - z))
         plt.grid(True, linestyle='--')
         # save the picture to pdf file
-        plt.savefig(filename, bbox_inches='tight')
+        plt.savefig(os.path.join(output_dir, "placement.pdf"), bbox_inches='tight')
 
-def run(db: ds.DataBase) -> bool:
+def run(db: ds.DataBase, output_dir) -> bool:
     ''' Run the placement process. '''
+    logging.info("Start: placement")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    module_dir = os.path.join(output_dir, 'place')
+    os.makedirs(module_dir, exist_ok=True)
+
     # create floor plan
     fp = create_floor_plan(db)
 
@@ -310,26 +328,29 @@ def run(db: ds.DataBase) -> bool:
         return False
     
     # relax width and height constraint
-    print(fp.max_size)
-    fp.max_size = int(fp.max_size * db.hyper_parameter.place_relaxation_factor)
+    print(fp.max_width, fp.max_height)
+    fp.max_width = int(fp.max_width * db.hyper_parameter.place_relaxation_factor)
+    fp.max_height = int(fp.max_height * db.hyper_parameter.place_relaxation_factor)
 
     # solve the placement problem again
-    if not place_solve_approx_optimal(fp):
+    if not place_solve_approx_optimal(fp, db):
         logging.warning('Cannot find an approx optimal solution for the placement problem')
         return False
 
     # generate picture
-    generate_picture('floorplan.pdf', fp)
+    generate_picture(fp, db, module_dir)
 
     # update placement
     for i in range(len(fp.app_node_ids)):
         placement = ds.Placement()
         placement.app_node_id = fp.app_node_ids[i]
-        placement.x = fp.pos[i].x + 2
-        placement.y = fp.pos[i].y + 3
+        placement.x = fp.pos[i].x + 1
+        placement.y = fp.pos[i].y + 2
         db.synthesized_information.placements.append(placement)
     
-    # update max_size
-    db.synthesized_information.max_size = fp.max_size
+    # update max_width and max_height
+    db.synthesized_information.max_width = fp.max_width
+    db.synthesized_information.max_height = fp.max_height
 
+    logging.info("Finish: placement")
     return True

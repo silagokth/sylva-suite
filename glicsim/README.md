@@ -1,2 +1,0 @@
-# GLICSIM
-GLIC simulator
