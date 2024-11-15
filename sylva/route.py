@@ -621,7 +621,7 @@ def generate_picture(db: ds.DataBase, dir: str):
         # draw a rectangle with orange color to represent the node
         plt.gca().add_patch(plt.Rectangle((x-0.5, y-0.5), width, height, color='orange'))
         # add label to the center of the rectangle
-        plt.text(x+1, y+1, node.id, horizontalalignment='center', verticalalignment='center')
+        #plt.text(x+1, y+1, node.id, horizontalalignment='center', verticalalignment='center')
 
         # draw a rectangle with red color to represent the output buffer, the buffer coordinate is +0 offset to the north of the node
         plt.gca().add_patch(plt.Rectangle((x-0.5, y+height-0.5), width, 1, color='red'))
@@ -641,7 +641,7 @@ def generate_picture(db: ds.DataBase, dir: str):
             x = path.path[i].x
             y = path.path[i].y
             # draw a rectangle with blue color
-            plt.gca().add_patch(plt.Rectangle((x-0.5, y-0.5), 1, 1, color='lightblue'))
+            plt.gca().add_patch(plt.Rectangle((x-0.5, y-0.5), 1, 1, color='blue'))
     
     # save to pdf file
     plt.savefig(os.path.join(dir, 'routing_graph.pdf'))

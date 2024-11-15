@@ -123,3 +123,196 @@ def minimum()-> ds.DataBase:
     db.app_graph.edges.append(ds.AppEdge(id="B_C", source_node="B", target_node="C", source_port="B:bc", target_port="C:bc", token_size=16))
 
     return db
+
+def af() -> ds.DataBase:
+    db = ds.DataBase()
+    
+    db.global_constraint.max_energy = 100
+    db.global_constraint.max_width = 100
+    db.global_constraint.max_height = 100
+    db.global_constraint.max_latency = 100
+    db.global_constraint.max_period = 70
+
+    db.hyper_parameter.bind_w_area = 1
+    db.hyper_parameter.bind_w_energy = 1
+    db.hyper_parameter.bind_w_latency = 1
+    db.hyper_parameter.bind_relaxation_factor = 1.1
+    db.hyper_parameter.place_relaxation_factor = 1
+    db.hyper_parameter.place_reserved_routing_size = 1
+
+    ecg_input = ds.AlimpEntry()
+    age_input = ds.AlimpEntry()
+    conv_1 = ds.AlimpEntry()
+    bn_conv_1 = ds.AlimpEntry()
+    conv_act_1 = ds.AlimpEntry()
+    pool_1 = ds.AlimpEntry()
+    conv_2 = ds.AlimpEntry()
+    bn_conv_2 = ds.AlimpEntry()
+    conv_act_2 = ds.AlimpEntry()
+    pool_2 = ds.AlimpEntry()
+    concatenate_1 = ds.AlimpEntry()
+    dense_1 = ds.AlimpEntry()
+    bn_dense_1 = ds.AlimpEntry()
+    dense_act_1 = ds.AlimpEntry()
+    dense_3 = ds.AlimpEntry()
+    bn_dense_3 = ds.AlimpEntry()
+    dense_act_3 = ds.AlimpEntry()
+    output_dense = ds.AlimpEntry()
+    output_softmax = ds.AlimpEntry()
+
+    ecg_input.func = "ecg_input_500x2"
+    conv_1.func = "conv_500x2_3x8"
+    bn_conv_1.func = "batch_norm_498x8"
+    conv_act_1.func = "relu_498x8"
+    pool_1.func = "max_pool_498x8_3"
+    conv_2.func = "conv_166x8_3x4"
+    bn_conv_2.func = "batch_norm_164x4"
+    conv_act_2.func = "relu_164x4"
+    pool_2.func = "max_pool_164x4_3"
+    concatenate_1.func = "concatenate_216_1"
+    dense_1.func = "dense_217_32"
+    bn_dense_1.func = "batch_norm_32"
+    dense_act_1.func = "relu_32"
+    dense_3.func = "dense_32_16"
+    bn_dense_3.func = "batch_norm_16"
+    dense_act_3.func = "relu_16"
+    output_dense.func = "dense_16_5"
+    output_softmax.func = "softmax_5"
+
+    db.alimp_lib.entries.append(ecg_input)
+    db.alimp_lib.entries.append(conv_1)
+    db.alimp_lib.entries.append(bn_conv_1)
+    db.alimp_lib.entries.append(conv_act_1)
+    db.alimp_lib.entries.append(pool_1)
+    db.alimp_lib.entries.append(conv_2)
+    db.alimp_lib.entries.append(bn_conv_2)
+    db.alimp_lib.entries.append(conv_act_2)
+    db.alimp_lib.entries.append(pool_2)
+    db.alimp_lib.entries.append(concatenate_1)
+    db.alimp_lib.entries.append(dense_1)
+    db.alimp_lib.entries.append(bn_dense_1)
+    db.alimp_lib.entries.append(dense_act_1)
+    db.alimp_lib.entries.append(dense_3)
+    db.alimp_lib.entries.append(bn_dense_3)
+    db.alimp_lib.entries.append(dense_act_3)
+    db.alimp_lib.entries.append(output_dense)
+    db.alimp_lib.entries.append(output_softmax)
+    return db
+
+def chf() -> ds.DataBase:
+    db = ds.DataBase()
+    
+    db.global_constraint.max_energy = 1000000
+    db.global_constraint.max_width = 1000
+    db.global_constraint.max_height = 1000
+    db.global_constraint.max_latency = 100000
+    db.global_constraint.max_period = 700000
+
+    db.hyper_parameter.bind_w_area = 1
+    db.hyper_parameter.bind_w_energy = 1
+    db.hyper_parameter.bind_w_latency = 1
+    db.hyper_parameter.bind_relaxation_factor = 1.1
+    db.hyper_parameter.place_relaxation_factor = 1
+    db.hyper_parameter.place_reserved_routing_size = 1
+
+    model_input = ds.AlimpEntry()
+    dense_1 = ds.AlimpEntry()
+    act_1 = ds.AlimpEntry()
+    dense_2 = ds.AlimpEntry()
+    act_2 = ds.AlimpEntry()
+    dense_3 = ds.AlimpEntry()
+    act_3 = ds.AlimpEntry()
+    dense_4 = ds.AlimpEntry()
+    act_4 = ds.AlimpEntry()
+    output_dense = ds.AlimpEntry()
+    model_output = ds.AlimpEntry()
+
+    model_input.func = "input_24"
+    model_input.instances.append(ds.AlimpInstance(width=10, height=30, energy=10, latency=2, output_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1)], input_addr_time_patterns=[]))
+    dense_1.func = "dense_24_128"
+    dense_1.instances.append(ds.AlimpInstance(width=10, height=30, energy=233, latency=3072, output_addr_time_patterns=[ds.pair_int_int(key=0, value=3064), ds.pair_int_int(key=1, value=3065), ds.pair_int_int(key=2, value=3066), ds.pair_int_int(key=3, value=3067), ds.pair_int_int(key=4, value=3068), ds.pair_int_int(key=5, value=3069), ds.pair_int_int(key=6, value=3070), ds.pair_int_int(key=7, value=3071)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1)]))
+    dense_1.instances.append(ds.AlimpInstance(width=20, height=30, energy=233, latency=1536, output_addr_time_patterns=[ds.pair_int_int(key=0, value=1528), ds.pair_int_int(key=1, value=1529), ds.pair_int_int(key=2, value=1530), ds.pair_int_int(key=3, value=1531), ds.pair_int_int(key=4, value=1532), ds.pair_int_int(key=5, value=1533), ds.pair_int_int(key=6, value=1534), ds.pair_int_int(key=7, value=1535)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1)]))
+    dense_1.instances.append(ds.AlimpInstance(width=40, height=30, energy=233, latency=768, output_addr_time_patterns=[ds.pair_int_int(key=0, value=760), ds.pair_int_int(key=1, value=761), ds.pair_int_int(key=2, value=762), ds.pair_int_int(key=3, value=763), ds.pair_int_int(key=4, value=764), ds.pair_int_int(key=5, value=765), ds.pair_int_int(key=6, value=766), ds.pair_int_int(key=7, value=767)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1)]))
+    
+    act_1.func = "act_128"
+    act_1.instances.append(ds.AlimpInstance(width=10, height=30, energy=10, latency=128, output_addr_time_patterns=[ds.pair_int_int(key=0, value=120), ds.pair_int_int(key=1, value=121), ds.pair_int_int(key=2, value=122), ds.pair_int_int(key=3, value=123), ds.pair_int_int(key=4, value=124), ds.pair_int_int(key=5, value=125), ds.pair_int_int(key=6, value=126), ds.pair_int_int(key=7, value=127)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1), ds.pair_int_int(key=2, value=2), ds.pair_int_int(key=3, value=3), ds.pair_int_int(key=4, value=4), ds.pair_int_int(key=5, value=5), ds.pair_int_int(key=6, value=6), ds.pair_int_int(key=7, value=7)]))
+    act_1.instances.append(ds.AlimpInstance(width=20, height=30, energy=10, latency=64, output_addr_time_patterns=[ds.pair_int_int(key=0, value=60), ds.pair_int_int(key=1, value=60), ds.pair_int_int(key=2, value=61), ds.pair_int_int(key=3, value=61), ds.pair_int_int(key=4, value=62), ds.pair_int_int(key=5, value=62), ds.pair_int_int(key=6, value=63), ds.pair_int_int(key=7, value=63)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1), ds.pair_int_int(key=2, value=2), ds.pair_int_int(key=3, value=3), ds.pair_int_int(key=4, value=4), ds.pair_int_int(key=5, value=5), ds.pair_int_int(key=6, value=6), ds.pair_int_int(key=7, value=7)]))
+    act_1.instances.append(ds.AlimpInstance(width=40, height=30, energy=10, latency=23, output_addr_time_patterns=[ds.pair_int_int(key=0, value=30), ds.pair_int_int(key=1, value=30), ds.pair_int_int(key=2, value=30), ds.pair_int_int(key=3, value=30), ds.pair_int_int(key=4, value=31), ds.pair_int_int(key=5, value=31), ds.pair_int_int(key=6, value=31), ds.pair_int_int(key=7, value=31)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1), ds.pair_int_int(key=2, value=2), ds.pair_int_int(key=3, value=3), ds.pair_int_int(key=4, value=4), ds.pair_int_int(key=5, value=5), ds.pair_int_int(key=6, value=6), ds.pair_int_int(key=7, value=7)]))
+    
+    dense_2.func = "dense_128_64"
+    dense_2.instances.append(ds.AlimpInstance(width=10, height=30, energy=622, latency=8192, output_addr_time_patterns=[ds.pair_int_int(key=0, value=8188), ds.pair_int_int(key=1, value=8189), ds.pair_int_int(key=2, value=8190), ds.pair_int_int(key=3, value=8191)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1), ds.pair_int_int(key=2, value=2), ds.pair_int_int(key=3, value=3), ds.pair_int_int(key=4, value=4), ds.pair_int_int(key=5, value=5), ds.pair_int_int(key=6, value=6), ds.pair_int_int(key=7, value=7)]))
+    dense_2.instances.append(ds.AlimpInstance(width=20, height=30, energy=622, latency=4096, output_addr_time_patterns=[ds.pair_int_int(key=0, value=4094), ds.pair_int_int(key=1, value=4094), ds.pair_int_int(key=2, value=4095), ds.pair_int_int(key=3, value=4095)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1), ds.pair_int_int(key=2, value=2), ds.pair_int_int(key=3, value=3), ds.pair_int_int(key=4, value=4), ds.pair_int_int(key=5, value=5), ds.pair_int_int(key=6, value=6), ds.pair_int_int(key=7, value=7)]))
+    dense_2.instances.append(ds.AlimpInstance(width=40, height=30, energy=622, latency=2048, output_addr_time_patterns=[ds.pair_int_int(key=0, value=2047), ds.pair_int_int(key=1, value=2047), ds.pair_int_int(key=2, value=2047), ds.pair_int_int(key=3, value=2047)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1), ds.pair_int_int(key=2, value=2), ds.pair_int_int(key=3, value=3), ds.pair_int_int(key=4, value=4), ds.pair_int_int(key=5, value=5), ds.pair_int_int(key=6, value=6), ds.pair_int_int(key=7, value=7)]))
+    
+
+
+    act_2.func = "act_64"
+    act_2.instances.append(ds.AlimpInstance(width=10, height=30, energy=4, latency=64, output_addr_time_patterns=[ds.pair_int_int(key=0, value=60), ds.pair_int_int(key=1, value=61), ds.pair_int_int(key=2, value=62), ds.pair_int_int(key=3, value=63)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1), ds.pair_int_int(key=2, value=2), ds.pair_int_int(key=3, value=3)]))
+    act_2.instances.append(ds.AlimpInstance(width=20, height=30, energy=4, latency=32, output_addr_time_patterns=[ds.pair_int_int(key=0, value=30), ds.pair_int_int(key=1, value=30), ds.pair_int_int(key=2, value=31), ds.pair_int_int(key=3, value=31)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1), ds.pair_int_int(key=2, value=2), ds.pair_int_int(key=3, value=3)]))
+    act_2.instances.append(ds.AlimpInstance(width=40, height=30, energy=4, latency=16, output_addr_time_patterns=[ds.pair_int_int(key=0, value=15), ds.pair_int_int(key=1, value=15), ds.pair_int_int(key=2, value=15), ds.pair_int_int(key=3, value=15)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1), ds.pair_int_int(key=2, value=2), ds.pair_int_int(key=3, value=3)]))
+    
+    dense_3.func = "dense_64_32"
+    dense_3.instances.append(ds.AlimpInstance(width=10, height=30, energy=155, latency=2048, output_addr_time_patterns=[ds.pair_int_int(key=0, value=2046), ds.pair_int_int(key=1, value=2047)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1), ds.pair_int_int(key=2, value=2), ds.pair_int_int(key=3, value=3), ds.pair_int_int(key=4, value=4)]))
+    dense_3.instances.append(ds.AlimpInstance(width=20, height=30, energy=155, latency=1024, output_addr_time_patterns=[ds.pair_int_int(key=0, value=1023), ds.pair_int_int(key=1, value=2043)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1), ds.pair_int_int(key=2, value=2), ds.pair_int_int(key=3, value=3), ds.pair_int_int(key=4, value=4)]))
+    dense_3.instances.append(ds.AlimpInstance(width=40, height=30, energy=155, latency=512, output_addr_time_patterns=[ds.pair_int_int(key=0, value=512), ds.pair_int_int(key=1, value=512)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1), ds.pair_int_int(key=2, value=2), ds.pair_int_int(key=3, value=3), ds.pair_int_int(key=4, value=4)]))
+    
+    act_3.func = "act_32"
+    act_3.instances.append(ds.AlimpInstance(width=10, height=30, energy=1, latency=32, output_addr_time_patterns=[ds.pair_int_int(key=0, value=30),ds.pair_int_int(key=1, value=31)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0),ds.pair_int_int(key=1, value=0)]))
+    act_3.instances.append(ds.AlimpInstance(width=20, height=30, energy=1, latency=16, output_addr_time_patterns=[ds.pair_int_int(key=0, value=15),ds.pair_int_int(key=1, value=15)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0),ds.pair_int_int(key=1, value=0)]))
+    act_3.instances.append(ds.AlimpInstance(width=40, height=30, energy=1, latency=8, output_addr_time_patterns=[ds.pair_int_int(key=0, value=7),ds.pair_int_int(key=1, value=7)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0),ds.pair_int_int(key=1, value=0)]))
+    
+    dense_4.func = "dense_32_16"
+    dense_4.instances.append(ds.AlimpInstance(width=10, height=30, energy=31, latency=512, output_addr_time_patterns=[ds.pair_int_int(key=0, value=511)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1)]))
+    dense_4.instances.append(ds.AlimpInstance(width=20, height=30, energy=31, latency=256, output_addr_time_patterns=[ds.pair_int_int(key=0, value=255)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1)]))
+    dense_4.instances.append(ds.AlimpInstance(width=40, height=30, energy=31, latency=128, output_addr_time_patterns=[ds.pair_int_int(key=0, value=127)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1)]))
+    
+
+    act_4.func = "act_16"
+    act_4.instances.append(ds.AlimpInstance(width=10, height=30, energy=1, latency=16, output_addr_time_patterns=[ds.pair_int_int(key=0, value=15)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0)]))
+    act_4.instances.append(ds.AlimpInstance(width=20, height=30, energy=1, latency=8, output_addr_time_patterns=[ds.pair_int_int(key=0, value=7)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0)]))
+    act_4.instances.append(ds.AlimpInstance(width=40, height=30, energy=1, latency=4, output_addr_time_patterns=[ds.pair_int_int(key=0, value=3)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0)]))
+    
+    output_dense.func = "dense_16_2"
+    output_dense.instances.append(ds.AlimpInstance(width=10, height=30, energy=2, latency=32, output_addr_time_patterns=[ds.pair_int_int(key=0, value=31)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0)]))
+    output_dense.instances.append(ds.AlimpInstance(width=20, height=30, energy=2, latency=16, output_addr_time_patterns=[ds.pair_int_int(key=0, value=15)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0)]))
+    output_dense.instances.append(ds.AlimpInstance(width=40, height=30, energy=2, latency=8, output_addr_time_patterns=[ds.pair_int_int(key=0, value=7)], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0)]))
+    
+    model_output.func = "output_2"
+    model_output.instances.append(ds.AlimpInstance(width=10, height=30, energy=1, latency=1, output_addr_time_patterns=[], input_addr_time_patterns=[ds.pair_int_int(key=0, value=0)]))
+
+    db.alimp_lib.entries.append(model_input)
+    db.alimp_lib.entries.append(dense_1)
+    db.alimp_lib.entries.append(act_1)
+    db.alimp_lib.entries.append(dense_2)
+    db.alimp_lib.entries.append(act_2)
+    db.alimp_lib.entries.append(dense_3)
+    db.alimp_lib.entries.append(act_3)
+    db.alimp_lib.entries.append(dense_4)
+    db.alimp_lib.entries.append(act_4)
+    db.alimp_lib.entries.append(output_dense)
+    db.alimp_lib.entries.append(model_output)
+
+    db.app_graph.nodes.append(ds.AppNode(id="model_input", func="input_24", output_ports=[ds.AppNodePort(id="model_input_out", rate=1, token_size=2)]))
+    db.app_graph.nodes.append(ds.AppNode(id="dense_1", func="dense_24_128", input_ports=[ds.AppNodePort(id="dense_1_in", rate=1, token_size=2)], output_ports=[ds.AppNodePort(id="dense_1_out", rate=1, token_size=8)]))
+    db.app_graph.nodes.append(ds.AppNode(id="act_1", func="act_128", input_ports=[ds.AppNodePort(id="act_1_in", rate=1, token_size=8)], output_ports=[ds.AppNodePort(id="act_1_out", rate=1, token_size=8)]))
+    db.app_graph.nodes.append(ds.AppNode(id="dense_2", func="dense_128_64", input_ports=[ds.AppNodePort(id="dense_2_in", rate=1, token_size=8)], output_ports=[ds.AppNodePort(id="dense_2_out", rate=1, token_size=4)]))
+    db.app_graph.nodes.append(ds.AppNode(id="act_2", func="act_64", input_ports=[ds.AppNodePort(id="act_2_in", rate=1, token_size=4)], output_ports=[ds.AppNodePort(id="act_2_out", rate=1, token_size=4)]))
+    db.app_graph.nodes.append(ds.AppNode(id="dense_3", func="dense_64_32", input_ports=[ds.AppNodePort(id="dense_3_in", rate=1, token_size=4)], output_ports=[ds.AppNodePort(id="dense_3_out", rate=1, token_size=2)]))
+    db.app_graph.nodes.append(ds.AppNode(id="act_3", func="act_32", input_ports=[ds.AppNodePort(id="act_3_in", rate=1, token_size=2)], output_ports=[ds.AppNodePort(id="act_3_out", rate=1, token_size=2)]))
+    db.app_graph.nodes.append(ds.AppNode(id="dense_4", func="dense_32_16", input_ports=[ds.AppNodePort(id="dense_4_in", rate=1, token_size=2)], output_ports=[ds.AppNodePort(id="dense_4_out", rate=1, token_size=1)]))
+    db.app_graph.nodes.append(ds.AppNode(id="act_4", func="act_16", input_ports=[ds.AppNodePort(id="act_4_in", rate=1, token_size=1)], output_ports=[ds.AppNodePort(id="act_4_out", rate=1, token_size=1)]))
+    db.app_graph.nodes.append(ds.AppNode(id="output_dense", func="dense_16_2", input_ports=[ds.AppNodePort(id="output_dense_in", rate=1, token_size=1)], output_ports=[ds.AppNodePort(id="output_dense_out", rate=1, token_size=1)]))
+    db.app_graph.nodes.append(ds.AppNode(id="model_output", func="output_2", input_ports=[ds.AppNodePort(id="model_output_in", rate=1, token_size=1)]))
+
+    db.app_graph.edges.append(ds.AppEdge(id="edge_model_input_dense_1", source_node="model_input", target_node="dense_1", source_port="model_input_out", target_port="dense_1_in", token_size=2))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_dense_1_act_1", source_node="dense_1", target_node="act_1", source_port="dense_1_out", target_port="act_1_in", token_size=8))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_act_1_dense_2", source_node="act_1", target_node="dense_2", source_port="act_1_out", target_port="dense_2_in", token_size=8))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_dense_2_act_2", source_node="dense_2", target_node="act_2", source_port="dense_2_out", target_port="act_2_in", token_size=4))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_act_2_dense_3", source_node="act_2", target_node="dense_3", source_port="act_2_out", target_port="dense_3_in", token_size=4))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_dense_3_act_3", source_node="dense_3", target_node="act_3", source_port="dense_3_out", target_port="act_3_in", token_size=2))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_act_3_dense_4", source_node="act_3", target_node="dense_4", source_port="act_3_out", target_port="dense_4_in", token_size=2))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_dense_4_act_4", source_node="dense_4", target_node="act_4", source_port="dense_4_out", target_port="act_4_in", token_size=1))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_act_4_output_dense", source_node="act_4", target_node="output_dense", source_port="act_4_out", target_port="output_dense_in", token_size=1))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_output_dense_model_output", source_node="output_dense", target_node="model_output", source_port="output_dense_out", target_port="model_output_in", token_size=1))
+
+    return db
