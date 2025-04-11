@@ -325,8 +325,6 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
                 input_addr_time_patterns = node.alimp_instance.input_addr_time_patterns
                 break
 
-        print(output_addr_time_patterns)
-
         delay = -1
         for route in db.synthesized_information.routing_paths:
             if route.app_edge_id == edge.id:
@@ -384,6 +382,8 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
                 if addr_time_pattern.key == target_addr:
                     target_addr_time = addr_time_pattern.value
                     break
+            print("source_addr_time=", source_addr_time, "target_addr_time=", target_addr_time, "edge=", edge.id)
+            print("addr=", addr, "source_addr=", source_addr, "target_addr=", target_addr)
             if source_addr_time < 0 or target_addr_time < 0:
                 print("Error: address translation failed!")
                 sys.exit(1)

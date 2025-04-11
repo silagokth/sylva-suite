@@ -113,7 +113,6 @@ def bind_solve_optimal (db: ds.DataBase) -> int:
         # post constraint: start_time is the max of all predecessors' start_time + 0.5*latency
         if node.id in predecessors:
             for predecessor in predecessors[node.id]:
-                print(START_TIME)
                 model.Add(START_TIME[node.id] == START_TIME[predecessor] + HALF_LATENCY[predecessor])
         else:
             model.Add(START_TIME[node.id] == 0)
@@ -256,7 +255,6 @@ def bind_solve_approx_optimal(db: ds.DataBase, obj_optimal) -> list:
         # post constraint: start_time is the max of all predecessors' start_time + 0.5*latency
         if node.id in predecessors:
             for predecessor in predecessors[node.id]:
-                print(START_TIME)
                 model.Add(START_TIME[node.id] == START_TIME[predecessor] + HALF_LATENCY[predecessor])
         else:
             model.Add(START_TIME[node.id] == 0)
@@ -349,9 +347,15 @@ def run(db: ds.DataBase, output_dir: str):
     create_app_graph(db, module_dir)
 
     obj = bind_solve_optimal(db)
+    if obj is None:
+        logging.error("Cannot find optimal solution, try to relax the global constraints")
+        sys.exit(1)
     logging.info("Optimal obj value: %d", obj)
     logging.info("Obj will be relaxed by relaxation factor: %f", db.hyper_parameter.bind_relaxation_factor)
     valid_bindings = bind_solve_approx_optimal(db, obj)
+    if len(valid_bindings) == 0:
+        logging.error("Cannot find any valid binding")
+        sys.exit(1)
     logging.info("Found solutions:")
     print(valid_bindings)
     apply_binding_options(db, valid_bindings)

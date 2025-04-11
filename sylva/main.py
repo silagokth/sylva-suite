@@ -139,7 +139,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # create test database
-    testcase.create_test_db("minimum")
+    testcase.create_test_db("lenet5")
     
     # call main function
     main(args.graph, args.constraint, args.library, args.parameter, args.output)

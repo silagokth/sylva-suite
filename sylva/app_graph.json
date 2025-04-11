@@ -1,0 +1,243 @@
+{
+  "nodes": [
+    {
+      "id": "load_input",
+      "func": "input_32x32",
+      "outputPorts": [
+        {
+          "id": "load_input_out",
+          "rate": 1,
+          "tokenSize": 64
+        }
+      ]
+    },
+    {
+      "id": "conv1",
+      "func": "conv_32x32_5x5",
+      "inputPorts": [
+        {
+          "id": "conv1_in",
+          "rate": 1,
+          "tokenSize": 64
+        }
+      ],
+      "outputPorts": [
+        {
+          "id": "conv1_out",
+          "rate": 1,
+          "tokenSize": 336
+        }
+      ]
+    },
+    {
+      "id": "pooling1",
+      "func": "max_pool_28x28_2",
+      "inputPorts": [
+        {
+          "id": "pooling1_in",
+          "rate": 1,
+          "tokenSize": 336
+        }
+      ],
+      "outputPorts": [
+        {
+          "id": "pooling1_out",
+          "rate": 1,
+          "tokenSize": 84
+        }
+      ]
+    },
+    {
+      "id": "conv2",
+      "func": "conv_14x14_5x5",
+      "inputPorts": [
+        {
+          "id": "conv2_in",
+          "rate": 1,
+          "tokenSize": 84
+        }
+      ],
+      "outputPorts": [
+        {
+          "id": "conv2_out",
+          "rate": 1,
+          "tokenSize": 160
+        }
+      ]
+    },
+    {
+      "id": "pooling2",
+      "func": "max_pool_10x10_2",
+      "inputPorts": [
+        {
+          "id": "pooling2_in",
+          "rate": 1,
+          "tokenSize": 160
+        }
+      ],
+      "outputPorts": [
+        {
+          "id": "pooling2_out",
+          "rate": 1,
+          "tokenSize": 80
+        }
+      ]
+    },
+    {
+      "id": "conv3",
+      "func": "conv_5x5_5x5",
+      "inputPorts": [
+        {
+          "id": "conv3_in",
+          "rate": 1,
+          "tokenSize": 80
+        }
+      ],
+      "outputPorts": [
+        {
+          "id": "conv3_out",
+          "rate": 1,
+          "tokenSize": 120
+        }
+      ]
+    },
+    {
+      "id": "reshape",
+      "func": "reshape_5x5_1",
+      "inputPorts": [
+        {
+          "id": "reshape_in",
+          "rate": 1,
+          "tokenSize": 120
+        }
+      ],
+      "outputPorts": [
+        {
+          "id": "reshape_out",
+          "rate": 1,
+          "tokenSize": 8
+        }
+      ]
+    },
+    {
+      "id": "fc1",
+      "func": "dense_120_84",
+      "inputPorts": [
+        {
+          "id": "fc1_in",
+          "rate": 1,
+          "tokenSize": 8
+        }
+      ],
+      "outputPorts": [
+        {
+          "id": "fc1_out",
+          "rate": 1,
+          "tokenSize": 6
+        }
+      ]
+    },
+    {
+      "id": "fc2",
+      "func": "dense_84_10",
+      "inputPorts": [
+        {
+          "id": "fc2_in",
+          "rate": 1,
+          "tokenSize": 6
+        }
+      ],
+      "outputPorts": [
+        {
+          "id": "fc2_out",
+          "rate": 1,
+          "tokenSize": 1
+        }
+      ]
+    },
+    {
+      "id": "store_output",
+      "func": "output_10",
+      "inputPorts": [
+        {
+          "id": "store_output_in",
+          "rate": 1
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_load_input_conv1",
+      "sourceNode": "load_input",
+      "targetNode": "conv1",
+      "sourcePort": "load_input_out",
+      "targetPort": "conv1_in",
+      "tokenSize": 64
+    },
+    {
+      "id": "edge_conv1_pooling1",
+      "sourceNode": "conv1",
+      "targetNode": "pooling1",
+      "sourcePort": "conv1_out",
+      "targetPort": "pooling1_in",
+      "tokenSize": 336
+    },
+    {
+      "id": "edge_pooling1_conv2",
+      "sourceNode": "pooling1",
+      "targetNode": "conv2",
+      "sourcePort": "pooling1_out",
+      "targetPort": "conv2_in",
+      "tokenSize": 84
+    },
+    {
+      "id": "edge_conv2_pooling2",
+      "sourceNode": "conv2",
+      "targetNode": "pooling2",
+      "sourcePort": "conv2_out",
+      "targetPort": "pooling2_in",
+      "tokenSize": 160
+    },
+    {
+      "id": "edge_pooling2_conv3",
+      "sourceNode": "pooling2",
+      "targetNode": "conv3",
+      "sourcePort": "pooling2_out",
+      "targetPort": "conv3_in",
+      "tokenSize": 80
+    },
+    {
+      "id": "edge_conv3_reshape",
+      "sourceNode": "conv3",
+      "targetNode": "reshape",
+      "sourcePort": "conv3_out",
+      "targetPort": "reshape_in",
+      "tokenSize": 120
+    },
+    {
+      "id": "edge_reshape_fc1",
+      "sourceNode": "reshape",
+      "targetNode": "fc1",
+      "sourcePort": "reshape_out",
+      "targetPort": "fc1_in",
+      "tokenSize": 8
+    },
+    {
+      "id": "edge_fc1_fc2",
+      "sourceNode": "fc1",
+      "targetNode": "fc2",
+      "sourcePort": "fc1_out",
+      "targetPort": "fc2_in",
+      "tokenSize": 6
+    },
+    {
+      "id": "edge_fc2_store_output",
+      "sourceNode": "fc2",
+      "targetNode": "store_output",
+      "sourcePort": "fc2_out",
+      "targetPort": "store_output_in",
+      "tokenSize": 1
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+[{"cycle": 6, "addr_rd": 0, "addr_wr": 0}, {"cycle": 7, "addr_rd": 1, "addr_wr": 1}, {"cycle": 2, "addr_rd": 0, "addr_wr": 2}, {"cycle": 11, "addr_rd": 1, "addr_wr": 3}, {"cycle": 12, "addr_rd": 0, "addr_wr": 0}, {"cycle": 10, "addr_rd": 1, "addr_wr": 1}]

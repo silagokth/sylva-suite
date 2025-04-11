@@ -3,6 +3,8 @@ import os
 import data_structure_pb2 as ds
 from google.protobuf.json_format import MessageToJson
 from google.protobuf.json_format import Parse
+import random
+import json
 
 def create_test_db(testcase_name:str):
     this_module = sys.modules[__name__]
@@ -314,5 +316,181 @@ def chf() -> ds.DataBase:
     db.app_graph.edges.append(ds.AppEdge(id="edge_dense_4_act_4", source_node="dense_4", target_node="act_4", source_port="dense_4_out", target_port="act_4_in", token_size=1))
     db.app_graph.edges.append(ds.AppEdge(id="edge_act_4_output_dense", source_node="act_4", target_node="output_dense", source_port="act_4_out", target_port="output_dense_in", token_size=1))
     db.app_graph.edges.append(ds.AppEdge(id="edge_output_dense_model_output", source_node="output_dense", target_node="model_output", source_port="output_dense_out", target_port="model_output_in", token_size=1))
+
+    return db
+
+def random_test() -> ds.DataBase:
+    db = ds.DataBase()
+
+    db.global_constraint.max_energy = 1000
+    db.global_constraint.max_width = 1000
+    db.global_constraint.max_height = 1000
+    db.global_constraint.max_latency = 1000
+    db.global_constraint.max_period = 1000
+
+    db.hyper_parameter.bind_w_area = 1
+    db.hyper_parameter.bind_w_energy = 1
+    db.hyper_parameter.bind_w_latency = 1
+    db.hyper_parameter.bind_relaxation_factor = 1.1
+    db.hyper_parameter.place_relaxation_factor = 1
+    db.hyper_parameter.place_reserved_routing_size = 1
+
+    # generate a random SDF graph
+    num_nodes = 5
+    edge_node_ratio = 1.0
+    num_edges = int(num_nodes * edge_node_ratio)
+    max_token_per_edge = 10
+    max_token_size = 10
+    num_instance_per_func = 4
+    max_func_latency = 10
+    max_func_energy = 10
+    max_func_width = 10
+    max_func_height = 10
+
+    output_ports = {}
+    input_ports = {}
+    port_token_size = {}
+
+    for i in range(num_edges):
+        source_id = random.randint(0, num_nodes - 1)
+        target_id = random.randint(0, num_nodes - 1)
+        while source_id == target_id:
+            target_id = random.randint(0, num_nodes - 1)
+        if source_id > target_id:
+            source_id, target_id = target_id, source_id
+        source_node = f"node_{source_id}"
+        target_node = f"node_{target_id}"
+
+        if output_ports.get(source_node) is None:
+            output_ports[source_node] = []
+        if input_ports.get(target_node) is None:
+            input_ports[target_node] = []
+        source_port = f"{source_node}_out_{len(output_ports[source_node])}"
+        target_port = f"{target_node}_in_{len(input_ports[target_node])}"
+        output_ports[source_node].append(source_port)
+        input_ports[target_node].append(target_port)
+        token_size = random.randint(1, max_token_size)
+        port_token_size[source_port] = token_size
+        port_token_size[target_port] = token_size
+        db.app_graph.edges.append(ds.AppEdge(id=f"edge_{source_node}_{target_node}", source_node=source_node, target_node=target_node, source_port=source_port, target_port=target_port, token_size=token_size))
+
+    print(output_ports)
+    for i in range(num_nodes):
+        node = f"node_{i}"
+        func = f"func_{i}"
+        node_output_ports = output_ports.get(node)
+        if node_output_ports is None:
+            node_output_ports = []
+        node_input_ports = input_ports.get(node)
+        if node_input_ports is None:
+            node_input_ports = []
+        db.app_graph.nodes.append(ds.AppNode(id=node, func=func, input_ports=[ds.AppNodePort(id=port, rate=1, token_size=port_token_size[port]) for port in node_input_ports], output_ports=[ds.AppNodePort(id=port, rate=1, token_size=port_token_size[port]) for port in node_output_ports]))
+
+        total_out_token_size = 0
+        total_in_token_size = 0
+        for port in node_output_ports:
+            total_out_token_size += port_token_size[port]
+        for port in node_input_ports:
+            total_in_token_size += port_token_size[port]
+        
+        entry = ds.AlimpEntry(func=func)
+        for i in range(num_instance_per_func):
+        # generate a random timeline for token chunks
+            input_addr_time_patterns = [random.randint(0, max_func_latency) for _ in range(total_in_token_size)]
+            output_addr_time_patterns = [random.randint(0, max_func_latency) for _ in range(total_out_token_size)]
+            print(input_addr_time_patterns)
+            print(output_addr_time_patterns)
+            input_latency = 1
+            if len(input_addr_time_patterns) > 0:
+                input_latency = max(input_addr_time_patterns) + 1
+            output_latency = 1
+            if len(output_addr_time_patterns) > 0:
+                output_latency = max(output_addr_time_patterns) + 1
+            latency = max(input_latency, output_latency)
+            energy = random.randint(1, max_func_energy)
+            width = random.randint(1, max_func_width)
+            if width < total_in_token_size:
+                width = total_in_token_size
+            if width < total_out_token_size:
+                width = total_out_token_size
+            height = random.randint(1, max_func_height)
+            entry.instances.append(ds.AlimpInstance(width=width, height=height, energy=energy, latency=latency, input_addr_time_patterns=[ds.pair_int_int(key=i, value=input_addr_time_patterns[i]) for i in range(total_in_token_size)], output_addr_time_patterns=[ds.pair_int_int(key=i, value=output_addr_time_patterns[i]) for i in range(total_out_token_size)]))
+        db.alimp_lib.entries.append(entry)
+    
+
+def read_addr_pattern(filename) -> list :
+        patterns = []
+        try:
+            with open(filename, 'r') as f:
+                json_data = json.load(f)
+            for pt in json_data['addr_ptrn']:
+                patterns.append(ds.pair_int_int(key=int(pt['address']), value=int(pt['cycle'])))
+        except:
+            print("No address pattern file found, ignore: ", filename)
+        return patterns
+
+def lenet5() -> ds.DataBase:
+    db = ds.DataBase()
+    
+    db.global_constraint.max_energy = 10000
+    db.global_constraint.max_width = 10000
+    db.global_constraint.max_height = 10000
+    db.global_constraint.max_latency = 100000
+    db.global_constraint.max_period = 100000
+    db.hyper_parameter.bind_w_area = 1
+    db.hyper_parameter.bind_w_energy = 1
+    db.hyper_parameter.bind_w_latency = 1
+    db.hyper_parameter.bind_relaxation_factor = 1.1
+    db.hyper_parameter.place_relaxation_factor = 1.5
+    db.hyper_parameter.place_reserved_routing_size = 1
+
+    prefix = "work/sim/"
+
+    def add_entry_instance(db, name, func, prefix, width, height, energy) -> list:
+        entry = ds.AlimpEntry()
+        entry.func = func
+        input_addr_time_patterns = read_addr_pattern(prefix+name+"_inAP.json")
+        output_addr_time_patterns = read_addr_pattern(prefix+name+"_outAP.json")
+        input_addr_time_patterns_max = max([pt.value for pt in input_addr_time_patterns]) if len(input_addr_time_patterns) > 0 else 0
+        output_addr_time_patterns_max = max([pt.value for pt in output_addr_time_patterns]) if len(output_addr_time_patterns) > 0 else 0
+        latency = max(input_addr_time_patterns_max, output_addr_time_patterns_max) + 1
+        input_token = len(input_addr_time_patterns)
+        output_token = len(output_addr_time_patterns)
+        entry.instances.append(ds.AlimpInstance(width=width, height=height, energy=energy, latency=latency, input_addr_time_patterns=input_addr_time_patterns, output_addr_time_patterns=output_addr_time_patterns))
+        db.alimp_lib.entries.append(entry)
+        print(f"Add entry {name} with {input_token} input tokens and {output_token} output tokens")
+        return (input_token, output_token)
+
+    (conv1_input_token, conv1_output_token) = add_entry_instance(db, "conv1", "conv_32x32_5x5", prefix, 2, 2, 10)
+    (pooling1_input_token, pooling1_output_token) = add_entry_instance(db, "pooling1", "max_pool_28x28_2", prefix, 10, 10, 10)
+    (conv2_input_token, conv2_output_token) = add_entry_instance(db, "conv2", "conv_14x14_5x5", prefix, 10, 10, 10)
+    (pooling2_input_token, pooling2_output_token) = add_entry_instance(db, "pooling2", "max_pool_10x10_2", prefix, 10, 10, 10)
+    (conv3_input_token, conv3_output_token) = add_entry_instance(db, "conv3", "conv_5x5_5x5", prefix, 5, 5, 10)
+    (reshape_input_token, reshape_output_token) = add_entry_instance(db, "reshape", "reshape_5x5_1", prefix, 5, 5, 10)
+    (fc1_input_token, fc1_output_token) = add_entry_instance(db, "fc1", "dense_120_84", prefix, 5, 1, 10)
+    (fc2_input_token, fc2_output_token) = add_entry_instance(db, "fc2", "dense_84_10", prefix, 5, 1, 10)
+    (store_output_input_token, store_output_output_token) = add_entry_instance(db, "store_output", "output_10", prefix, 5, 1, 10)
+    (load_input_input_token, load_input_output_token) = add_entry_instance(db, "load_input", "input_32x32", prefix, 5, 5, 10)
+    
+    db.app_graph.nodes.append(ds.AppNode(id="load_input", func="input_32x32", output_ports=[ds.AppNodePort(id="load_input_out", rate=1, token_size=load_input_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="conv1", func="conv_32x32_5x5", input_ports=[ds.AppNodePort(id="conv1_in", rate=1, token_size=conv1_input_token)], output_ports=[ds.AppNodePort(id="conv1_out", rate=1, token_size=conv1_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="pooling1", func="max_pool_28x28_2", input_ports=[ds.AppNodePort(id="pooling1_in", rate=1, token_size=pooling1_input_token)], output_ports=[ds.AppNodePort(id="pooling1_out", rate=1, token_size=pooling1_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="conv2", func="conv_14x14_5x5", input_ports=[ds.AppNodePort(id="conv2_in", rate=1, token_size=conv2_input_token)], output_ports=[ds.AppNodePort(id="conv2_out", rate=1, token_size=conv2_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="pooling2", func="max_pool_10x10_2", input_ports=[ds.AppNodePort(id="pooling2_in", rate=1, token_size=pooling2_input_token)], output_ports=[ds.AppNodePort(id="pooling2_out", rate=1, token_size=pooling2_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="conv3", func="conv_5x5_5x5", input_ports=[ds.AppNodePort(id="conv3_in", rate=1, token_size=conv3_input_token)], output_ports=[ds.AppNodePort(id="conv3_out", rate=1, token_size=conv3_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="reshape", func="reshape_5x5_1", input_ports=[ds.AppNodePort(id="reshape_in", rate=1, token_size=reshape_input_token)], output_ports=[ds.AppNodePort(id="reshape_out", rate=1, token_size=reshape_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="fc1", func="dense_120_84", input_ports=[ds.AppNodePort(id="fc1_in", rate=1, token_size=fc1_input_token)], output_ports=[ds.AppNodePort(id="fc1_out", rate=1, token_size=fc1_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="fc2", func="dense_84_10", input_ports=[ds.AppNodePort(id="fc2_in", rate=1, token_size=fc2_input_token)], output_ports=[ds.AppNodePort(id="fc2_out", rate=1, token_size=fc2_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="store_output", func="output_10", input_ports=[ds.AppNodePort(id="store_output_in", rate=1, token_size=store_output_output_token)]))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_load_input_conv1", source_node="load_input", target_node="conv1", source_port="load_input_out", target_port="conv1_in", token_size=load_input_output_token))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_conv1_pooling1", source_node="conv1", target_node="pooling1", source_port="conv1_out", target_port="pooling1_in", token_size=conv1_output_token))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_pooling1_conv2", source_node="pooling1", target_node="conv2", source_port="pooling1_out", target_port="conv2_in", token_size=pooling1_output_token))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_conv2_pooling2", source_node="conv2", target_node="pooling2", source_port="conv2_out", target_port="pooling2_in", token_size=conv2_output_token))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_pooling2_conv3", source_node="pooling2", target_node="conv3", source_port="pooling2_out", target_port="conv3_in", token_size=pooling2_output_token))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_conv3_reshape", source_node="conv3", target_node="reshape", source_port="conv3_out", target_port="reshape_in", token_size=conv3_output_token))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_reshape_fc1", source_node="reshape", target_node="fc1", source_port="reshape_out", target_port="fc1_in", token_size=reshape_output_token))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_fc1_fc2", source_node="fc1", target_node="fc2", source_port="fc1_out", target_port="fc2_in", token_size=fc1_output_token))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_fc2_store_output", source_node="fc2", target_node="store_output", source_port="fc2_out", target_port="store_output_in", token_size=fc2_output_token))
+
 
     return db
