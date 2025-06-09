@@ -16,6 +16,7 @@ from google.protobuf.json_format import Parse
 
 import logging
 
+
 def wire_type_to_assignment(wire_type: str):
     assignment = {'e':None, 'n':None, 'w': None, 's': None, 'reg': False, 'buffer': False}
     # use regex to chop label
@@ -46,53 +47,141 @@ def assignment_to_wire_type(assignment):
         label = "wire"
     return label
 
-def noc_block_buffer_insertion(db: ds.DataBase):
-    noc_block_assignment = {}
-    for label in db.synthesized_information.wire_assignment:
-        assignment = db.synthesized_information.wire_assignment[label]
-        noc_block_assignment[label] = wire_type_to_assignment(assignment)
-    for routing_path in db.synthesized_information.routing_paths:
-        for node in routing_path.path:
-            label = "{}_{}".format(node.x, node.y)
-            if label not in db.synthesized_information.wire_assignment:
-                logging.error("Block not found in noc_block_assignment")
-                exit(-1)
-            assignment =  noc_block_assignment[label]
-            if (assignment['n'] == 's' and not assignment['s'] and not assignment['w'] and not assignment['e']) or (
-                assignment['s'] == 'n' and not assignment['n'] and not assignment['w'] and not assignment['e']) or (
-                assignment['e'] == 'w' and not assignment['s'] and not assignment['w'] and not assignment['n']) or (
-                assignment['w'] == 'e' and not assignment['s'] and not assignment['n'] and not assignment['e']):
-                if not assignment['reg']:
-                    # 20% chance to insert a buffer
-                    if random.random() < 0.2:
-                        assignment['buffer'] = True
-    for node, assignment in noc_block_assignment.items():
-        db.synthesized_information.wire_assignment[node] = assignment_to_wire_type(assignment)
+def noc_block_is_path_satisfied(db: ds.DataBase, path: list, slew: float):
+    # maximum number of blocks
+    if len(path) > len(db.noc_constraint.timing_table[0].rows):
+        return False
+    
+    # segments[start_index] = end_index, excluding buffers
+    segments = {0: None}
+    current_segment = 0
+    for i in range (len(path)):
+        if path[i] == 'b':
+            if i == 0 or i == len(path) - 1:
+                logging.error("NoC start and end blocks should be wire")
+                return False 
+            segments[current_segment] = i - 1
+            current_segment = i + 1
+        if i == len(path) - 1:
+            segments[current_segment] = i
+    
+    # calculate delays in each segment
+    segment_delay = []
+    slowdown_slew = slew
+    for start_index in segments.keys():
+        end_index = segments[start_index]
+        # A col index is K intervening number of wire blocks
+        col = end_index - start_index
+        # A row index is selected based on the input slew (pessimistic method)
+        # TODO: improvement by linear interpolation
+        try:
+            target_slew = max([x for x in db.noc_constraint.slew_rates if x <= slowdown_slew])
+        except:
+            # input slew rate is too low -> To add more registers
+            return False
+        slew_rate_list = list(db.noc_constraint.slew_rates)
+        row = slew_rate_list.index(target_slew) 
+        if start_index != 0:
+            slowdown_slew -= db.noc_constraint.buffer_slew_declined_factor
+        # lookup the delay time in the table
+        segment_delay.append(db.noc_constraint.timing_table[row].rows[col])
 
-def noc_block_register_insertion(db: ds.DataBase):
+    # delay improvement from buffers
+    buffer_improved_delay = 0
+    for i in range (len(path)):
+        if path[i] == 'b':
+            buffer_improved_delay += db.noc_constraint.buffer_delay_improved_factor
+    
+    # constraints
+    requirements = []
+    requirements.append(db.noc_constraint.required_period > sum(segment_delay) - buffer_improved_delay)
+    requirements.append(db.noc_constraint.required_slew < slowdown_slew)
+    if all(r for r in requirements):
+        return True
+    return False
+
+def noc_block_insert_buffer(db: ds.DataBase, wire_length: int, slew: float):
+    design = ['w' for i in range (wire_length)]
+    number_of_buffers = 0
+
+    # check the design and add buffers
+    # TODO: Need to consider about timing tables 
+    #       for different types (R-R, B-B, R-B, B-R)
+    while (not noc_block_is_path_satisfied(db, design, slew)):
+        # adding buffers until wbwbwbwb ... wbw
+        if number_of_buffers < (wire_length // 2) and wire_length > 2:
+            number_of_buffers += 1 
+            buffer_indices = []
+            for i in range (number_of_buffers):
+                buffer_indices.append(((i + 1) * wire_length) // (number_of_buffers + 1))
+            design = ['b' if i in buffer_indices else 'w' for i in range (wire_length)]
+            continue
+        return []
+    return design
+
+def noc_block_insert_main(db: ds.DataBase, wire_length: int):
+    design = noc_block_insert_buffer(db, wire_length, db.noc_constraint.initial_slew)
+    found_solution = True if design else False
+    number_of_registers = 0
+    # add more registers if design is not found 
+    while (not found_solution):
+        if number_of_registers < (wire_length // 3) and wire_length > 4:
+            number_of_registers += 1
+            design = []
+            current_index = 0
+            current_slew = db.noc_constraint.initial_slew
+            # Replacing a register might change some characteristics
+            # TODO: slew rate after a register might be a function of the input slew
+            # TODO: slew rate could be deteriorated after passing through wire
+            #       In that case, feed slew info from design1 to design2 
+            for i in range (number_of_registers + 1):
+                if i == number_of_registers:
+                    register_index = wire_length # end wire index
+                else:
+                    register_index = ((i + 1) * wire_length) // (number_of_registers + 1)
+                segment_length = register_index - current_index
+                segment_design = noc_block_insert_buffer(db, segment_length, current_slew)
+                if not segment_design:
+                    break
+                current_index = register_index + 1
+                current_slew = db.noc_constraint.register_slew_constant
+                design.extend(segment_design)
+                if i != number_of_registers:
+                    design.append('r')
+            else:
+                found_solution = True
+            continue
+        return []
+    return design
+
+def noc_block_insertion(db: ds.DataBase):
     noc_block_assignment = {}
     for label in db.synthesized_information.wire_assignment:
         assignment = db.synthesized_information.wire_assignment[label]
         noc_block_assignment[label] = wire_type_to_assignment(assignment)
     for routing_path in db.synthesized_information.routing_paths:
-        # find a random delay number smaller than half of the length of the path
-        delay = 1
-        for node in routing_path.path:
-            if delay == 0:
-                break
+        # run the algorithm to determine which locations in a path 
+        # to be placed by either a buffer, register, or only plain wire
+        design = noc_block_insert_main(db, len(routing_path.path))
+        if not design:
+            logging.error("NoC solution not found")
+            exit(-1)
+        # print statments for debugging   
+        print("Path: {} - {}".format(routing_path.app_edge_id, design))
+
+        # assign buffers and registers according to the design
+        delay = 0
+        for (node, kind) in zip(routing_path.path, design):
             label = "{}_{}".format(node.x, node.y)
             if label not in db.synthesized_information.wire_assignment:
                 logging.error("Block not found in noc_block_assignment")
                 exit(-1)
-            assignment =  noc_block_assignment[label]
-            if (assignment['n'] == 's' and not assignment['s'] and not assignment['w'] and not assignment['e']) or (
-                assignment['s'] == 'n' and not assignment['n'] and not assignment['w'] and not assignment['e']) or (
-                assignment['e'] == 'w' and not assignment['s'] and not assignment['w'] and not assignment['n']) or (
-                assignment['w'] == 'e' and not assignment['s'] and not assignment['n'] and not assignment['e']):
-                # 20% chance to insert a register
-                if random.random() < 0.2:
-                    assignment['reg'] = True
-                    delay += 1
+            assignment = noc_block_assignment[label]
+            if kind == 'b':
+                assignment['buffer'] = True
+            if kind == 'r':
+                assignment['reg'] = True
+                delay += 1
         routing_path.delay = delay
     for node, assignment in noc_block_assignment.items():
         db.synthesized_information.wire_assignment[node] = assignment_to_wire_type(assignment)
@@ -277,8 +366,7 @@ def run(db: ds.DataBase, output_dir: str) -> bool:
     module_dir = os.path.join(output_dir, 'noc')
     os.makedirs(module_dir, exist_ok=True)
     noc_block_identification(db)
-    noc_block_register_insertion(db)
-    noc_block_buffer_insertion(db)
+    noc_block_insertion(db)
     generate_picture(db, module_dir)
     logging.info("Finish: NoC synthesis")
     return True
