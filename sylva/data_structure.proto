@@ -11,7 +11,8 @@ message DataBase {
   HyperParameter hyper_parameter = 6;
   CostMetric cost_metric = 7;
   repeated AlimpBindingOption alimp_binding_options = 8;
-  SynthesizedInformation synthesized_information = 9;
+  NocConstraint noc_constraint = 9;
+  SynthesizedInformation synthesized_information = 10;
 }
 
 message SynthesizedInformation {
@@ -71,6 +72,24 @@ message AlimpBinding {
   string app_node_id = 1;
   AlimpInstance alimp_instance = 2;
 }
+
+message NocConstraint {
+  int32 required_period = 1;
+  int32 required_slew = 2;
+  int32 initial_slew = 3;
+  int32 buffer_slew_declined_factor = 4;
+  int32 buffer_delay_improved_factor = 5;
+  int32 register_slew_constant = 6;
+  int32 number_slew_rates = 7;
+  int32 number_wire_blocks = 8;
+  repeated int32 slew_rates = 9;
+  repeated TimingRow timing_table = 10;
+}
+
+message TimingRow {
+  repeated int32 rows = 1;
+}
+
 
 message HyperParameter {
   int32 bind_w_area = 1;
