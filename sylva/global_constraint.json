@@ -1,7 +1,0 @@
-{
-  "maxWidth": 10000,
-  "maxHeight": 10000,
-  "maxLatency": 100000,
-  "maxPeriod": 100000,
-  "maxEnergy": 10000
-}

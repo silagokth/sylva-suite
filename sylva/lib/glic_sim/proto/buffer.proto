@@ -1,0 +1,12 @@
+
+syntax = "proto3";
+
+message buffer {
+
+  message memory_line {
+    fixed64 cycle   = 1;
+    fixed64 address = 2;
+    int64   value   = 3;
+  }
+  repeated memory_line mem = 1;
+}

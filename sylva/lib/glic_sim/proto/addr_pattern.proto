@@ -1,0 +1,13 @@
+// Address patern
+
+syntax = "proto3";
+
+
+message addr_pattern {
+  message pattern_node {
+    fixed64 address = 1;
+    fixed64 cycle = 2;
+  }
+
+  repeated pattern_node addr_ptrn = 1;
+}

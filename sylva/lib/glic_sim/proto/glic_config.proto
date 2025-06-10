@@ -1,0 +1,39 @@
+// Protobuf file for GLIC Config
+
+syntax = "proto3";
+
+// The process_cmd should have rules imposed on
+// in and out file name, otherwise this simulation will not work.
+// example: -i <input_filename> -o <output_filename>
+// This will be added by the process module
+
+message node_config {
+  bool is_transporter = 1;
+
+  // The transporter must only have one input and one output
+  repeated string in_names  = 2;
+  repeated string out_names = 3;
+
+  // The following fields are only read if
+  // the node is NOT a transporter.
+  string  process_cmd = 4;            //<! shell command to run to invoke the process binary
+  map<string, fixed64> tokenSize = 5; //<! high address value associated with out_names
+
+  // The followinf fields are only read if
+  // the node is a Transporter.
+  fixed64 delay = 6;
+}
+
+message node_config_map {
+  map<string, node_config> config_map = 1;
+}
+
+// Time table to fire each node/ transporter
+message time_table {
+  message tt_node {
+    fixed64 cycle    = 1;
+    string node_name = 2;
+  }
+
+  repeated tt_node tt = 1;
+}

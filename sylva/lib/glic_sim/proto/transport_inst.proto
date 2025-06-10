@@ -1,0 +1,14 @@
+// Transport instruction list
+
+syntax = "proto3";
+
+
+message transport_list {
+  message transport_inst {
+    fixed64 cycle = 1;
+    fixed64 addr_rd = 2;
+    fixed64 addr_wr = 3;
+  }
+
+  repeated transport_inst inst_list = 1;
+}

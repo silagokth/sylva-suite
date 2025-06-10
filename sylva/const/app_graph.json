@@ -1,0 +1,62 @@
+{
+  "nodes": [
+    {
+      "id": "A",
+      "func": "FA",
+      "outputPorts": [
+        {
+          "id": "A:ab",
+          "rate": 1,
+          "tokenSize": 16
+        }
+      ]
+    },
+    {
+      "id": "B",
+      "func": "FB",
+      "inputPorts": [
+        {
+          "id": "B:ab",
+          "rate": 1,
+          "tokenSize": 16
+        }
+      ],
+      "outputPorts": [
+        {
+          "id": "B:bc",
+          "rate": 1,
+          "tokenSize": 16
+        }
+      ]
+    },
+    {
+      "id": "C",
+      "func": "FC",
+      "inputPorts": [
+        {
+          "id": "C:bc",
+          "rate": 1,
+          "tokenSize": 16
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "A_B",
+      "sourceNode": "A",
+      "targetNode": "B",
+      "sourcePort": "A:ab",
+      "targetPort": "B:ab",
+      "tokenSize": 16
+    },
+    {
+      "id": "B_C",
+      "sourceNode": "B",
+      "targetNode": "C",
+      "sourcePort": "B:bc",
+      "targetPort": "C:bc",
+      "tokenSize": 16
+    }
+  ]
+}

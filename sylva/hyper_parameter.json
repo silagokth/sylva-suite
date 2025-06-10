@@ -1,8 +1,0 @@
-{
-  "bindWArea": 1,
-  "bindWEnergy": 1,
-  "bindWLatency": 1,
-  "bindRelaxationFactor": 1.1,
-  "placeRelaxationFactor": 1.5,
-  "placeReservedRoutingSize": 1
-}
