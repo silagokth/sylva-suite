@@ -29,7 +29,8 @@ def make_config_map(db: ds.DataBase) -> dict:
             'is_transporter': False,
             'in_names': [],
             'out_names': [],
-            'process_cmd': 'echo hello!'
+            # TODO: need to execute its actual functionality
+            'process_cmd': f'cp ./mem/{node.id}_inMem.json ./mem/{node.id}_outMem.json'
         }
     for edge in app_graph.edges:
         delay = -1
@@ -119,11 +120,12 @@ def generate_simulation_files(db: ds.DataBase, sim_dir: str):
     
     # write transport table of each edge to each edge folder
     for edge in db.app_graph.edges:
+        j={"inst_list":[]}
         edge_file = os.path.join(sim_dir, "transporter_"+ edge.id+ '_TransInst.json')
         tt = db.synthesized_information.transport_tables[edge.id].entries
-        att = [{'cycle': x.time, 'addr_rd': x.source_address, 'addr_wr': x.target_address} for x in tt]
+        j["inst_list"] = [{'cycle': x.time, 'addr_rd': x.source_address, 'addr_wr': x.target_address} for x in tt]
         with open(edge_file, 'w+') as f:
-            json.dump(att, f)
+            json.dump(j, f)
 
 
 def run_simulation(sim_dir: str):
@@ -146,9 +148,7 @@ def run(db: ds.DataBase, output_dir: str) -> bool:
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     sim_dir = os.path.join(output_dir, 'ideal_sim')
-    mem_dir = os.path.join(sim_dir, 'mem')
     os.makedirs(sim_dir, exist_ok=True)
-    os.makedirs(mem_dir, exist_ok=True)
     generate_simulation_files(db, sim_dir)
     run_simulation(sim_dir)
     result = verify_simulation(sim_dir)

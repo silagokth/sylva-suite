@@ -64,30 +64,34 @@ class input_addr_translator(addr_translator_base):
     self.getInputBuffer()
 
     # Sort the buffer with latest vales (higher cycle) on top
-    self.m_input_buffer.mem.sort(key=lambda x:x.cycle, reverse=True)
+    # self.m_input_buffer.mem.sort(key=lambda x:x.cycle, reverse=True)
+    self.m_input_buffer.mem.sort(key=lambda x:x.cycle, reverse=False)
 
     # make sure address patern is in increasing order of cycles.
     self.m_addrPtrn.addr_ptrn.sort(key=lambda x:x.cycle, reverse=False)
     self.infoDEBUG(f"Sorted Addr Ptrn:\n{self.m_addrPtrn.addr_ptrn}")
 
+    refTime = globalTime 
     for i in self.m_addrPtrn.addr_ptrn:
-      globalTime += i.cycle
-      bfr = next((x for x in self.m_input_buffer.mem if ((x.address == i.address) and (x.cycle <= globalTime))), None)
-      if bool(bfr):
-        self.infoHIGH(f"[@{globalTime}] addr 0x{i.address:x} found value 0x{bfr.value:x}.")
-      else:
-        self.infoHIGH(f"[@{globalTime}] addr 0x{i.address:x} not found using value 0.")
+      # globalTime += i.cycle
+      refTime = globalTime + i.cycle
 
-      tr = next((x for x in self.m_transTable.list if (x.addr_in == i.address)), None)
-
+      tr = next((x for x in self.m_transTable.list if (x.addr_in == i.address)), None) 
       if not bool(tr):
-        self.infoLOW(f"[@{globalTime}] Failed to translate address for inAddr: 0x{i.address:x}")
+        self.infoLOW(f"[@{refTime}] Failed to translate address for inAddr: 0x{i.address:x}")
+
+      bfr = next((x for x in self.m_input_buffer.mem if ((x.address == tr.addr_out) and (x.cycle <= refTime))), None)
+      if bool(bfr):
+        self.m_input_buffer.mem.remove(bfr)
+        self.infoHIGH(f"[@{refTime}] addr 0x{i.address:x} found value 0x{bfr.value:x}.")
+      else:
+        self.infoHIGH(f"[@{refTime}] addr 0x{i.address:x} not found using value 0.")
 
       # Add a new memory line to memoryImage
       imgLine = self.m_input_image.line.add()
-      imgLine.address = tr.addr_out if bool(tr) else i.address
+      imgLine.address = i.address
       imgLine.value = bfr.value if bool(bfr) else 0
       self.infoDEBUG(f" Added {imgLine.address:x}: {imgLine.value:x}")
 
     self.writeInputMemImg()
-    self.infoLOW(f"[@{globalTime}] Done.")
+    self.infoLOW(f"[@{refTime}] Done.")

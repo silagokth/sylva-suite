@@ -44,7 +44,7 @@ class node(base_module):
         self.m_in_addrT = input_addr_translator(self.m_my_name, path, useJson, v)
       if len(self.m_config.out_names) != 0:
         self.m_out_addrT = output_addr_translator(self.m_my_name, path, useJson, v)
-      self.m_process = process_module(self.m_my_name, self.m_config.process_cmd, v)
+      self.m_process = process_module(self.m_my_name, self.m_path, self.m_config.process_cmd, v)
     else:
       if (len(self.m_config.in_names) != 1):
         self.infoNONE(f"Transporter has more than one inputs: {self.m_config.in_names}")
@@ -139,32 +139,13 @@ class node(base_module):
         addrOffset = 0
         for name in self.m_config.in_names:
           myInBuffer.MergeFrom(self.read_buffer(name, addrOffset))
-          addrOffset = myInBuffer.mem[-1].address
+          #addrOffset = myInBuffer.mem[-1].address # shouldn't we have +1 here?
+          addrOffset = myInBuffer.mem[-1].address + 1
           self.infoHIGH(f"#BufLines: {len(myInBuffer.mem)}, newOffset: 0x{addrOffset:x}.")
 
         self.write_buffer(myInBuffer, outFile)
     else:
         self.infoDEBUG(f"#inNodeNames: {len(self.m_config.in_names)}, isTransporter: {self.m_config.is_transporter}.")
-
-  def doYourThing(self, globalTime):
-    self.infoLOW(f"[@{globalTime}] Starting.")
-    if not self.m_config.is_transporter:
-      self.consolidate_input_buf()
-      if self.m_in_addrT != None:
-        self.infoMEDIUM(f"[@{globalTime}] Trigger input address translator.")
-        self.m_in_addrT.doYourThing(globalTime)
-
-      self.infoMEDIUM(f"[@{globalTime}] Trigger process module.")
-      self.m_process.doYourThing(globalTime)
-
-      if self.m_out_addrT != None:
-        self.infoMEDIUM(f"[@{globalTime}] Trigger input address translator.")
-        self.m_out_addrT.doYourThing(globalTime)
-      self.distribute_output_buf()
-    else:
-      self.infoMEDIUM(f"[@{globalTime}] Trigger Transporter.")
-      self.m_transporter.doYourThing(globalTime)
-    self.infoMEDIUM(f"[@{globalTime}] Done.")
 
   def distribute_output_buf(self):
     if (not self.m_config.is_transporter) and (len(self.m_config.out_names) != 0):
@@ -205,4 +186,25 @@ class node(base_module):
           else:
             # @TODO:
             self.infoDEBUG(f"dist_out_buf: tokenSize[{name}] not find.")
+
+  def doYourThing(self, globalTime):
+    self.infoLOW(f"[@{globalTime}] Starting.")
+    if not self.m_config.is_transporter: 
+      self.consolidate_input_buf()
+      if self.m_in_addrT != None:
+        self.infoMEDIUM(f"[@{globalTime}] Trigger input address translator.")
+        self.m_in_addrT.doYourThing(globalTime)
+
+      self.infoMEDIUM(f"[@{globalTime}] Trigger process module.")
+      self.m_process.doYourThing(globalTime)
+
+      if self.m_out_addrT != None:
+        self.infoMEDIUM(f"[@{globalTime}] Trigger input address translator.")
+        self.m_out_addrT.doYourThing(globalTime)
+      self.distribute_output_buf()
+    else:
+      self.infoMEDIUM(f"[@{globalTime}] Trigger Transporter.")
+      self.m_transporter.doYourThing(globalTime)
+    self.infoMEDIUM(f"Done.")
+
 

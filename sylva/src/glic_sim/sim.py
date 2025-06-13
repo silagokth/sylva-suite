@@ -72,6 +72,7 @@ class top(base_module):
     self.cstm_env = os.environ.copy()
     self.execute_command("mkdir -p mem", _shell=False)
     self.infoMEDIUM(f"Initiated {len(self.m_node_insts)} nodes.")
+    self.infoDEBUG(f"command path = {self.cmd_path}")
 
   def doYourThing(self, globalTime):
     doneList = []
@@ -79,30 +80,30 @@ class top(base_module):
     self.infoMEDIUM(f"todoList Formulated.")
     self.infoHIGH(f"{todoList}")
 
-    found   = False
     iterNr  = 0
     maxIter = len(todoList)
-    while len(todoList):
+    while todoList:
       found = False
       assert(++iterNr < maxIter)
       self.infoDEBUG(f"todo: {todoList}\ndone:{doneList}")
       for nodeName in todoList:
-        self.infoDEBUG(f"Trying: {nodeName}. isTr: {self.nMap.config_map[nodeName].is_transporter}")
-        if not self.nMap.config_map[nodeName].is_transporter:
-          self.infoHIGH(f"Trying: {nodeName}. inP: {self.nMap.config_map[nodeName].in_names}")
+          self.infoDEBUG(f"Trying: {nodeName}. inP:  {self.nMap.config_map[nodeName].in_names}, isTr: {self.nMap.config_map[nodeName].is_transporter}")
+        #if not self.nMap.config_map[nodeName].is_transporter:
+        #  self.infoHIGH(f"Trying: {nodeName}. inP: {self.nMap.config_map[nodeName].in_names}")
           if ((not len(self.nMap.config_map[nodeName].in_names))
               or (all(nNm in doneList for nNm in self.nMap.config_map[nodeName].in_names))):
             found = True
+            # TODO: execute all fire cycles at once
             ttInst = next((inst for inst in self.nTT.tt if inst.node_name == nodeName), None)
             assert(ttInst != None)
+            globalTime = ttInst.cycle
             self.infoMEDIUM(f"ttInst: {ttInst}.")
             self.infoLOW(f"@[{globalTime}]Triggering: {nodeName}.")
-            self.m_node_insts[nodeName].doYourThing(ttInst.cycle)
-            globalTime += ttInst.cycle
+            self.m_node_insts[nodeName].doYourThing(globalTime)
             doneList.append(nodeName)
             todoList.remove(nodeName)
-            self.infoLOW(f"@[{globalTime}]Done: {nodeName}.")
-            self.infoMEDIUM(f"Outputs: {self.nMap.config_map[nodeName].out_names}.")
+            self.infoLOW(f"Finishing: {nodeName}.")
+            ''' Not separating transporters from normal nodes
             for outs in self.nMap.config_map[nodeName].out_names:
               assert(self.nMap.config_map[outs].is_transporter)
               ttInst = next((inst for inst in self.nTT.tt if inst.node_name == outs), None)
@@ -114,6 +115,7 @@ class top(base_module):
               doneList.append(outs)
               todoList.remove(outs)
               self.infoLOW(f"@[{globalTime}]Done: {outs}.")
+            '''
       assert(found == True)
 
 if __name__ == "__main__":

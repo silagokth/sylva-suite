@@ -61,7 +61,8 @@ class transporter_module(base_module):
     self.getInputBuffer()
 
     # Sort the buffer with latest vales (higher cycle) on top
-    self.m_in_buf.mem.sort(key=lambda x: x.cycle, reverse=True)
+    #self.m_in_buf.mem.sort(key=lambda x: x.cycle, reverse=True)
+    self.m_in_buf.mem.sort(key=lambda x: x.cycle, reverse=False) # ordered
 
     # We want to make sure the instruction is ordered by cycle time.
     self.m_inst.inst_list.sort(key=lambda x: x.cycle, reverse=False)
@@ -69,21 +70,25 @@ class transporter_module(base_module):
     self.infoDEBUG(f"Sorted Instruction list:\n{self.m_inst.inst_list}")
     self.m_out_buf = memBfr.buffer()
 
+    refTime = globalTime
     for i in self.m_inst.inst_list:
-      globalTime += i.cycle
-      bfr = next((x for x in self.m_in_buf.mem if ((x.address == i.addr_rd) and (x.cycle <= globalTime))), None)
+      refTime = globalTime + i.cycle 
+      #bfr = next((x for x in self.m_in_buf.mem if ((x.address == i.addr_rd) and (x.cycle <= refTime))), None)
+      #x.cycle + 1 because of the latency to write the buffer 
+      bfr = next((x for x in self.m_in_buf.mem if ((x.address == i.addr_rd) and ((x.cycle + 1) <= refTime))), None)
 
       if bool(bfr):
-        self.infoHIGH(f"For inAddr 0x{i.addr_rd:x} found value {bfr.value}.")
+        self.m_in_buf.mem.remove(bfr)
+        self.infoHIGH(f"[@{refTime}] For inAddr 0x{i.addr_rd:x} found value {bfr.value}.")
       else:
-        self.infoHIGH(f"For inAddr 0x{i.addr_rd:x} could NOT find a value, using 0.")
+        self.infoHIGH(f"[@{refTime}] For inAddr 0x{i.addr_rd:x} could NOT find a value, using 0.")
       line = self.m_out_buf.mem.add()
-      line.cycle = globalTime + self.m_delay
+      line.cycle = refTime + self.m_delay + 1 # +1 latency to write the buffer
       line.address = i.addr_wr
       line.value = bfr.value if bool(bfr) else 0
 
     self.infoDEBUG(f"outbuffer = {self.m_out_buf}")
-    self.infoMEDIUM(f"[@{globalTime}] Writing output buffer {self.m_out_name}")
+    self.infoMEDIUM(f"[@{refTime}] Writing output buffer {self.m_out_name}")
     if self.m_use_json:
       j = MessageToJson(self.m_out_buf
                        # , including_default_value_fields=False

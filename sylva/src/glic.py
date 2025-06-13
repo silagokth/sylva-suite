@@ -14,7 +14,7 @@ def pair_int_int_to_dict(pair_list: list) -> dict:
     for pair in pair_list:
         d[pair.key] = pair.value
     return d
-
+'''
 def create_app_graph() -> ds.AppGraph:
     g = ds.AppGraph()
     node = ds.AppNode(id="conv_3x3_1", func="conv_3x3",
@@ -31,7 +31,7 @@ def create_app_graph() -> ds.AppGraph:
                       target_port="conv_3x3_2_input", token_size=5, delay=4)
     g.edges.append(edge)
     return g
-
+'''
 
 def find_min_delay(src_addr_pattern: dict, dest_addr_pattern: dict, channel_width: int, max_delay: int) -> int:
     # find the common address of both src_addr_pattern and dest_addr_pattern and store in a set
@@ -43,35 +43,34 @@ def find_min_delay(src_addr_pattern: dict, dest_addr_pattern: dict, channel_widt
     # Use OR-tools to find the minimum delay
     model = cp_model.CpModel()
     # create variables
-    DELAY = model.NewIntVar(2, max_delay, "DELAY")
+    delay = model.NewIntVar(2, max_delay, "delay")
     # create TRANSPORTER VARIABLES for READ for each address
-    TR_READ = {}
+    tr_read = {}
     for addr in common_addr:
-        TR_READ[addr] = model.NewIntVar(0, max_delay, "TR_READ_"+str(addr))
+        tr_read[addr] = model.NewIntVar(0, max_delay, f"tr_read_{addr}")
     # add constraints
     for addr in common_addr:
-        model.Add(TR_READ[addr] > src_addr_pattern[addr])
-        model.Add(dest_addr_pattern[addr] + DELAY > TR_READ[addr])
+        model.Add(tr_read[addr] > src_addr_pattern[addr])
+        model.Add(dest_addr_pattern[addr] + delay > tr_read[addr])
     
     # cummulative constraint
-    INTERVAL = [model.NewIntervalVar(TR_READ[addr], 1, TR_READ[addr]+1, f"interval[{addr}]") for addr in common_addr]
-    model.AddCumulative(INTERVAL, [1 for addr in common_addr], channel_width)
+    interval = [model.NewIntervalVar(tr_read[addr], 1, tr_read[addr] + 1, f"interval[{addr}]") for addr in common_addr]
+    model.AddCumulative(interval, [1 for addr in common_addr], channel_width)
 
     # objective
-    model.Minimize(DELAY)
+    model.Minimize(delay)
 
     # solve
     solver = cp_model.CpSolver()
     status = solver.Solve(model)
     if status == cp_model.OPTIMAL:
-        delay = solver.Value(DELAY)
-        print("DELAY=", delay)
+        print("DELAY=", solver.Value(delay))
         print("SRC=", [src_addr_pattern[addr] for addr in common_addr])
         print("DEST=", [dest_addr_pattern[addr] for addr in common_addr])
-        print("TR_READ=", [solver.Value(TR_READ[addr]) for addr in common_addr])
-        return delay
+        print("TR_READ=", [solver.Value(tr_read[addr]) for addr in common_addr])
+        return solver.Value(delay)
     else:
-        print("No solution found!")
+        logging.error("Cannot find a delay value for the provided address time patterns")
         sys.exit(1)
 
 
@@ -79,10 +78,7 @@ def find_parallelization_degree(addr_pattern: dict) -> int:
     # return the max count of the same value in addr_pattern
     max_count = 0
     for addr in addr_pattern:
-        count = 0
-        for addr2 in addr_pattern:
-            if addr_pattern[addr] == addr_pattern[addr2]:
-                count += 1
+        count = sum([1 for x in addr_pattern if addr_pattern[addr] == addr_pattern[x]])
         if count > max_count:
             max_count = count
     return max_count
@@ -129,11 +125,10 @@ def optimize_channel_width(db: ds.DataBase):
         F[node.id] = [model.NewIntVar(0, db.global_constraint.max_latency, node.id+"_"+str(i))
                       for i in range(node.repetition)]
         END_TIME[node.id] = model.NewIntVar(0, db.global_constraint.max_latency, "END_TIME_"+node.id)
-        model.Add(END_TIME[node.id] == F[node.id]
-                  [node.repetition-1]+node.execution_time)
-    # the minimal of F should be 0
+        model.Add(END_TIME[node.id] == F[node.id][node.repetition-1]+node.execution_time)
+    # the minimal of F should be 0: Do we need this? The variables themselves are declared from 0 ... somewhere
     model.AddMinEquality(0, [F[node.id][0] for node in db.app_graph.nodes]) 
-    # for each edge, create a variable for the fire time of the tranporter
+    # for each edge, create a variable for the fire time of the transporter
     for edge in db.app_graph.edges:
         F["transporter_"+edge.source_port + "_" +
             edge.target_port] = [model.NewIntVar(0, db.global_constraint.max_latency, "transporter_"+edge.source_port + "_" +
@@ -144,67 +139,91 @@ def optimize_channel_width(db: ds.DataBase):
     DISTANCE = {}
     MIN_DELAY = {}
     # for each edge, find the min delay for each channel width
+    # At this stage, we don't have to consider wire delay
     for edge in db.app_graph.edges:
-        output_addr_time_patterns = {}
-        input_addr_time_patterns = {}
-        
         for node in db.synthesized_information.alimp_bindings:
             if node.app_node_id == edge.source_node:
                 output_addr_time_patterns = node.alimp_instance.output_addr_time_patterns
                 break
-        
+        else:
+            logging.error("Cannot find the address time patterns in Alimp")
+            sys.exit(1)
+
         for node in db.synthesized_information.alimp_bindings:
             if node.app_node_id == edge.target_node:
                 input_addr_time_patterns = node.alimp_instance.input_addr_time_patterns
                 break
-
-        print(input_addr_time_patterns)
-        print(output_addr_time_patterns)
-
-        delay = -1
-        for route in db.synthesized_information.routing_paths:
-            if route.app_edge_id == edge.id:
-                delay = route.delay
-                DISTANCE[edge.id] = len(route.path)
-                break
-        if delay < 0:
-            print("Error: delay not found!")
+        else:
+            logging.error("Cannot find the address time patterns in Alimp")
             sys.exit(1)
 
-        max_channel_width = max(find_parallelization_degree(pair_int_int_to_dict(output_addr_time_patterns)), find_parallelization_degree(pair_int_int_to_dict(input_addr_time_patterns)))
-        K_VARS[edge.id] = (model.NewIntVar(0, max_channel_width, "K_VARS_"+edge.id))
+        for route in db.synthesized_information.routing_paths:
+            if route.app_edge_id == edge.id:
+                DISTANCE[edge.id] = len(route.path)
+                break
+        else:
+            logging.error("Cannot find an edge in the routing paths", node.func)
+            sys.exit(1)
+               
+        max_channel_width = max(find_parallelization_degree(pair_int_int_to_dict(output_addr_time_patterns)), 
+                                find_parallelization_degree(pair_int_int_to_dict(input_addr_time_patterns)))
+        K_VARS[edge.id] = model.NewIntVar(1, max_channel_width, "K_VARS_"+edge.id)
         K_VECS[edge.id] = []
         MIN_DELAY[edge.id] = []
-        for k in range(max_channel_width):
+        for k in range (max_channel_width):
             K_VECS[edge.id].append(model.NewBoolVar("K_VECS_"+edge.id+"_"+str(k)))
-            model.Add(K_VARS[edge.id] == k).OnlyEnforceIf(K_VECS[edge.id][k])
-            min_delay_for_edge_at_k = find_min_delay(pair_int_int_to_dict(output_addr_time_patterns), pair_int_int_to_dict(input_addr_time_patterns), k+1, db.global_constraint.max_latency)
-            model.Add(F[edge.source_node][0] + min_delay_for_edge_at_k < F[edge.target_node][0]).OnlyEnforceIf(K_VECS[edge.id][k])
-            MIN_DELAY[edge.id].append(min_delay_for_edge_at_k)
+            model.Add(K_VARS[edge.id] == k + 1).OnlyEnforceIf(K_VECS[edge.id][k])
+            min_delay = find_min_delay(pair_int_int_to_dict(output_addr_time_patterns), 
+                                       pair_int_int_to_dict(input_addr_time_patterns), 
+                                       k + 1, 
+                                       db.global_constraint.max_latency)
+            # TODO: If fire times > 1, what to be adjusted? 
+            model.Add(F[edge.source_node][0] + min_delay < F[edge.target_node][0]).OnlyEnforceIf(K_VECS[edge.id][k])
+            MIN_DELAY[edge.id].append(min_delay)
         model.Add(sum(K_VECS[edge.id]) == 1)
-        
+    
+    # define a sum of w1*k + w2*delay to be an optimized object
+    weighted_terms = []   
+    total_delay = []
+    for edge_id in K_VARS:
+        index = model.NewIntVar(0, len(MIN_DELAY[edge_id]) - 1, f'index_{edge_id}')
+        model.Add(index == K_VARS[edge_id] - 1)
+
+        # a variable to hold the delay value selected
+        delay_var = model.NewIntVar(0, max(MIN_DELAY[edge_id]), f'delay_{edge_id}')
+        model.AddElement(index, MIN_DELAY[edge_id], delay_var)
+        total_delay.append(delay_var)
+
+        # For K*delay: create intVar for the product
+        # weighted = model.NewIntVar(0, 10000, f'weighted_{edge_id}')
+        # model.AddMultiplicationEquality(weighted, [K_VARS[edge_id], delay_var])
+        # weighted_terms.append(weighted)
+        weighted_terms.append(delay_var + 2*K_VARS[edge_id])
+
 
     # objective: minimize the weighted channel width k*delay
-    obj = model.NewIntVar(0, 1000, "obj")
-    model.Add(obj == sum([(K_VARS[edge_id]+1)*DISTANCE[edge_id] for edge_id in DISTANCE]))
+    obj = model.NewIntVar(0, 10000, "obj")
+    model.Add(obj == sum(weighted_terms))
+    #model.Add(obj == sum([K_VARS[edge_id]*DISTANCE[edge_id] for edge_id in DISTANCE]))
+    #model.Add(obj == sum(total_delay))
     model.Minimize(obj)
 
-    # solve
+    # solve the optimization model
     solver = cp_model.CpSolver()
     status = solver.Solve(model)
-    if status == cp_model.OPTIMAL:
-        K = { edge_id: [solver.Value(K_VARS[edge_id])+1, MIN_DELAY[edge_id][solver.Value(K_VARS[edge_id])]] for edge_id in K_VARS}
-        # find the max_latency
-        max_latency = 0
-        for node in db.app_graph.nodes:
-            if max_latency < solver.Value(END_TIME[node.id]):
-                max_latency = solver.Value(END_TIME[node.id])
-        print("max_latency=", max_latency)
-        db.synthesized_information.max_latency = max_latency
-        return K
-    else:
-        print("No solution found!")
-        return None
+    if status != cp_model.OPTIMAL:
+        logging.error("Cannot find a solution for optimizing channel width", node.func)
+        sys.exit(1)
+   
+    K = { edge_id: [solver.Value(K_VARS[edge_id]), MIN_DELAY[edge_id][solver.Value(K_VARS[edge_id])-1]] for edge_id in K_VARS}
+    # find the max_latency
+    max_latency = 0
+    for node in db.app_graph.nodes:
+        if max_latency < solver.Value(END_TIME[node.id]):
+            max_latency = solver.Value(END_TIME[node.id])
+    print("max_latency=", max_latency)
+    db.synthesized_information.max_latency = max_latency
+    return K
 
 def equitable_address_assignment(T0, T1, buffer_capacity) -> list:
 
@@ -261,7 +280,7 @@ def equitable_address_assignment(T0, T1, buffer_capacity) -> list:
     # check if all chunks have been assigned an address
     for i in range(len(assigned_address)):
         if assigned_address[i] < 0:
-            logging.log("Error: equitable address assignment failed!")
+            logging.error("Error: equitable address assignment failed!")
             sys.exit(1)
 
     print(assigned_address)
@@ -299,10 +318,8 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
     IB = {}
     OB = {}
     for edge in db.app_graph.edges:
-        IB[edge.target_port] = model.NewIntVar(
-            0, MAX_BUFFER_SIZE, "IB_"+edge.target_port)
-        OB[edge.source_port] = model.NewIntVar(
-            0, MAX_BUFFER_SIZE, "OB_"+edge.source_port)
+        IB[edge.target_port] = model.NewIntVar(0, MAX_BUFFER_SIZE, "IB_"+edge.target_port)
+        OB[edge.source_port] = model.NewIntVar(0, MAX_BUFFER_SIZE, "OB_"+edge.source_port)
 
     TR = {}
     T0_ALL = {}
@@ -312,28 +329,30 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
     K = {}
     # add constraints for token chunk of each edge
     for edge in db.app_graph.edges:
-        output_addr_time_patterns = {}
-        input_addr_time_patterns = {}
-        
         for node in db.synthesized_information.alimp_bindings:
             if node.app_node_id == edge.source_node:
                 output_addr_time_patterns = node.alimp_instance.output_addr_time_patterns
                 break
-        
+        else:
+            logging.error("Cannot find the address time patterns in Alimp")
+            sys.exit(1)
+
         for node in db.synthesized_information.alimp_bindings:
             if node.app_node_id == edge.target_node:
                 input_addr_time_patterns = node.alimp_instance.input_addr_time_patterns
                 break
-
-        delay = -1
-        for route in db.synthesized_information.routing_paths:
-            if route.app_edge_id == edge.id:
-                delay = route.delay
-                break
-        if delay < 0:
-            print("Error: delay not found!")
+        else:
+            logging.error("Cannot find the address time patterns in Alimp")
             sys.exit(1)
 
+        for route in db.synthesized_information.routing_paths:
+            if route.app_edge_id == edge.id:
+                wire_delay = route.delay
+                break
+        else:
+            logging.error("Cannot find an edge in the routing paths", node.func)
+            sys.exit(1)
+               
         TR[edge.id] = {}
         T0_ALL[edge.id] = {}
         T1_ALL[edge.id] = {}
@@ -354,7 +373,9 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
                for i in range(edge.token_size)]
         # create variable for channel width
         K[edge.id] = channel_bandwidth_and_delay[edge.id][0]
-        model.Add(F[edge.target_node][0] > F[edge.source_node][0]+channel_bandwidth_and_delay[edge.id][1])
+        total_delay = channel_bandwidth_and_delay[edge.id][1] + wire_delay
+        #model.Add(F[edge.target_node][0] > F[edge.source_node][0]+channel_bandwidth_and_delay[edge.id][1])
+        model.Add(F[edge.target_node][0] == F[edge.source_node][0]+total_delay)
         # for each chunk, compute its address in source and target node
         idx = 0
         for addr in range(edge.token_size):
@@ -385,40 +406,31 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
             print("source_addr_time=", source_addr_time, "target_addr_time=", target_addr_time, "edge=", edge.id)
             print("addr=", addr, "source_addr=", source_addr, "target_addr=", target_addr)
             if source_addr_time < 0 or target_addr_time < 0:
-                print("Error: address translation failed!")
+                logging.error("Fail to translate addresses")
                 sys.exit(1)
 
             # create variable for transporter read and write
-            TR[edge.id][addr] = model.NewIntVar(
-                0, MAX_LATENCY, "TR_"+edge.id+"_"+str(addr))
+            TR[edge.id][addr] = model.NewIntVar(0, MAX_LATENCY, "TR_"+edge.id+"_"+str(addr))
 
-            # add constraint
+            # add constraints
             model.Add(T0[idx] == F[edge.source_node][0] + source_addr_time)
             model.Add(T1[idx] == TR[edge.id][addr])
-            model.Add(T2[idx] == T1[idx] + delay)
+            model.Add(T2[idx] == T1[idx] + wire_delay)
             model.Add(T3[idx] == F[edge.target_node][0] + target_addr_time)
             model.Add(D01[idx] == T1[idx] - T0[idx])
             model.Add(D23[idx] == T3[idx] - T2[idx])
-
             idx += 1
 
-        INTERVAL0 = [model.NewIntervalVar(
-            T0[i], D01[i], T1[i], f"interval0[{i}]") for i in range(edge.token_size)]
-        INTERVAL1 = [model.NewIntervalVar(
-            T2[i], D23[i], T3[i], f"interval1[{i}]") for i in range(edge.token_size)]
-        model.AddCumulative(INTERVAL0, [1 for i in range(
-            edge.token_size)], OB[edge.source_port])
-        model.AddCumulative(INTERVAL1, [1 for i in range(
-            edge.token_size)], IB[edge.target_port])
+        INTERVAL0 = [model.NewIntervalVar(T0[i], D01[i], T1[i], f"interval0[{i}]") for i in range(edge.token_size)]
+        INTERVAL1 = [model.NewIntervalVar(T2[i], D23[i], T3[i], f"interval1[{i}]") for i in range(edge.token_size)]
+        model.AddCumulative(INTERVAL0, [1 for i in range(edge.token_size)], OB[edge.source_port])
+        model.AddCumulative(INTERVAL1, [1 for i in range(edge.token_size)], IB[edge.target_port])
 
         # add constraint for channel width
         # the count of any value in T1 should be less than K[edge.source_port+"_"+edge.target_port]
         T1_1 = [model.NewIntVar(0, MAX_LATENCY, "T1_1_"+str(i)) for i in range(edge.token_size)]
-        INTERVAL2 = [model.NewIntervalVar(
-            T1[i], 1, T1_1[i], f"interval2[{i}]") for i in range(edge.token_size)]
-        
-        model.AddCumulative(INTERVAL2, [1 for i in range(
-            edge.token_size)], K[edge.id])
+        INTERVAL2 = [model.NewIntervalVar(T1[i], 1, T1_1[i], f"interval2[{i}]") for i in range(edge.token_size)]       
+        model.AddCumulative(INTERVAL2, [1 for i in range(edge.token_size)], K[edge.id])
 
     # add objective
     OBJ = model.NewIntVar(0, MAX_OBJ, "OBJ")
@@ -427,102 +439,105 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
 
     solver = cp_model.CpSolver()
     status = solver.Solve(model)
-    if status == cp_model.OPTIMAL:
-        print("OBJ=", solver.Value(OBJ))
-        print("IB AND OB=")
-        for var in IB:
-            print(var, solver.Value(IB[var]))
-        for var in OB:
-            print(var, solver.Value(OB[var]))
-        # print all var in T0_ALL, T1_ALL, T2_ALL, T3_ALL
-        for edge in db.app_graph.edges:
-            print(edge.id)
-            for i in range(edge.token_size):
-                print("T0=", solver.Value(T0_ALL[edge.id][i]), "T1=", solver.Value(T1_ALL[edge.id][i]), "T2=", solver.Value(T2_ALL[edge.id][i]), "T3=", solver.Value(T3_ALL[edge.id][i]))
-
-        for node in db.app_graph.nodes:
-            db.synthesized_information.node_fire_times[node.id] = solver.Value(F[node.id][0])
-        for edge in db.app_graph.edges:
-            db.synthesized_information.node_fire_times["transporter_"+edge.id] = solver.Value(F["transporter_"+edge.id][0])
-            db.synthesized_information.channel_width["transporter_"+edge.id] = solver.Value(K[edge.id])
+    if status != cp_model.OPTIMAL:
+        logging.error("Cannot find a solution for scheduling and optimizing buffer size")
+        sys.exit(1)
         
-        for node in db.app_graph.nodes:
-            db.synthesized_information.input_buffer_size[node.id] = 0
-            db.synthesized_information.output_buffer_size[node.id] = 0
-            for input_port in node.input_ports:
-                db.synthesized_information.input_buffer_size[node.id] += solver.Value(IB[input_port.id])
-            for output_port in node.output_ports:
-                db.synthesized_information.output_buffer_size[node.id] += solver.Value(OB[output_port.id])
+    print("OBJ=", solver.Value(OBJ))
+    print("IB AND OB=")
+    for var in IB:
+        print(var, solver.Value(IB[var]))
+    for var in OB:
+        print(var, solver.Value(OB[var]))
+    
+    # print all var in T0_ALL, T1_ALL, T2_ALL, T3_ALL
+    for edge in db.app_graph.edges:
+        print(edge.id)
+        for i in range(edge.token_size):
+            print("T0=", solver.Value(T0_ALL[edge.id][i]), "T1=", solver.Value(T1_ALL[edge.id][i]), "T2=", solver.Value(T2_ALL[edge.id][i]), "T3=", solver.Value(T3_ALL[edge.id][i]))
 
-        for node in db.app_graph.nodes:
-            for output_port in node.output_ports:
-                for edge in db.app_graph.edges:
-                    # find the edge that use this port as source port
-                    if edge.source_node == node.id and edge.source_port == output_port.id:
-                        T0 = [solver.Value(x) for _,x in enumerate(T0_ALL[edge.id])]
-                        T1 = [solver.Value(x) for _,x in enumerate(T1_ALL[edge.id])]
-                        buffer_capacity = solver.Value(OB[output_port.id])
+    for node in db.app_graph.nodes:
+        db.synthesized_information.node_fire_times[node.id] = solver.Value(F[node.id][0])
+    for edge in db.app_graph.edges:
+        db.synthesized_information.node_fire_times["transporter_"+edge.id] = solver.Value(F["transporter_"+edge.id][0])
+        db.synthesized_information.channel_width["transporter_"+edge.id] = solver.Value(K[edge.id])
+    
+    for node in db.app_graph.nodes:
+        db.synthesized_information.input_buffer_size[node.id] = 0
+        db.synthesized_information.output_buffer_size[node.id] = 0
+        for input_port in node.input_ports:
+            db.synthesized_information.input_buffer_size[node.id] += solver.Value(IB[input_port.id])
+        for output_port in node.output_ports:
+            db.synthesized_information.output_buffer_size[node.id] += solver.Value(OB[output_port.id])
 
-                        assigned_address = equitable_address_assignment(T0, T1, buffer_capacity)
+    for node in db.app_graph.nodes:
+        for output_port in node.output_ports:
+            for edge in db.app_graph.edges:
+                # find the edge that use this port as source port
+                if edge.source_node == node.id and edge.source_port == output_port.id:
+                    T0 = [solver.Value(x) for _,x in enumerate(T0_ALL[edge.id])]
+                    T1 = [solver.Value(x) for _,x in enumerate(T1_ALL[edge.id])]
+                    buffer_capacity = solver.Value(OB[output_port.id])
 
-                        chunk_address_assignment = ds.ChunkAddressAssignment()
-                        chunk_address_assignment.app_node_id = node.id
-                        chunk_address_assignment.port_id = output_port.id
+                    assigned_address = equitable_address_assignment(T0, T1, buffer_capacity)
 
-                        for i in range(len(T0)):
-                            chunk_address_assignment.address_assignment[translate_source_addr(db.app_graph, edge.source_node, edge.source_port, i)] = assigned_address[i]
-                        
-                        db.synthesized_information.chunk_address_assignments.append(chunk_address_assignment)
-            for input_port in node.input_ports:
-                for edge in db.app_graph.edges:
-                    # find the edge that use this port as target port
-                    if edge.target_node == node.id and edge.target_port == input_port.id:
-                        T0 = [solver.Value(x) for _,x in enumerate(T2_ALL[edge.id])]
-                        T1 = [solver.Value(x) for _,x in enumerate(T3_ALL[edge.id])]
-                        buffer_capacity = solver.Value(IB[input_port.id])
+                    chunk_address_assignment = ds.ChunkAddressAssignment()
+                    chunk_address_assignment.app_node_id = node.id
+                    chunk_address_assignment.port_id = output_port.id
 
-                        assigned_address = equitable_address_assignment(T0, T1, buffer_capacity)
+                    for i in range(len(T0)):
+                        chunk_address_assignment.address_assignment[translate_source_addr(db.app_graph, edge.source_node, edge.source_port, i)] = assigned_address[i]
+                    
+                    db.synthesized_information.chunk_address_assignments.append(chunk_address_assignment)
+        for input_port in node.input_ports:
+            for edge in db.app_graph.edges:
+                # find the edge that use this port as target port
+                if edge.target_node == node.id and edge.target_port == input_port.id:
+                    T0 = [solver.Value(x) for _,x in enumerate(T2_ALL[edge.id])]
+                    T1 = [solver.Value(x) for _,x in enumerate(T3_ALL[edge.id])]
+                    buffer_capacity = solver.Value(IB[input_port.id])
 
-                        chunk_address_assignment = ds.ChunkAddressAssignment()
-                        chunk_address_assignment.app_node_id = node.id
-                        chunk_address_assignment.port_id = input_port.id
+                    assigned_address = equitable_address_assignment(T0, T1, buffer_capacity)
 
-                        for i in range(len(T0)):
-                            chunk_address_assignment.address_assignment[translate_target_addr(db.app_graph, edge.target_node, edge.target_port, i)] = assigned_address[i]
-                        
-                        db.synthesized_information.chunk_address_assignments.append(chunk_address_assignment)
-        for edge in db.app_graph.edges:
-            #db.synthesized_information.transport_tables[edge.id]=ds.TransportTable(app_edge_id=edge.id, entries=[])
-            for x in T1_ALL[edge.id]:
-                time = solver.Value(T1_ALL[edge.id][x]) - db.synthesized_information.node_fire_times["transporter_"+edge.id]
-                print("time=", time, "abs_time=", solver.Value(x), "fire_time=", db.synthesized_information.node_fire_times["transporter_"+edge.id])
-                virtual_source_address = translate_source_addr(db.app_graph, edge.source_node, edge.source_port, x)
-                virtual_target_address = translate_target_addr(db.app_graph, edge.target_node, edge.target_port, x)
-                for chunk_address_assignment in db.synthesized_information.chunk_address_assignments:
-                    if chunk_address_assignment.app_node_id == edge.source_node and chunk_address_assignment.port_id == edge.source_port:
-                        if virtual_source_address in chunk_address_assignment.address_assignment:
-                            source_address = chunk_address_assignment.address_assignment[virtual_source_address]
-                            break
-                        else:
-                            logging.error("Error: source address not found in node "+edge.source_node)
-                            sys.exit(1)
-                for chunk_address_assignment in db.synthesized_information.chunk_address_assignments:
-                    if chunk_address_assignment.app_node_id == edge.target_node and chunk_address_assignment.port_id == edge.target_port:
-                        if virtual_target_address in chunk_address_assignment.address_assignment:
-                            target_address = chunk_address_assignment.address_assignment[virtual_target_address]
-                            break
-                        else:
-                            logging.error("Error: target address not found in node "+edge.target_node)
-                            sys.exit(1)
-                db.synthesized_information.transport_tables[edge.id].entries.append(ds.TransportTableEntry(source_address=source_address, target_address=target_address, time=time))
-    else:
-        print("No solution found!")
+                    chunk_address_assignment = ds.ChunkAddressAssignment()
+                    chunk_address_assignment.app_node_id = node.id
+                    chunk_address_assignment.port_id = input_port.id
+
+                    for i in range(len(T0)):
+                        chunk_address_assignment.address_assignment[translate_target_addr(db.app_graph, edge.target_node, edge.target_port, i)] = assigned_address[i]
+                    
+                    db.synthesized_information.chunk_address_assignments.append(chunk_address_assignment)
+    for edge in db.app_graph.edges:
+        #db.synthesized_information.transport_tables[edge.id]=ds.TransportTable(app_edge_id=edge.id, entries=[])
+        for x in T1_ALL[edge.id]:
+            time = solver.Value(T1_ALL[edge.id][x]) - db.synthesized_information.node_fire_times["transporter_"+edge.id]
+            print("time=", time, "abs_time=", solver.Value(x), "fire_time=", db.synthesized_information.node_fire_times["transporter_"+edge.id])
+            virtual_source_address = translate_source_addr(db.app_graph, edge.source_node, edge.source_port, x)
+            virtual_target_address = translate_target_addr(db.app_graph, edge.target_node, edge.target_port, x)
+            for chunk_address_assignment in db.synthesized_information.chunk_address_assignments:
+                if chunk_address_assignment.app_node_id == edge.source_node and chunk_address_assignment.port_id == edge.source_port:
+                    if virtual_source_address in chunk_address_assignment.address_assignment:
+                        source_address = chunk_address_assignment.address_assignment[virtual_source_address]
+                        break
+                    else:
+                        logging.error("Error: source address not found in node "+edge.source_node)
+                        sys.exit(1)
+            for chunk_address_assignment in db.synthesized_information.chunk_address_assignments:
+                if chunk_address_assignment.app_node_id == edge.target_node and chunk_address_assignment.port_id == edge.target_port:
+                    if virtual_target_address in chunk_address_assignment.address_assignment:
+                        target_address = chunk_address_assignment.address_assignment[virtual_target_address]
+                        break
+                    else:
+                        logging.error("Error: target address not found in node "+edge.target_node)
+                        sys.exit(1)
+            db.synthesized_information.transport_tables[edge.id].entries.append(ds.TransportTableEntry(source_address=source_address, target_address=target_address, time=time))
 
 
+'''
 def create_data_vector(length) -> tuple:
     data_production_vector = [0 for i in range(length)]
     data_consumption_vector = [0 for i in range(length)]
-
+'''
 def find_repetition(db: ds.DataBase):
     for node in db.app_graph.nodes:
         node.repetition = 1

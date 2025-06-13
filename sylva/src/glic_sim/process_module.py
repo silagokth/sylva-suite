@@ -7,9 +7,10 @@ from lib.glic_sim.common import *
 
 class process_module(base_module):
 
-  def __init__(self, name, cmd, v):
+  def __init__(self, name, path, cmd, v):
     super(process_module, self).__init__(name, moduleType.process, v)
     self.m_command = cmd
+    self.cmd_path = path
     self.infoDEBUG("init done.")
 
   def doYourThing(self, globalTime):

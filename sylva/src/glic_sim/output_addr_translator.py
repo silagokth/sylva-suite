@@ -67,25 +67,27 @@ class output_addr_translator(addr_translator_base):
     self.m_addrPtrn.addr_ptrn.sort(key=lambda x:x.cycle, reverse=False)
     self.infoDEBUG(f"Sorted Addr Ptrn:\n{self.m_addrPtrn.addr_ptrn}")
 
+    refTime = globalTime
     for i in self.m_addrPtrn.addr_ptrn:
-      globalTime += i.cycle
+        #globalTime += i.cycle
+      refTime = globalTime + i.cycle
       ImgLine = next((x for x in self.m_output_image.line if (x.address == i.address)), None)
       if bool(ImgLine):
-        self.infoHIGH(f"[@{globalTime}] addr 0x{i.address:x} found value 0x{ImgLine.value:x}.")
+        self.infoHIGH(f"[@{refTime}] addr 0x{i.address:x} found value 0x{ImgLine.value:x}.")
       else:
-        self.infoHIGH(f"[@{globalTime}] addr 0x{i.address:x} not found using value 0.")
+        self.infoHIGH(f"[@{refTime}] addr 0x{i.address:x} not found using value 0.")
 
       tr = next((x for x in self.m_transTable.list if (x.addr_in == i.address)), None)
 
       if not bool(tr):
-        self.infoLOW(f"[@{globalTime}] Failed to translate address for outAddr: 0x{i.address:x}")
+        self.infoLOW(f"[@{refTime}] Failed to translate address for outAddr: 0x{i.address:x}")
 
       # Add a new Buffer line to output buffer
       bfrLine = self.m_output_buffer.mem.add()
-      bfrLine.cycle = i.cycle
+      bfrLine.cycle = refTime #i.cycle
       bfrLine.value = ImgLine.value if bool(ImgLine) else 0
       bfrLine.address = tr.addr_out if bool(tr) else i.address
       self.infoDEBUG(f" Added @{bfrLine.cycle} cycle 0x{bfrLine.address:x}: 0x{bfrLine.value:x}")
 
     self.writeOutputBfr()
-    self.infoLOW(f"[@{globalTime}] Done.")
+    self.infoLOW(f"[@{refTime}] Done.")

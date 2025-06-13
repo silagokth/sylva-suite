@@ -6,6 +6,10 @@ from google.protobuf.json_format import Parse
 import random
 import json
 
+#TODO: ds.pair_int_int(key=0, value=0) is to be undefined in protobuf
+# need to find another way to represent the value
+
+
 def create_test_db(testcase_name:str):
     this_module = sys.modules[__name__]
     func = getattr(this_module, testcase_name)
@@ -107,11 +111,11 @@ def minimum()-> ds.DataBase:
 
     A_entry = ds.AlimpEntry()
     A_entry.func = "FA"
-    A_entry.instances.append(ds.AlimpInstance(width=2, height=2, energy=1, latency=16, output_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1), ds.pair_int_int(key=2, value=2), ds.pair_int_int(key=3, value=3), ds.pair_int_int(key=4, value=4), ds.pair_int_int(key=5, value=5), ds.pair_int_int(key=6, value=6), ds.pair_int_int(key=7, value=7), ds.pair_int_int(key=8, value=8), ds.pair_int_int(key=9, value=9), ds.pair_int_int(key=10, value=10), ds.pair_int_int(key=11, value=11), ds.pair_int_int(key=12, value=12), ds.pair_int_int(key=13, value=13), ds.pair_int_int(key=14, value=14), ds.pair_int_int(key=15, value=15)]))
+    A_entry.instances.append(ds.AlimpInstance(width=2, height=2, energy=1, latency=16, output_addr_time_patterns=[ds.pair_int_int(key=0, value=2), ds.pair_int_int(key=1, value=2), ds.pair_int_int(key=2, value=2), ds.pair_int_int(key=3, value=2), ds.pair_int_int(key=4, value=2), ds.pair_int_int(key=5, value=2), ds.pair_int_int(key=6, value=4), ds.pair_int_int(key=7, value=7), ds.pair_int_int(key=8, value=3), ds.pair_int_int(key=9, value=10), ds.pair_int_int(key=10, value=8), ds.pair_int_int(key=11, value=6), ds.pair_int_int(key=12, value=5), ds.pair_int_int(key=13, value=9), ds.pair_int_int(key=14, value=7), ds.pair_int_int(key=15, value=10)]))
     db.alimp_lib.entries.append(A_entry)
     B_entry = ds.AlimpEntry()
     B_entry.func = "FB"
-    B_entry.instances.append(ds.AlimpInstance(width=1, height=1, energy=1, latency=17, input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1), ds.pair_int_int(key=2, value=2), ds.pair_int_int(key=3, value=3), ds.pair_int_int(key=4, value=4), ds.pair_int_int(key=5, value=5), ds.pair_int_int(key=6, value=6), ds.pair_int_int(key=7, value=7), ds.pair_int_int(key=8, value=8), ds.pair_int_int(key=9, value=9), ds.pair_int_int(key=10, value=10), ds.pair_int_int(key=11, value=11), ds.pair_int_int(key=12, value=12), ds.pair_int_int(key=13, value=13), ds.pair_int_int(key=14, value=14), ds.pair_int_int(key=15, value=15)], output_addr_time_patterns=[ds.pair_int_int(key=0, value=1), ds.pair_int_int(key=1, value=2), ds.pair_int_int(key=2, value=3), ds.pair_int_int(key=3, value=4), ds.pair_int_int(key=4, value=5), ds.pair_int_int(key=5, value=6), ds.pair_int_int(key=6, value=7), ds.pair_int_int(key=7, value=8), ds.pair_int_int(key=8, value=9), ds.pair_int_int(key=9, value=10), ds.pair_int_int(key=10, value=11), ds.pair_int_int(key=11, value=12), ds.pair_int_int(key=12, value=13), ds.pair_int_int(key=13, value=14), ds.pair_int_int(key=14, value=15), ds.pair_int_int(key=15, value=16)]))
+    B_entry.instances.append(ds.AlimpInstance(width=1, height=1, energy=1, latency=17, input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1), ds.pair_int_int(key=2, value=4), ds.pair_int_int(key=3, value=2), ds.pair_int_int(key=4, value=5), ds.pair_int_int(key=5, value=0), ds.pair_int_int(key=6, value=3), ds.pair_int_int(key=7, value=1), ds.pair_int_int(key=8, value=5), ds.pair_int_int(key=9, value=2), ds.pair_int_int(key=10, value=1), ds.pair_int_int(key=11, value=2), ds.pair_int_int(key=12, value=3), ds.pair_int_int(key=13, value=3), ds.pair_int_int(key=14, value=1), ds.pair_int_int(key=15, value=5)], output_addr_time_patterns=[ds.pair_int_int(key=0, value=1), ds.pair_int_int(key=1, value=2), ds.pair_int_int(key=2, value=3), ds.pair_int_int(key=3, value=4), ds.pair_int_int(key=4, value=5), ds.pair_int_int(key=5, value=6), ds.pair_int_int(key=6, value=7), ds.pair_int_int(key=7, value=8), ds.pair_int_int(key=8, value=9), ds.pair_int_int(key=9, value=10), ds.pair_int_int(key=10, value=11), ds.pair_int_int(key=11, value=12), ds.pair_int_int(key=12, value=13), ds.pair_int_int(key=13, value=14), ds.pair_int_int(key=14, value=15), ds.pair_int_int(key=15, value=16)]))
     db.alimp_lib.entries.append(B_entry)
     C_entry = ds.AlimpEntry()
     C_entry.func = "FC"
