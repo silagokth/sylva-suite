@@ -75,12 +75,14 @@ class output_addr_translator(addr_translator_base):
       if bool(ImgLine):
         self.infoHIGH(f"[@{refTime}] addr 0x{i.address:x} found value {ImgLine.value}.")
       else:
-        self.infoHIGH(f"[@{refTime}] addr 0x{i.address:x} not found using value 0.")
+        self.infoNone(f"[@{refTime}] addr 0x{i.address:x} not found.")
+        raise SimException(f"Fail to get a value from the buffer") 
 
       tr = next((x for x in self.m_transTable.list if (x.addr_in == i.address)), None)
 
       if not bool(tr):
-        self.infoLOW(f"[@{refTime}] Failed to translate address for outAddr: 0x{i.address:x}")
+        self.infoNone(f"[@{refTime}] Failed to translate address for outAddr: 0x{i.address:x}")
+        raise SimException(f"Fail to translate an address") 
 
       # Add a new Buffer line to output buffer
       bfrLine = self.m_output_buffer.mem.add()

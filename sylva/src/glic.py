@@ -84,9 +84,6 @@ def find_parallelization_degree(addr_pattern: dict) -> int:
     return max_count
 
 
-    
-
-
 def translate_source_addr(app_graph, source_node, source_port, addr):
     source_addr = 0
     for node in app_graph.nodes:
@@ -113,6 +110,7 @@ def translate_target_addr(app_graph, target_node, target_port, addr):
                     target_addr += port.token_size
             break
     return target_addr
+
 
 def optimize_channel_width(db: ds.DataBase):
     model = cp_model.CpModel()
@@ -282,6 +280,7 @@ def equitable_address_assignment(T0, T1, buffer_capacity) -> list:
             logging.error("Error: equitable address assignment failed!")
             sys.exit(1)
     return assigned_address
+
 
 def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> cp_model.CpModel:
 

@@ -78,14 +78,16 @@ class input_addr_translator(addr_translator_base):
 
       tr = next((x for x in self.m_transTable.list if (x.addr_in == i.address)), None) 
       if not bool(tr):
-        self.infoLOW(f"[@{refTime}] Failed to translate address for inAddr: 0x{i.address:x}")
+        self.infoNone(f"[@{refTime}] Failed to translate address for inAddr: 0x{i.address:x}")
+        raise SimException(f"Fail to translate an address") 
 
       bfr = next((x for x in self.m_input_buffer.mem if ((x.address == tr.addr_out) and (x.cycle <= refTime))), None)
       if bool(bfr):
         self.m_input_buffer.mem.remove(bfr)
         self.infoHIGH(f"[@{refTime}] addr 0x{i.address:x} found value {bfr.value}.")
       else:
-        self.infoHIGH(f"[@{refTime}] addr 0x{i.address:x} not found using value 0.")
+        self.infoNone(f"[@{refTime}] addr 0x{i.address:x} not found.")
+        raise SimException(f"Fail to get a value from the buffer") 
 
       # Add a new memory line to memoryImage
       imgLine = self.m_input_image.line.add()

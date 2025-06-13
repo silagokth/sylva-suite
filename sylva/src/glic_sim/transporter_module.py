@@ -82,7 +82,9 @@ class transporter_module(base_module):
         self.m_in_buf.mem.remove(bfr)
         self.infoHIGH(f"[@{refTime}] For inAddr 0x{i.addr_rd:x} found value {bfr.value}.")
       else:
-        self.infoHIGH(f"[@{refTime}] For inAddr 0x{i.addr_rd:x} could NOT find a value, using 0.")
+        self.infoNONE(f"[@{refTime}] For inAddr 0x{i.addr_rd:x} could NOT find a value.")
+        raise SimException(f"Fail to get a value from the buffer")
+
       line = self.m_out_buf.mem.add()
       #line.cycle = refTime + self.m_delay + 1 # +1 latency to write the buffer
       line.cycle = refTime + self.m_delay 

@@ -6,6 +6,13 @@ from inspect import currentframe, getframeinfo
 
 import lib.glic_sim.const as const
 
+class SimException(Exception):
+  def __init__(self, value):
+    self.parameter = value
+
+  def __str__(self):
+    return repr(self.parameter)
+
 # Enumeration for verbosity
 class verbosity(IntEnum):
   NONE   = 0
