@@ -83,7 +83,7 @@ class input_addr_translator(addr_translator_base):
       bfr = next((x for x in self.m_input_buffer.mem if ((x.address == tr.addr_out) and (x.cycle <= refTime))), None)
       if bool(bfr):
         self.m_input_buffer.mem.remove(bfr)
-        self.infoHIGH(f"[@{refTime}] addr 0x{i.address:x} found value 0x{bfr.value:x}.")
+        self.infoHIGH(f"[@{refTime}] addr 0x{i.address:x} found value {bfr.value}.")
       else:
         self.infoHIGH(f"[@{refTime}] addr 0x{i.address:x} not found using value 0.")
 

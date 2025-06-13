@@ -122,9 +122,9 @@ def optimize_channel_width(db: ds.DataBase):
     END_TIME = {}
     for node in db.app_graph.nodes:
         all_nodes.append(node.id)
-        F[node.id] = [model.NewIntVar(0, db.global_constraint.max_latency, node.id+"_"+str(i))
+        F[node.id] = [model.NewIntVar(0, db.global_constraint.max_latency, f"{node.id}_{i}")
                       for i in range(node.repetition)]
-        END_TIME[node.id] = model.NewIntVar(0, db.global_constraint.max_latency, "END_TIME_"+node.id)
+        END_TIME[node.id] = model.NewIntVar(0, db.global_constraint.max_latency, f"{END_TIME}_{node.id}")
         model.Add(END_TIME[node.id] == F[node.id][node.repetition-1]+node.execution_time)
     # the minimal of F should be 0: Do we need this? The variables themselves are declared from 0 ... somewhere
     model.AddMinEquality(0, [F[node.id][0] for node in db.app_graph.nodes]) 
@@ -162,7 +162,7 @@ def optimize_channel_width(db: ds.DataBase):
                 DISTANCE[edge.id] = len(route.path)
                 break
         else:
-            logging.error("Cannot find an edge in the routing paths", node.func)
+            logging.error("Cannot find an edge in the routing paths")
             sys.exit(1)
                
         max_channel_width = max(find_parallelization_degree(pair_int_int_to_dict(output_addr_time_patterns)), 
@@ -212,7 +212,7 @@ def optimize_channel_width(db: ds.DataBase):
     solver = cp_model.CpSolver()
     status = solver.Solve(model)
     if status != cp_model.OPTIMAL:
-        logging.error("Cannot find a solution for optimizing channel width", node.func)
+        logging.error("Cannot find a solution for optimizing channel width")
         sys.exit(1)
    
     K = { edge_id: [solver.Value(K_VARS[edge_id]), MIN_DELAY[edge_id][solver.Value(K_VARS[edge_id])-1]] for edge_id in K_VARS}
@@ -225,15 +225,13 @@ def optimize_channel_width(db: ds.DataBase):
     db.synthesized_information.max_latency = max_latency
     return K
 
+'''
+T0 is the start time of each chunk
+T1 is the end time of each chunk
+buffer_capacity is the capacity of the buffer
+return the assigned address for each chunk
+'''
 def equitable_address_assignment(T0, T1, buffer_capacity) -> list:
-
-    print(T0, T1, buffer_capacity)
-
-    # T0 is the start time of each chunk
-    # T1 is the end time of each chunk
-    # buffer_capacity is the capacity of the buffer
-    # return the assigned address for each chunk
-
     # build a conflict graph for each chunk
     conflict_graph = {}
     for i in range(len(T0)):
@@ -246,7 +244,8 @@ def equitable_address_assignment(T0, T1, buffer_capacity) -> list:
                     conflict_graph[i].append(j)
                 elif T0[j] < T0[i] and T1[i] < T1[j]:
                     conflict_graph[i].append(j)
-
+                elif T0[j] < T0[i] and T0[i] < T1[j]:
+                    conflict_graph[i].append(j)
     # create a list of index of elements in T0 sorted by their value
     sorted_index = sorted(range(len(T0)), key=lambda k: T0[k])
 
@@ -282,12 +281,7 @@ def equitable_address_assignment(T0, T1, buffer_capacity) -> list:
         if assigned_address[i] < 0:
             logging.error("Error: equitable address assignment failed!")
             sys.exit(1)
-
-    print(assigned_address)
     return assigned_address
-
-
-
 
 def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> cp_model.CpModel:
 
@@ -305,9 +299,12 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
         all_nodes.append(node.id)
         F[node.id] = [model.NewIntVar(0, MAX_LATENCY, node.id+"_"+str(i))
                       for i in range(node.repetition)]
-        END_TIME[node.id] = model.NewIntVar(0, MAX_LATENCY, "END_TIME_"+node.id)
-        model.Add(END_TIME[node.id] == F[node.id]
-                  [node.repetition-1]+node.execution_time)
+        END_TIME[node.id] = [model.NewIntVar(0, db.global_constraint.max_latency, f"{END_TIME}_{node.id}_{i}")
+                             for i in range(node.repetition)]
+        for i in range(node.repetition):
+            if i > 0:
+                model.Add(F[node.id][i] > END_TIME[node.id][i-1]) 
+            model.Add(END_TIME[node.id][i] == F[node.id][i]+node.execution_time)
     # the minimal of F should be 0
     model.AddMinEquality(0, [F[node.id][0] for node in db.app_graph.nodes])
     # for each edge, create a variable for the fire time of the tranporter
@@ -350,7 +347,7 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
                 wire_delay = route.delay
                 break
         else:
-            logging.error("Cannot find an edge in the routing paths", node.func)
+            logging.error("Cannot find an edge in the routing paths")
             sys.exit(1)
                
         TR[edge.id] = {}
@@ -374,8 +371,7 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
         # create variable for channel width
         K[edge.id] = channel_bandwidth_and_delay[edge.id][0]
         total_delay = channel_bandwidth_and_delay[edge.id][1] + wire_delay
-        #model.Add(F[edge.target_node][0] > F[edge.source_node][0]+channel_bandwidth_and_delay[edge.id][1])
-        model.Add(F[edge.target_node][0] == F[edge.source_node][0]+total_delay)
+        model.Add(F[edge.target_node][0] >= F[edge.source_node][0] + total_delay)
         # for each chunk, compute its address in source and target node
         idx = 0
         for addr in range(edge.token_size):
@@ -403,8 +399,8 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
                 if addr_time_pattern.key == target_addr:
                     target_addr_time = addr_time_pattern.value
                     break
-            print("source_addr_time=", source_addr_time, "target_addr_time=", target_addr_time, "edge=", edge.id)
-            print("addr=", addr, "source_addr=", source_addr, "target_addr=", target_addr)
+            #print("source_addr_time=", source_addr_time, "target_addr_time=", target_addr_time, "edge=", edge.id)
+            #print("addr=", addr, "source_addr=", source_addr, "target_addr=", target_addr)
             if source_addr_time < 0 or target_addr_time < 0:
                 logging.error("Fail to translate addresses")
                 sys.exit(1)
@@ -419,6 +415,8 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
             model.Add(T3[idx] == F[edge.target_node][0] + target_addr_time)
             model.Add(D01[idx] == T1[idx] - T0[idx])
             model.Add(D23[idx] == T3[idx] - T2[idx])
+            model.Add(D01[idx] > 0) 
+            model.Add(D23[idx] > 0)
             idx += 1
 
         INTERVAL0 = [model.NewIntervalVar(T0[i], D01[i], T1[i], f"interval0[{i}]") for i in range(edge.token_size)]
@@ -475,10 +473,10 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
             for edge in db.app_graph.edges:
                 # find the edge that use this port as source port
                 if edge.source_node == node.id and edge.source_port == output_port.id:
-                    T0 = [solver.Value(x) for _,x in enumerate(T0_ALL[edge.id])]
-                    T1 = [solver.Value(x) for _,x in enumerate(T1_ALL[edge.id])]
+                    #T0 = [solver.Value(T0_ALL[edge.id][i]) for i,_ in enumerate(T0_ALL[edge.id])]
+                    T0 = [solver.Value(T0_ALL[edge.id][x]) for x in T0_ALL[edge.id]]
+                    T1 = [solver.Value(T1_ALL[edge.id][x]) for x in T1_ALL[edge.id]]
                     buffer_capacity = solver.Value(OB[output_port.id])
-
                     assigned_address = equitable_address_assignment(T0, T1, buffer_capacity)
 
                     chunk_address_assignment = ds.ChunkAddressAssignment()
@@ -493,10 +491,9 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
             for edge in db.app_graph.edges:
                 # find the edge that use this port as target port
                 if edge.target_node == node.id and edge.target_port == input_port.id:
-                    T0 = [solver.Value(x) for _,x in enumerate(T2_ALL[edge.id])]
-                    T1 = [solver.Value(x) for _,x in enumerate(T3_ALL[edge.id])]
+                    T0 = [solver.Value(T2_ALL[edge.id][x]) for x in T2_ALL[edge.id]]
+                    T1 = [solver.Value(T3_ALL[edge.id][x]) for x in T3_ALL[edge.id]]
                     buffer_capacity = solver.Value(IB[input_port.id])
-
                     assigned_address = equitable_address_assignment(T0, T1, buffer_capacity)
 
                     chunk_address_assignment = ds.ChunkAddressAssignment()
@@ -511,7 +508,7 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
         #db.synthesized_information.transport_tables[edge.id]=ds.TransportTable(app_edge_id=edge.id, entries=[])
         for x in T1_ALL[edge.id]:
             time = solver.Value(T1_ALL[edge.id][x]) - db.synthesized_information.node_fire_times["transporter_"+edge.id]
-            print("time=", time, "abs_time=", solver.Value(x), "fire_time=", db.synthesized_information.node_fire_times["transporter_"+edge.id])
+            #print("time=", time, "abs_time=", solver.Value(x), "fire_time=", db.synthesized_information.node_fire_times["transporter_"+edge.id])
             virtual_source_address = translate_source_addr(db.app_graph, edge.source_node, edge.source_port, x)
             virtual_target_address = translate_target_addr(db.app_graph, edge.target_node, edge.target_port, x)
             for chunk_address_assignment in db.synthesized_information.chunk_address_assignments:
@@ -562,5 +559,8 @@ def run(db: ds.DataBase):
         print(chunk_address_assignment.app_node_id, chunk_address_assignment.port_id, chunk_address_assignment.address_assignment)
 
 if __name__ == "__main__":
-    assignment = equitable_address_assignment([0, 1, 2, 3, 4], [4, 2, 3, 5, 5], 3)
+    assignment = equitable_address_assignment(
+                [2, 2, 2, 2, 2, 2, 4, 7, 3, 10, 8, 6, 5, 9, 7, 10], 
+                [3, 3, 4, 4, 14, 8, 5, 8, 13, 11, 10, 11, 12, 12, 10, 13],
+                7)
     print(assignment)

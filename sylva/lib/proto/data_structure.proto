@@ -129,6 +129,7 @@ message AppNode {
   repeated AppNodePort output_ports = 4;
   int32 repetition = 5;
   int32 execution_time = 6;
+  string executable = 7;
 }
 
 message AppNodePort {

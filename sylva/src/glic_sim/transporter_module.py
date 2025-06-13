@@ -75,7 +75,8 @@ class transporter_module(base_module):
       refTime = globalTime + i.cycle 
       #bfr = next((x for x in self.m_in_buf.mem if ((x.address == i.addr_rd) and (x.cycle <= refTime))), None)
       #x.cycle + 1 because of the latency to write the buffer 
-      bfr = next((x for x in self.m_in_buf.mem if ((x.address == i.addr_rd) and ((x.cycle + 1) <= refTime))), None)
+      #bfr = next((x for x in self.m_in_buf.mem if ((x.address == i.addr_rd) and ((x.cycle + 1) <= refTime))), None)
+      bfr = next((x for x in self.m_in_buf.mem if ((x.address == i.addr_rd) and (x.cycle <= refTime))), None)
 
       if bool(bfr):
         self.m_in_buf.mem.remove(bfr)
@@ -83,7 +84,8 @@ class transporter_module(base_module):
       else:
         self.infoHIGH(f"[@{refTime}] For inAddr 0x{i.addr_rd:x} could NOT find a value, using 0.")
       line = self.m_out_buf.mem.add()
-      line.cycle = refTime + self.m_delay + 1 # +1 latency to write the buffer
+      #line.cycle = refTime + self.m_delay + 1 # +1 latency to write the buffer
+      line.cycle = refTime + self.m_delay 
       line.address = i.addr_wr
       line.value = bfr.value if bool(bfr) else 0
 

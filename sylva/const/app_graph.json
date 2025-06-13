@@ -9,7 +9,8 @@
           "rate": 1,
           "tokenSize": 16
         }
-      ]
+      ],
+      "executable": "python3 ../python/node_A.py"
     },
     {
       "id": "B",
@@ -27,7 +28,8 @@
           "rate": 1,
           "tokenSize": 16
         }
-      ]
+      ],
+      "executable": "cp ./mem/B_inMem.json ./mem/B_outMem.json"
     },
     {
       "id": "C",
@@ -38,7 +40,8 @@
           "rate": 1,
           "tokenSize": 16
         }
-      ]
+      ],
+      "executable": "cp ./mem/C_inMem.json ./mem/C_outMem.json"
     }
   ],
   "edges": [

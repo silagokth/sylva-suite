@@ -73,7 +73,7 @@ class output_addr_translator(addr_translator_base):
       refTime = globalTime + i.cycle
       ImgLine = next((x for x in self.m_output_image.line if (x.address == i.address)), None)
       if bool(ImgLine):
-        self.infoHIGH(f"[@{refTime}] addr 0x{i.address:x} found value 0x{ImgLine.value:x}.")
+        self.infoHIGH(f"[@{refTime}] addr 0x{i.address:x} found value {ImgLine.value}.")
       else:
         self.infoHIGH(f"[@{refTime}] addr 0x{i.address:x} not found using value 0.")
 

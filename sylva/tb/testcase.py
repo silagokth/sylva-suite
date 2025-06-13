@@ -33,6 +33,45 @@ def create_test_db(testcase_name:str):
         f.write(hyper_parameter_json)
     #TODO: write db.noc_constraint to json file
 
+def copy()-> ds.DataBase:
+    db = ds.DataBase()
+    db.global_constraint.max_energy = 100
+    db.global_constraint.max_width = 100
+    db.global_constraint.max_height = 100
+    db.global_constraint.max_latency = 100
+    db.global_constraint.max_period = 70
+
+    db.hyper_parameter.bind_w_area = 1
+    db.hyper_parameter.bind_w_energy = 1
+    db.hyper_parameter.bind_w_latency = 1
+    db.hyper_parameter.bind_relaxation_factor = 1.1
+    db.hyper_parameter.place_relaxation_factor = 1
+    db.hyper_parameter.place_reserved_routing_size = 1
+
+    A_entry = ds.AlimpEntry()
+    A_entry.func = "FA"
+    A_entry.instances.append(ds.AlimpInstance(width=2, height=2, energy=1, latency=16, output_addr_time_patterns=[ds.pair_int_int(key=0, value=2), ds.pair_int_int(key=1, value=2), ds.pair_int_int(key=2, value=2), ds.pair_int_int(key=3, value=2), ds.pair_int_int(key=4, value=2), ds.pair_int_int(key=5, value=2), ds.pair_int_int(key=6, value=4), ds.pair_int_int(key=7, value=7), ds.pair_int_int(key=8, value=3), ds.pair_int_int(key=9, value=10), ds.pair_int_int(key=10, value=8), ds.pair_int_int(key=11, value=6), ds.pair_int_int(key=12, value=5), ds.pair_int_int(key=13, value=9), ds.pair_int_int(key=14, value=7), ds.pair_int_int(key=15, value=10)]))
+    db.alimp_lib.entries.append(A_entry)
+    B_entry = ds.AlimpEntry()
+    B_entry.func = "FB"
+    B_entry.instances.append(ds.AlimpInstance(width=1, height=1, energy=1, latency=17, input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1), ds.pair_int_int(key=2, value=4), ds.pair_int_int(key=3, value=2), ds.pair_int_int(key=4, value=5), ds.pair_int_int(key=5, value=0), ds.pair_int_int(key=6, value=3), ds.pair_int_int(key=7, value=1), ds.pair_int_int(key=8, value=5), ds.pair_int_int(key=9, value=2), ds.pair_int_int(key=10, value=1), ds.pair_int_int(key=11, value=2), ds.pair_int_int(key=12, value=3), ds.pair_int_int(key=13, value=3), ds.pair_int_int(key=14, value=1), ds.pair_int_int(key=15, value=5)], output_addr_time_patterns=[ds.pair_int_int(key=0, value=1), ds.pair_int_int(key=1, value=2), ds.pair_int_int(key=2, value=3), ds.pair_int_int(key=3, value=4), ds.pair_int_int(key=4, value=5), ds.pair_int_int(key=5, value=6), ds.pair_int_int(key=6, value=7), ds.pair_int_int(key=7, value=8), ds.pair_int_int(key=8, value=9), ds.pair_int_int(key=9, value=10), ds.pair_int_int(key=10, value=11), ds.pair_int_int(key=11, value=12), ds.pair_int_int(key=12, value=13), ds.pair_int_int(key=13, value=14), ds.pair_int_int(key=14, value=15), ds.pair_int_int(key=15, value=16)]))
+    db.alimp_lib.entries.append(B_entry)
+    C_entry = ds.AlimpEntry()
+    C_entry.func = "FC"
+    C_entry.instances.append(ds.AlimpInstance(width=4, height=4, energy=10, latency=16, input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1), ds.pair_int_int(key=2, value=2), ds.pair_int_int(key=3, value=3), ds.pair_int_int(key=4, value=4), ds.pair_int_int(key=5, value=5), ds.pair_int_int(key=6, value=6), ds.pair_int_int(key=7, value=7), ds.pair_int_int(key=8, value=8), ds.pair_int_int(key=9, value=9), ds.pair_int_int(key=10, value=10), ds.pair_int_int(key=11, value=11), ds.pair_int_int(key=12, value=12), ds.pair_int_int(key=13, value=13), ds.pair_int_int(key=14, value=14), ds.pair_int_int(key=15, value=15)]))
+    db.alimp_lib.entries.append(C_entry)
+
+    
+    db.app_graph.nodes.append(ds.AppNode(id="A", func="FA", executable="cp ./mem/A_inMem.json ./mem/A_outMem.json", output_ports=[ds.AppNodePort(id="A:ab", rate=1, token_size=16)]))
+    db.app_graph.nodes.append(ds.AppNode(id="B", func="FB", executable="cp ./mem/B_inMem.json ./mem/B_outMem.json", input_ports=[ds.AppNodePort(id="B:ab", rate=1, token_size=16)], output_ports=[ds.AppNodePort(id="B:bc", rate=1, token_size=16)]))
+    db.app_graph.nodes.append(ds.AppNode(id="C", func="FC", executable="cp ./mem/C_inMem.json ./mem/C_outMem.json", input_ports=[ds.AppNodePort(id="C:bc", rate=1, token_size=16)]))
+
+    db.app_graph.edges.append(ds.AppEdge(id="A_B", source_node="A", target_node="B", source_port="A:ab", target_port="B:ab", token_size=16))
+    db.app_graph.edges.append(ds.AppEdge(id="B_C", source_node="B", target_node="C", source_port="B:bc", target_port="C:bc", token_size=16))
+
+    return db
+
+
 def sobel() -> ds.DataBase:
     db = ds.DataBase()
     db.global_constraint.max_energy = 100
@@ -122,9 +161,22 @@ def minimum()-> ds.DataBase:
     C_entry.instances.append(ds.AlimpInstance(width=4, height=4, energy=10, latency=16, input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1), ds.pair_int_int(key=2, value=2), ds.pair_int_int(key=3, value=3), ds.pair_int_int(key=4, value=4), ds.pair_int_int(key=5, value=5), ds.pair_int_int(key=6, value=6), ds.pair_int_int(key=7, value=7), ds.pair_int_int(key=8, value=8), ds.pair_int_int(key=9, value=9), ds.pair_int_int(key=10, value=10), ds.pair_int_int(key=11, value=11), ds.pair_int_int(key=12, value=12), ds.pair_int_int(key=13, value=13), ds.pair_int_int(key=14, value=14), ds.pair_int_int(key=15, value=15)]))
     db.alimp_lib.entries.append(C_entry)
 
-    db.app_graph.nodes.append(ds.AppNode(id="A", func="FA", output_ports=[ds.AppNodePort(id="A:ab", rate=1, token_size=16)]))
-    db.app_graph.nodes.append(ds.AppNode(id="B", func="FB", input_ports=[ds.AppNodePort(id="B:ab", rate=1, token_size=16)], output_ports=[ds.AppNodePort(id="B:bc", rate=1, token_size=16)]))
-    db.app_graph.nodes.append(ds.AppNode(id="C", func="FC", input_ports=[ds.AppNodePort(id="C:bc", rate=1, token_size=16)]))
+    os.makedirs('bin/python', exist_ok=True)
+    A_python_executable = '../python/node_A.py'
+    A_python_code =("import os \n"
+                    "import json \n"
+                    "with open('./mem/A_outMem.json', 'w') as f: \n"
+                    "    j = {'line':[]} \n"
+                    "    for i in range (16): \n"
+                    "        j['line'].append({'address':i, 'value':100*i}) \n"
+                    "    json.dump(j, f, indent=2) \n"
+                    )
+    with open('bin/ideal_sim/'+A_python_executable, 'w') as f:
+        f.write(A_python_code)
+    
+    db.app_graph.nodes.append(ds.AppNode(id="A", func="FA", executable=f"python3 {A_python_executable}", output_ports=[ds.AppNodePort(id="A:ab", rate=1, token_size=16)]))
+    db.app_graph.nodes.append(ds.AppNode(id="B", func="FB", executable="cp ./mem/B_inMem.json ./mem/B_outMem.json", input_ports=[ds.AppNodePort(id="B:ab", rate=1, token_size=16)], output_ports=[ds.AppNodePort(id="B:bc", rate=1, token_size=16)]))
+    db.app_graph.nodes.append(ds.AppNode(id="C", func="FC", executable="cp ./mem/C_inMem.json ./mem/C_outMem.json", input_ports=[ds.AppNodePort(id="C:bc", rate=1, token_size=16)]))
 
     db.app_graph.edges.append(ds.AppEdge(id="A_B", source_node="A", target_node="B", source_port="A:ab", target_port="B:ab", token_size=16))
     db.app_graph.edges.append(ds.AppEdge(id="B_C", source_node="B", target_node="C", source_port="B:bc", target_port="C:bc", token_size=16))

@@ -29,8 +29,7 @@ def make_config_map(db: ds.DataBase) -> dict:
             'is_transporter': False,
             'in_names': [],
             'out_names': [],
-            # TODO: need to execute its actual functionality
-            'process_cmd': f'cp ./mem/{node.id}_inMem.json ./mem/{node.id}_outMem.json'
+            'process_cmd': node.executable
         }
     for edge in app_graph.edges:
         delay = -1
@@ -75,12 +74,12 @@ def generate_simulation_files(db: ds.DataBase, sim_dir: str):
     # create a json file to describe the app graph
     j = make_config_map(db)
     with open(os.path.join(sim_dir, 'config_map.json'), 'w+') as f:
-        json.dump(j, f)
+        json.dump(j, f, indent=2)
 
     # create table for fire time to write protobuf object db.synthesized_information.node_fire_times to json
     j= make_timetable(db)
     with open(os.path.join(sim_dir, 'time_table.json'), 'w+') as f:
-        json.dump(j,f)
+        json.dump(j, f, indent=2)
 
     # write input and output address pattern to each component folder
     for binding in db.synthesized_information.alimp_bindings:
@@ -92,13 +91,13 @@ def generate_simulation_files(db: ds.DataBase, sim_dir: str):
             input_pattern = instance.input_addr_time_patterns
             j["addr_ptrn"] = [{'address': str(x.key), 'cycle': str(x.value)} for x in input_pattern]
             with open(input_pattern_file, 'w+') as f:
-                json.dump(j, f)
+                json.dump(j, f, indent=2)
         if len(instance.output_addr_time_patterns) >0:
             j={"addr_ptrn":[]}
             output_pattern = instance.output_addr_time_patterns
             j["addr_ptrn"] = [{'address': str(x.key), 'cycle': str(x.value)} for x in output_pattern]
             with open(output_pattern_file, 'w+') as f:
-                json.dump(j, f)
+                json.dump(j, f, indent=2)
           
     # write address translation table of each port to each component folder
     # build a dictionary to store the type of each port
@@ -116,7 +115,7 @@ def generate_simulation_files(db: ds.DataBase, sim_dir: str):
         chunk_address_assignment_file = os.path.join(sim_dir, chunk_address_assignment.app_node_id + '_'+port+'TT.json')
         j["list"] = [{'addr_in': x, 'addr_out': chunk_address_assignment.address_assignment[x]} for x in chunk_address_assignment.address_assignment]
         with open(chunk_address_assignment_file, 'w+') as f:
-            json.dump(j, f)
+            json.dump(j, f, indent=2)
     
     # write transport table of each edge to each edge folder
     for edge in db.app_graph.edges:
@@ -125,7 +124,7 @@ def generate_simulation_files(db: ds.DataBase, sim_dir: str):
         tt = db.synthesized_information.transport_tables[edge.id].entries
         j["inst_list"] = [{'cycle': x.time, 'addr_rd': x.source_address, 'addr_wr': x.target_address} for x in tt]
         with open(edge_file, 'w+') as f:
-            json.dump(j, f)
+            json.dump(j, f, indent=2)
 
 
 def run_simulation(sim_dir: str):
