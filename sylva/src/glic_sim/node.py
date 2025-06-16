@@ -3,6 +3,7 @@
 # Depending on the config it can have either both input
 # and output addrTranslators or one or the other.
 import json
+import shlex 
 
 from lib.glic_sim.common import *
 from lib.glic_sim.base_module import base_module
@@ -40,10 +41,15 @@ class node(base_module):
     self.infoDEBUG(f"my config = {self.m_config}")
 
     if not self.m_config.is_transporter:
+      # add relative path to the process command
+      _cmd = ["../../"+each for each in shlex.split(self.m_config.process_cmd)]
+      self.m_config.process_cmd = " ".join(_cmd)
       if len(self.m_config.in_names) != 0:
         self.m_in_addrT = input_addr_translator(self.m_my_name, path, useJson, v)
+        self.m_config.process_cmd += f" ./mem/{self.m_my_name}_inMem.json"
       if len(self.m_config.out_names) != 0:
         self.m_out_addrT = output_addr_translator(self.m_my_name, path, useJson, v)
+        self.m_config.process_cmd += f" ./mem/{self.m_my_name}_outMem.json"
       self.m_process = process_module(self.m_my_name, self.m_path, self.m_config.process_cmd, v)
     else:
       if (len(self.m_config.in_names) != 1):
@@ -139,13 +145,13 @@ class node(base_module):
         addrOffset = 0
         for name in self.m_config.in_names:
           myInBuffer.MergeFrom(self.read_buffer(name, addrOffset))
-          #addrOffset = myInBuffer.mem[-1].address # shouldn't we have +1 here?
           addrOffset = myInBuffer.mem[-1].address + 1
           self.infoHIGH(f"#BufLines: {len(myInBuffer.mem)}, newOffset: 0x{addrOffset:x}.")
 
         self.write_buffer(myInBuffer, outFile)
     else:
         self.infoDEBUG(f"#inNodeNames: {len(self.m_config.in_names)}, isTransporter: {self.m_config.is_transporter}.")
+        raise SimException(f"Fail to gather input buffers")
 
   def distribute_output_buf(self):
     if (not self.m_config.is_transporter) and (len(self.m_config.out_names) != 0):
@@ -184,14 +190,16 @@ class node(base_module):
             startAddr += size
             self.write_buffer(ret, retFile)
           else:
-            # @TODO:
             self.infoDEBUG(f"dist_out_buf: tokenSize[{name}] not find.")
+            raise SimException(f"Fail to scatter output buffers")
+    else:
+      raise SimException(f"Fail to scatter output buffers")
 
   def doYourThing(self, globalTime):
     self.infoLOW(f"[@{globalTime}] Starting.")
     if not self.m_config.is_transporter: 
-      self.consolidate_input_buf()
       if self.m_in_addrT != None:
+        self.consolidate_input_buf()
         self.infoMEDIUM(f"[@{globalTime}] Trigger input address translator.")
         self.m_in_addrT.doYourThing(globalTime)
 
@@ -201,7 +209,7 @@ class node(base_module):
       if self.m_out_addrT != None:
         self.infoMEDIUM(f"[@{globalTime}] Trigger input address translator.")
         self.m_out_addrT.doYourThing(globalTime)
-      self.distribute_output_buf()
+        self.distribute_output_buf()
     else:
       self.infoMEDIUM(f"[@{globalTime}] Trigger Transporter.")
       self.m_transporter.doYourThing(globalTime)

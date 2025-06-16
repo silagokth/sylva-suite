@@ -14,6 +14,7 @@ class process_module(base_module):
     self.infoDEBUG("init done.")
 
   def doYourThing(self, globalTime):
-    self.infoMEDIUM(f"[@{globalTime}] preparing to run: {self.m_command}")
-    self.execute_command(self.m_command)
+    self.infoLOW(f"[@{globalTime}] preparing to run: {self.m_command}")
+    res, err = self.execute_command(self.m_command)
+    self.infoLOW(f"Process output = {res} (err={err})")
     self.infoLOW("Process done.")

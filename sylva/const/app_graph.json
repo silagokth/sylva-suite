@@ -10,7 +10,7 @@
           "tokenSize": 16
         }
       ],
-      "executable": "python3 ../python/node_A.py"
+      "executable": "examples/minimum/A examples/minimum/input.json"
     },
     {
       "id": "B",
@@ -29,7 +29,7 @@
           "tokenSize": 16
         }
       ],
-      "executable": "cp ./mem/B_inMem.json ./mem/B_outMem.json"
+      "executable": "examples/minimum/B"
     },
     {
       "id": "C",
@@ -41,7 +41,7 @@
           "tokenSize": 16
         }
       ],
-      "executable": "cp ./mem/C_inMem.json ./mem/C_outMem.json"
+      "executable": "examples/minimum/C examples/minimum/input.json"
     }
   ],
   "edges": [

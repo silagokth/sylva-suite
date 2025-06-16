@@ -18,6 +18,7 @@ class input_addr_translator(addr_translator_base):
     self.m_input_image  = memImg.mem_image()
     self.infoDEBUG("init done.")
 
+  # TODO: need to change to update to support multiple firing times
   def writeInputMemImg(self):
     filename = self.m_path + "/mem/" + self.m_my_name + "_inMem"
     filename+= ".json" if self.m_use_json else ".bin"
@@ -29,7 +30,6 @@ class input_addr_translator(addr_translator_base):
                        )
       try:
         with open(filename, 'w', encoding='utf-8') as image:
-          # json.dump(j, image, ensure_ascii=True, indent=2)
           image.write(j)
       except Exception as e:
         self.infoNONE(f"Failed to write memImage {filename}.")
@@ -57,14 +57,36 @@ class input_addr_translator(addr_translator_base):
       self.infoNONE(f"Failed to get {filename}.")
       raise e
 
+  def updateInputBuffer(self):
+    filename = self.m_path + "/mem/" + self.m_my_name + "_inBuf"
+    filename+= ".json" if self.m_use_json else ".bin"
+    self.infoDEBUG(f"updating Input Buffer to {filename}.")
+    if self.m_use_json:
+      j = MessageToJson(self.m_input_buffer
+                       # , including_default_value_fields=False
+                       , preserving_proto_field_name=True
+                       )
+      try:
+        with open(filename, 'w', encoding='utf-8') as bffr:
+          bffr.write(j)
+      except Exception as e:
+        self.infoNONE(f"Failed to write memOutput {filename}.")
+        raise e
+    else:
+      try:
+        with open(filename, 'wb', encoding='utf-8') as bffr:
+          bffr.write(self.m_input_buffer.SerializeToString())
+      except Exception as e:
+        self.infoNONE(f"Failed to write memOutput {filename}.")
+        raise e
+
   def doYourThing(self, globalTime):
     self.infoMEDIUM(f"[@{globalTime}] Starting Addr Translation.")
     self.getTranslationTable()
     self.getAddressPattern()
     self.getInputBuffer()
 
-    # Sort the buffer with latest vales (higher cycle) on top
-    # self.m_input_buffer.mem.sort(key=lambda x:x.cycle, reverse=True)
+    # Sort the buffer with earliest vales (higher cycle) on top
     self.m_input_buffer.mem.sort(key=lambda x:x.cycle, reverse=False)
 
     # make sure address patern is in increasing order of cycles.
@@ -73,21 +95,28 @@ class input_addr_translator(addr_translator_base):
 
     refTime = globalTime 
     for i in self.m_addrPtrn.addr_ptrn:
-      # globalTime += i.cycle
       refTime = globalTime + i.cycle
 
       tr = next((x for x in self.m_transTable.list if (x.addr_in == i.address)), None) 
       if not bool(tr):
         self.infoNone(f"[@{refTime}] Failed to translate address for inAddr: 0x{i.address:x}")
         raise SimException(f"Fail to translate an address") 
-
-      bfr = next((x for x in self.m_input_buffer.mem if ((x.address == tr.addr_out) and (x.cycle <= refTime))), None)
-      if bool(bfr):
-        self.m_input_buffer.mem.remove(bfr)
-        self.infoHIGH(f"[@{refTime}] addr 0x{i.address:x} found value {bfr.value}.")
+    
+      # +1 because we want to make sure that the data is completely written into the buffer
+      lst_buf = [x for x in self.m_input_buffer.mem if ((x.address == tr.addr_out) and 
+                                                        ((x.cycle+1) <= refTime) and 
+                                                        (x.used == 0))]
+      bfr = lst_buf[0] if len(lst_buf) else None
+ 
+      if len(lst_buf) == 1:
+        bfr.used = 1
+        self.infoHIGH(f"[@{refTime}] For inAddr 0x{i.address:x} found value {bfr.value}.")
+      elif len(lst_buf) > 1:
+        self.infoNONE(f"[@{refTime}] For inAddr 0x{i.address:x} write collision detected")
+        raise SimException(f"Fail to get a value from the buffer")
       else:
-        self.infoNone(f"[@{refTime}] addr 0x{i.address:x} not found.")
-        raise SimException(f"Fail to get a value from the buffer") 
+        self.infoNONE(f"[@{refTime}] For inAddr 0x{i.address:x} could NOT find a value.")
+        raise SimException(f"Fail to get a value from the buffer")
 
       # Add a new memory line to memoryImage
       imgLine = self.m_input_image.line.add()
@@ -95,5 +124,6 @@ class input_addr_translator(addr_translator_base):
       imgLine.value = bfr.value if bool(bfr) else 0
       self.infoDEBUG(f" Added {imgLine.address:x}: {imgLine.value:x}")
 
+    self.updateInputBuffer()
     self.writeInputMemImg()
     self.infoLOW(f"[@{refTime}] Done.")

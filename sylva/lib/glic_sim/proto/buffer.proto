@@ -7,6 +7,7 @@ message buffer {
     fixed64 cycle   = 1;
     fixed64 address = 2;
     int64   value   = 3;
+    int64   used    = 4;
   }
   repeated memory_line mem = 1;
 }

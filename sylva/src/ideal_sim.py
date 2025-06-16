@@ -129,7 +129,7 @@ def generate_simulation_files(db: ds.DataBase, sim_dir: str):
 
 def run_simulation(sim_dir: str):
     # verbosity level: LOW, MEDIUM, HIGH, FULL, DEBUG, NONE
-    verbo = common_sim.verbosity.HIGH
+    verbo = common_sim.verbosity.LOW
     config_dir = os.path.join(sim_dir, 'config_map.json')
     timetable_dir = os.path.join(sim_dir, 'time_table.json')
     use_json = True

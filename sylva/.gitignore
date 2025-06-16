@@ -1,5 +1,12 @@
 # python environment
 .venv/
+__pycache__/
+
+# example directory
+examples/copy/*
+!examples/copy/*.*
+examples/minimum/*
+!examples/minimum/*.*
 
 # bin directory
 bin/*

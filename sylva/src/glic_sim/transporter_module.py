@@ -10,6 +10,8 @@ import lib.glic_sim.proto.transport_inst_pb2 as TransInst
 import lib.glic_sim.proto.buffer_pb2 as memBfr
 from google.protobuf.json_format import MessageToJson, Parse, ParseDict
 
+#TODO: support multiple firing times
+
 class transporter_module(base_module):
 
   def __init__(self, name, path, useJson, in_name, out_name, delay, v):
@@ -73,20 +75,21 @@ class transporter_module(base_module):
     refTime = globalTime
     for i in self.m_inst.inst_list:
       refTime = globalTime + i.cycle 
-      #bfr = next((x for x in self.m_in_buf.mem if ((x.address == i.addr_rd) and (x.cycle <= refTime))), None)
-      #x.cycle + 1 because of the latency to write the buffer 
-      #bfr = next((x for x in self.m_in_buf.mem if ((x.address == i.addr_rd) and ((x.cycle + 1) <= refTime))), None)
-      bfr = next((x for x in self.m_in_buf.mem if ((x.address == i.addr_rd) and (x.cycle <= refTime))), None)
+      # +1 because we want to make sure that the data is completely written into the buffer
+      lst_buf = [x for x in self.m_in_buf.mem if ((x.address == i.addr_rd) and ((x.cycle+1) <= refTime))]
+      bfr = lst_buf[0] if len(lst_buf) else None
 
-      if bool(bfr):
+      if len(lst_buf) == 1:
         self.m_in_buf.mem.remove(bfr)
         self.infoHIGH(f"[@{refTime}] For inAddr 0x{i.addr_rd:x} found value {bfr.value}.")
+      elif len(lst_buf) > 1:
+        self.infoNONE(f"[@{refTime}] For inAddr 0x{i.addr_rd:x} write collision detected")
+        raise SimException(f"Fail to get a value from the buffer")
       else:
         self.infoNONE(f"[@{refTime}] For inAddr 0x{i.addr_rd:x} could NOT find a value.")
         raise SimException(f"Fail to get a value from the buffer")
 
       line = self.m_out_buf.mem.add()
-      #line.cycle = refTime + self.m_delay + 1 # +1 latency to write the buffer
       line.cycle = refTime + self.m_delay 
       line.address = i.addr_wr
       line.value = bfr.value if bool(bfr) else 0
