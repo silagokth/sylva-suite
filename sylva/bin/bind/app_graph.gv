@@ -1,8 +1,15 @@
 // App Graph
 digraph {
-	A [label=A]
-	B [label=B]
-	C [label=C]
-	A -> B
-	B -> C
+	load [label=load]
+	copy [label=copy]
+	gx [label=gx]
+	gy [label=gy]
+	combine [label=combine]
+	store [label=store]
+	load -> copy
+	copy -> gx
+	copy -> gy
+	gx -> combine
+	gy -> combine
+	combine -> store
 }

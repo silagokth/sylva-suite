@@ -459,6 +459,7 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
         db.synthesized_information.node_fire_times["transporter_"+edge.id] = solver.Value(F["transporter_"+edge.id][0])
         db.synthesized_information.channel_width["transporter_"+edge.id] = solver.Value(K[edge.id])
     
+    # assigning buffer size 
     for node in db.app_graph.nodes:
         db.synthesized_information.input_buffer_size[node.id] = 0
         db.synthesized_information.output_buffer_size[node.id] = 0
@@ -467,7 +468,9 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
         for output_port in node.output_ports:
             db.synthesized_information.output_buffer_size[node.id] += solver.Value(OB[output_port.id])
 
+    # assigning translation tables 
     for node in db.app_graph.nodes:
+        out_offset = 0 # edge offset
         for output_port in node.output_ports:
             for edge in db.app_graph.edges:
                 # find the edge that use this port as source port
@@ -477,6 +480,10 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
                     T1 = [solver.Value(T1_ALL[edge.id][x]) for x in T1_ALL[edge.id]]
                     buffer_capacity = solver.Value(OB[output_port.id])
                     assigned_address = equitable_address_assignment(T0, T1, buffer_capacity)
+                    # add edge offset to the address list 
+                    for i in range(len(assigned_address)):
+                        assigned_address[i] += out_offset
+                    out_offset += buffer_capacity
 
                     chunk_address_assignment = ds.ChunkAddressAssignment()
                     chunk_address_assignment.app_node_id = node.id
@@ -486,6 +493,8 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
                         chunk_address_assignment.address_assignment[translate_source_addr(db.app_graph, edge.source_node, edge.source_port, i)] = assigned_address[i]
                     
                     db.synthesized_information.chunk_address_assignments.append(chunk_address_assignment)
+        
+        in_offset = 0 # edge offset 
         for input_port in node.input_ports:
             for edge in db.app_graph.edges:
                 # find the edge that use this port as target port
@@ -494,6 +503,10 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
                     T1 = [solver.Value(T3_ALL[edge.id][x]) for x in T3_ALL[edge.id]]
                     buffer_capacity = solver.Value(IB[input_port.id])
                     assigned_address = equitable_address_assignment(T0, T1, buffer_capacity)
+                    # add edge offset to the address list 
+                    for i in range(len(assigned_address)):
+                        assigned_address[i] += in_offset
+                    in_offset += buffer_capacity
 
                     chunk_address_assignment = ds.ChunkAddressAssignment()
                     chunk_address_assignment.app_node_id = node.id
@@ -503,8 +516,9 @@ def optimize_buffer_size(db: ds.DataBase, channel_bandwidth_and_delay: dict) -> 
                         chunk_address_assignment.address_assignment[translate_target_addr(db.app_graph, edge.target_node, edge.target_port, i)] = assigned_address[i]
                     
                     db.synthesized_information.chunk_address_assignments.append(chunk_address_assignment)
+   
+    # assigning transporter instructions
     for edge in db.app_graph.edges:
-        #db.synthesized_information.transport_tables[edge.id]=ds.TransportTable(app_edge_id=edge.id, entries=[])
         for x in T1_ALL[edge.id]:
             time = solver.Value(T1_ALL[edge.id][x]) - db.synthesized_information.node_fire_times["transporter_"+edge.id]
             #print("time=", time, "abs_time=", solver.Value(x), "fire_time=", db.synthesized_information.node_fire_times["transporter_"+edge.id])

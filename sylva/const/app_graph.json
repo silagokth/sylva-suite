@@ -1,67 +1,166 @@
 {
   "nodes": [
     {
-      "id": "A",
-      "func": "FA",
+      "id": "load",
+      "func": "func_load",
       "outputPorts": [
         {
-          "id": "A:ab",
+          "id": "load_output",
           "rate": 1,
           "tokenSize": 16
         }
       ],
-      "executable": "examples/minimum/A"
+      "executable": "examples/sobel/load"
     },
     {
-      "id": "B",
-      "func": "FB",
+      "id": "copy",
+      "func": "func_copy",
       "inputPorts": [
         {
-          "id": "B:ab",
+          "id": "copy_input",
           "rate": 1,
           "tokenSize": 16
         }
       ],
       "outputPorts": [
         {
-          "id": "B:bc",
+          "id": "copy_output_0",
+          "rate": 1,
+          "tokenSize": 16
+        },
+        {
+          "id": "copy_output_1",
           "rate": 1,
           "tokenSize": 16
         }
       ],
-      "executable": "examples/minimum/B"
+      "executable": "examples/sobel/copy"
     },
     {
-      "id": "C",
-      "func": "FC",
+      "id": "gx",
+      "func": "func_gx",
       "inputPorts": [
         {
-          "id": "C:bc",
+          "id": "gx_input",
           "rate": 1,
           "tokenSize": 16
         }
       ],
-      "executable": "examples/minimum/C"
+      "outputPorts": [
+        {
+          "id": "gx_output",
+          "rate": 1,
+          "tokenSize": 16
+        }
+      ],
+      "executable": "examples/sobel/gx"
+    },
+    {
+      "id": "gy",
+      "func": "func_gy",
+      "inputPorts": [
+        {
+          "id": "gy_input",
+          "rate": 1,
+          "tokenSize": 16
+        }
+      ],
+      "outputPorts": [
+        {
+          "id": "gy_output",
+          "rate": 1,
+          "tokenSize": 16
+        }
+      ],
+      "executable": "examples/sobel/gy"
+    },
+    {
+      "id": "combine",
+      "func": "func_combine",
+      "inputPorts": [
+        {
+          "id": "combine_input_0",
+          "rate": 1,
+          "tokenSize": 16
+        },
+        {
+          "id": "combine_input_1",
+          "rate": 1,
+          "tokenSize": 16
+        }
+      ],
+      "outputPorts": [
+        {
+          "id": "combine_output",
+          "rate": 1,
+          "tokenSize": 16
+        }
+      ],
+      "executable": "examples/sobel/combine"
+    },
+    {
+      "id": "store",
+      "func": "func_store",
+      "inputPorts": [
+        {
+          "id": "store_input",
+          "rate": 1,
+          "tokenSize": 16
+        }
+      ],
+      "executable": "examples/sobel/store"
     }
   ],
   "edges": [
     {
-      "id": "A_B",
-      "sourceNode": "A",
-      "targetNode": "B",
-      "sourcePort": "A:ab",
-      "targetPort": "B:ab",
+      "id": "edge_load_copy",
+      "sourceNode": "load",
+      "targetNode": "copy",
+      "sourcePort": "load_output",
+      "targetPort": "copy_input",
       "tokenSize": 16
     },
     {
-      "id": "B_C",
-      "sourceNode": "B",
-      "targetNode": "C",
-      "sourcePort": "B:bc",
-      "targetPort": "C:bc",
+      "id": "edge_copy_gx",
+      "sourceNode": "copy",
+      "targetNode": "gx",
+      "sourcePort": "copy_output_0",
+      "targetPort": "gx_input",
+      "tokenSize": 16
+    },
+    {
+      "id": "edge_copy_gy",
+      "sourceNode": "copy",
+      "targetNode": "gy",
+      "sourcePort": "copy_output_1",
+      "targetPort": "gy_input",
+      "tokenSize": 16
+    },
+    {
+      "id": "edge_gx_combine",
+      "sourceNode": "gx",
+      "targetNode": "combine",
+      "sourcePort": "gx_output",
+      "targetPort": "combine_input_0",
+      "tokenSize": 16
+    },
+    {
+      "id": "edge_gy_combine",
+      "sourceNode": "gy",
+      "targetNode": "combine",
+      "sourcePort": "gy_output",
+      "targetPort": "combine_input_1",
+      "tokenSize": 16
+    },
+    {
+      "id": "edge_combine_store",
+      "sourceNode": "combine",
+      "targetNode": "store",
+      "sourcePort": "combine_output",
+      "targetPort": "store_input",
       "tokenSize": 16
     }
   ],
-  "globalMemImage": "examples/minimum/global_mem_image.json",
-  "globalMemReference": "examples/minimum/global_mem_reference.json"
+  "globalMemImage": "examples/sobel/global_mem_image.json",
+  "globalMemReference": "examples/sobel/global_mem_reference.json"
 }

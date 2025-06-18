@@ -45,13 +45,11 @@ class node(base_module):
       self.m_config.process_cmd = "../../" + self.m_config.process_cmd
       self.m_config.process_cmd += " ./mem/global_mem_image.json"
       if len(self.m_config.in_names) != 0:
-        print(f"node {self.m_my_name} finishes input_address_translate init")
         self.m_in_addrT = input_addr_translator(self.m_my_name, path, useJson, v)
         self.m_config.process_cmd += f" ./mem/{self.m_my_name}_inMem.json"
       if len(self.m_config.out_names) != 0:
         self.m_out_addrT = output_addr_translator(self.m_my_name, path, useJson, v)
         self.m_config.process_cmd += f" ./mem/{self.m_my_name}_outMem.json"
-      print("ok")
       self.m_process = process_module(self.m_my_name, self.m_path, self.m_config.process_cmd, v)
     else:
       if (len(self.m_config.in_names) != 1):
@@ -119,13 +117,10 @@ class node(base_module):
 
   def consolidate_input_buf(self):
     ''' This function couples together all the memory buffers from the input transporters
-    into the input memory buffer for this functional node
+    into the input memory buffer for this functional node.
 
-    Note: The inBuffers from the inputs must not have conflicts, it is always assumed to
-    have a continuous address range from 0 - some value. The order of the input list will determine
-    which buffer should be read first and the (maxAddress + 1) becomes the offset that gets
-    added to the next buffer that is read. The offsets are cumulative.
-
+    Note: The inBuffers from the inputs must not have conflicts, which is guaranteed by the transporters.
+    (Addresses from each path have to fit in their own address space) 
     '''
     if (not self.m_config.is_transporter) and (len(self.m_config.in_names) != 0):
       # Name of the file which will be the result of this function
@@ -141,14 +136,12 @@ class node(base_module):
       else:
         myInBuffer   = memBfr.buffer()
 
-        '''In the order of inputNode names in the in_name list, the output address from a node
-        is offset by the highest address + 1 from the node before.
         '''
-        addrOffset = 0
+        Each edge has an individual set of address space, so we can collect them
+        without having to use the offset to shift addresses.
+        '''
         for name in self.m_config.in_names:
-          myInBuffer.MergeFrom(self.read_buffer(name, addrOffset))
-          addrOffset = myInBuffer.mem[-1].address + 1
-          self.infoHIGH(f"#BufLines: {len(myInBuffer.mem)}, newOffset: 0x{addrOffset:x}.")
+          myInBuffer.MergeFrom(self.read_buffer(name, 0))
 
         self.write_buffer(myInBuffer, outFile)
     else:
@@ -156,46 +149,23 @@ class node(base_module):
         raise SimException(f"Fail to gather input buffers")
 
   def distribute_output_buf(self):
+    '''
+    For distributing output buffer, all we need to do is to make copies of the file for 
+    every transporter this process sending data to. Physical addresses in the outBuf file 
+    are already designed for each transporter to realise its own address space. 
+    '''
     if (not self.m_config.is_transporter) and (len(self.m_config.out_names) != 0):
-      if len(self.m_config.out_names) == 1:
-        myOutFile = self.m_path + "/mem/" + self.m_my_name + "_outBuf"
-        myOutFile+= ".json" if self.m_use_json else ".bin"
-        retFile = self.m_path + "/mem/" + self.m_config.out_names[0] + "_inBuf"
+      myOutFile = self.m_path + "/mem/" + self.m_my_name + "_outBuf"
+      myOutFile+= ".json" if self.m_use_json else ".bin"
+      for name in self.m_config.out_names:
+        retFile = self.m_path + f"/mem/{name}_inBuf"
         retFile+= ".json" if self.m_use_json else ".bin"
-        self.infoMEDIUM(f"dist_out_buf: issuing copy command.")
         cmd = "cp " + myOutFile + " " + retFile
         self.execute_command(cmd)
-      else:
-        startAddr = 0
-        outBuffer = memBfr.buffer()
-        outBuffer.CopyFrom(self.read_buffer(self.m_my_name, 0))
-
-        for name in self.m_config.out_names:
-          retFile = self.m_path + "/mem/" + name + "_inBuf"
-          retFile+= ".json" if self.m_use_json else ".bin"
-          if bool(self.m_config.tokenSize.get(name)):
-            # if the tokenSize value exist trim the output and write the new file
-            ret = memBfr.buffer()
-            size = self.m_config.tokenSize.get(name)
-            self.infoDEBUG(f"dist_out_buf: starting address is 0x{startAddr}.")
-            self.infoHIGH(f"dist_out_buf: tokenSize[{name}] = {size}.")
-            self.infoHIGH(f"Fetching addr 0x{startAddr:x} through 0x{(startAddr+size):x}.")
-
-            fL = [msg for msg in outBuffer.mem if msg.address >= startAddr and msg.address < (startAddr+size)]
-            ret.mem.extend(fL)
-
-            # Addresses must be moved to start from 0
-            for idx in range(len(ret.mem)):
-              ret.mem[idx].address -= startAddr
-
-            # Next time start from the last address from this iteration.
-            startAddr += size
-            self.write_buffer(ret, retFile)
-          else:
-            self.infoDEBUG(f"dist_out_buf: tokenSize[{name}] not find.")
-            raise SimException(f"Fail to scatter output buffers")
+      self.infoMEDIUM(f"dist_out_buf: issuing copy commands.")
     else:
-      raise SimException(f"Fail to scatter output buffers")
+      self.infoDEBUG(f"#outNodeNames: {len(self.m_config.out_names)}, isTransporter: {self.m_config.is_transporter}.")
+      raise SimException(f"Fail to distribute output buffers")
 
   def doYourThing(self, globalTime):
     self.infoLOW(f"[@{globalTime}] Starting.")
