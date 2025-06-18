@@ -93,6 +93,7 @@ def main(graph_file, constraint_file, library_file, parameter_file, noc_file, ou
         # ideal simulation
         result = ideal_sim.run(db, output_dir)
         if not result:
+            logging.info("Fail to verify the design by simulation")
             db.alimp_binding_options.pop(0)
             continue
         

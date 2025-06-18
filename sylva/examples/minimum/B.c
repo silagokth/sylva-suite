@@ -8,14 +8,18 @@ int compare_ints(const void *a, const void *b) {
     return (*(int *)a - *(int *)b);
 }
 
+
+/* Address space: 0x100 - 0x1FF */
+const int base_address = 0x100;
+
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s <input_file> <output_file>\n", argv[0]);
+    if (argc != 4) {
+        fprintf(stderr, "Usage: %s <global_mem> <input_mem> <output_mem>\n", argv[0]);
         return 1;
     }
     
     // open and read the file
-    FILE *fin = fopen(argv[1], "rb");
+    FILE *fin = fopen(argv[2], "rb");
     if (fin == NULL) {
         perror("Error opening JSON file");
         return 1;
@@ -84,15 +88,18 @@ int main(int argc, char *argv[]) {
     cJSON *new_line = cJSON_CreateArray();
     cJSON_AddItemToObject(new_root, "line", new_line);
 
+    char str_num[12];
     for (int j = 0; j < max_entries; j++) {
         cJSON *entry = cJSON_CreateObject();
-        cJSON_AddNumberToObject(entry, "address", j);
-        cJSON_AddNumberToObject(entry, "value", values[j]);
+        snprintf(str_num, sizeof(str_num), "%d", j);
+        cJSON_AddStringToObject(entry, "address", str_num);
+        snprintf(str_num, sizeof(str_num), "%d", values[j]);
+        cJSON_AddStringToObject(entry, "value", str_num);
         cJSON_AddItemToArray(new_line, entry);
     }
 
     // Write output JSON file
-    FILE *fout = fopen(argv[2], "w");
+    FILE *fout = fopen(argv[3], "w");
     if (!fout) {
         fprintf(stderr, "Error opening output file\n");
         cJSON_Delete(new_root);
@@ -108,7 +115,7 @@ int main(int argc, char *argv[]) {
     cJSON_Delete(json);
     free(values);
 
-    printf("Sorted values\n");
+    printf("Node B completes\n");
     return 0;
 }
 

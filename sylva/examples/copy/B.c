@@ -1,14 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/* Address space: 0x100 - 0x1FF */
+
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s <input_file> <output_file>\n", argv[0]);
+    if (argc != 4) {
+        fprintf(stderr, "Usage: %s <global_mem> <input_mem> <output_mem>\n", argv[0]);
         return 1;
     }
 
-    const char *input_path = argv[1];
-    const char *output_path = argv[2];
+    const char *input_path = argv[2];
+    const char *output_path = argv[3];
 
     FILE *fin = fopen(input_path, "rb");
     if (fin == NULL) {
@@ -31,7 +33,7 @@ int main(int argc, char *argv[]) {
 
     fclose(fin);
     fclose(fout);
-    printf("File copied from %s to %s\n", input_path, output_path);
+    printf("Node B completes\n", input_path, output_path);
     return 0;
 }
 

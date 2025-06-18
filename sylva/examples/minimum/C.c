@@ -1,126 +1,110 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <limits.h>
 #include <cjson/cJSON.h>
 
-int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s <input_json_file> <output_json_file>\n", argv[0]);
-        return 1;
-    }
-
-    int expected_minimum = INT_MAX;
-
-    // -- Parse expected input JSON --
-    FILE *f = fopen(argv[1], "r");
+void load_json(const char *filename, cJSON **root) {
+    FILE *f = fopen(filename, "rb");
     if (!f) {
-        perror("Error opening input JSON file");
-        return 1;
+        perror("Opening file");
+        exit(1);
     }
-
     fseek(f, 0, SEEK_END);
     long len = ftell(f);
     rewind(f);
 
     char *data = malloc(len + 1);
     if (!data) {
-        fprintf(stderr, "Memory allocation error\n");
+        fprintf(stderr, "Memory allocation failed\n");
         fclose(f);
-        return 1;
+        exit(1);
     }
+
     fread(data, 1, len, f);
     data[len] = '\0';
     fclose(f);
 
-    cJSON *json = cJSON_Parse(data);
+    *root = cJSON_Parse(data);
     free(data);
 
-    if (!json) {
+    if (!*root) {
         fprintf(stderr, "JSON parse error: %s\n", cJSON_GetErrorPtr());
+        exit(1);
+    }
+}
+
+/* Address space: 0x200 - 0x2FF */
+const int base_address = 0x200;
+
+int main(int argc, char *argv[]) {
+    if (argc != 3) {
+        fprintf(stderr, "Usage: %s <global_mem> <input_mem>\n", argv[0]);
         return 1;
     }
 
-    cJSON *line = cJSON_GetObjectItem(json, "line");
-    if (!cJSON_IsArray(line)) {
-        fprintf(stderr, "Invalid JSON format: 'line' should be an array\n");
-        cJSON_Delete(json);
+    cJSON *input_mem = NULL;
+    cJSON *global_mem = NULL;
+    load_json(argv[1], &global_mem);
+    load_json(argv[2], &input_mem);
+
+    cJSON *input_line = cJSON_GetObjectItem(input_mem, "line");
+    cJSON *global_line = cJSON_GetObjectItem(global_mem, "line");
+
+    if (!cJSON_IsArray(input_line) || !cJSON_IsArray(global_line)) {
+        fprintf(stderr, "Invalid format: 'line' should be an array in both files\n");
+        cJSON_Delete(input_mem);
+        cJSON_Delete(global_mem);
         return 1;
     }
 
+    // Step 1: Store only the first value 
+    int result = -1;
     cJSON *item = NULL;
-    cJSON_ArrayForEach(item, line) {
-        cJSON *val_item = cJSON_GetObjectItem(item, "value");
-        int value = (val_item && cJSON_IsNumber(val_item)) ? val_item->valueint : 0;
-        if (value < expected_minimum) {
-            expected_minimum = value;
-        }
-    }
-    cJSON_Delete(json);
-
-    // -- Parse output memory JSON --
-    int output_minimum = INT_MIN;
-    f = fopen(argv[2], "r");
-    if (!f) {
-        perror("Error opening memory JSON file");
-        return 1;
-    }
-
-    fseek(f, 0, SEEK_END);
-    len = ftell(f);
-    rewind(f);
-
-    data = malloc(len + 1);
-    if (!data) {
-        fprintf(stderr, "Memory allocation error\n");
-        fclose(f);
-        return 1;
-    }
-    fread(data, 1, len, f);
-    data[len] = '\0';
-    fclose(f);
-
-    json = cJSON_Parse(data);
-    free(data);
-
-    if (!json) {
-        fprintf(stderr, "JSON parse error: %s\n", cJSON_GetErrorPtr());
-        return 1;
-    }
-
-    line = cJSON_GetObjectItem(json, "line");
-    if (!cJSON_IsArray(line)) {
-        fprintf(stderr, "Invalid JSON format: 'line' should be an array\n");
-        cJSON_Delete(json);
-        return 1;
-    }
-
-    cJSON_ArrayForEach(item, line) {
+    cJSON_ArrayForEach(item, input_line) {
         cJSON *addr_item = cJSON_GetObjectItem(item, "address");
         cJSON *val_item = cJSON_GetObjectItem(item, "value");
+        
+        int address = (addr_item && cJSON_IsString(addr_item)) ? atoi(addr_item->valuestring) : 
+                      (addr_item && cJSON_IsNumber(addr_item)) ? addr_item->valueint : 0;
+        int value = (val_item && cJSON_IsString(val_item)) ? atoi(val_item->valuestring) :
+                    (val_item && cJSON_IsNumber(val_item)) ? val_item->valueint : 0;
 
-        int address = (addr_item && cJSON_IsNumber(addr_item)) ? addr_item->valueint : 
-                      (addr_item && cJSON_IsString(addr_item)) ? atoi(addr_item->valuestring) : 0;
-        int value   = (val_item && cJSON_IsNumber(val_item)) ? val_item->valueint : 
-                      (val_item && cJSON_IsString(val_item)) ? atoi(val_item->valuestring) : 0;
-
-        if (address != 0) {
-            fprintf(stderr, "Expected address to start at 0\n");
-            cJSON_Delete(json);
-            return 1;
+        if (address == 0) {
+            result = value;
         }
-
-        output_minimum = value;
-        break;  // Only consider the first entry
     }
-    cJSON_Delete(json);
 
-    if (output_minimum != expected_minimum) {
-        fprintf(stderr, "Verification failed. Expected min %d, got %d\n", expected_minimum, output_minimum);
+    // Step 2: Update global line
+    char str_num[12];
+    cJSON_ArrayForEach(item, global_line) {
+        cJSON *addr_item = cJSON_GetObjectItem(item, "address");
+        int address = (addr_item && cJSON_IsString(addr_item)) ? atoi(addr_item->valuestring) : 
+                      (addr_item && cJSON_IsNumber(addr_item)) ? addr_item->valueint : 0;
+        
+        if (address == base_address + 0) {
+            snprintf(str_num, sizeof(str_num), "%d", result);
+            cJSON_ReplaceItemInObject(item, "value", cJSON_CreateString(str_num));
+        }
+    }
+
+    // Step 3: Write to output file
+    FILE *out = fopen(argv[1], "w");
+    if (!out) {
+        perror("Writing output");
+        cJSON_Delete(input_mem);
+        cJSON_Delete(global_mem);
         return 1;
     }
 
-    printf("Verified.\n");
+    char *out_data = cJSON_Print(global_mem);
+    fputs(out_data, out);
+    fclose(out);
+
+    free(out_data);
+    cJSON_Delete(input_mem);
+    cJSON_Delete(global_mem);
+
+    printf("Node C completes\n");
     return 0;
 }
 

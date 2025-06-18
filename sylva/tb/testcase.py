@@ -68,6 +68,9 @@ def copy()-> ds.DataBase:
     db.app_graph.edges.append(ds.AppEdge(id="A_B", source_node="A", target_node="B", source_port="A:ab", target_port="B:ab", token_size=16))
     db.app_graph.edges.append(ds.AppEdge(id="B_C", source_node="B", target_node="C", source_port="B:bc", target_port="C:bc", token_size=16))
 
+    db.app_graph.global_mem_image = "examples/copy/global_mem_image.json"
+    db.app_graph.global_mem_reference = "examples/copy/global_mem_reference.json"
+
     return db
 
 
@@ -115,12 +118,12 @@ def sobel() -> ds.DataBase:
     db.alimp_lib.entries.append(func_store_entry)
 
 
-    db.app_graph.nodes.append(ds.AppNode(id="load", func="func_load", output_ports=[ds.AppNodePort(id="load_output", rate=1, token_size=16)]))
-    db.app_graph.nodes.append(ds.AppNode(id="copy", func="func_copy", input_ports=[ds.AppNodePort(id="copy_input", rate=1, token_size=16)], output_ports=[ds.AppNodePort(id="copy_output_0", rate=1, token_size=16), ds.AppNodePort(id="copy_output_1", rate=1, token_size=16)]))
-    db.app_graph.nodes.append(ds.AppNode(id="gx", func="func_gx", input_ports=[ds.AppNodePort(id="gx_input", rate=1, token_size=16)], output_ports=[ds.AppNodePort(id="gx_output", rate=1, token_size=16)]))
-    db.app_graph.nodes.append(ds.AppNode(id="gy", func="func_gy", input_ports=[ds.AppNodePort(id="gy_input", rate=1, token_size=16)], output_ports=[ds.AppNodePort(id="gy_output", rate=1, token_size=16)]))
-    db.app_graph.nodes.append(ds.AppNode(id="combine", func="func_combine", input_ports=[ds.AppNodePort(id="combine_input_0", rate=1, token_size=16), ds.AppNodePort(id="combine_input_1", rate=1, token_size=16)], output_ports=[ds.AppNodePort(id="combine_output", rate=1, token_size=16)]))
-    db.app_graph.nodes.append(ds.AppNode(id="store", func="func_store", input_ports=[ds.AppNodePort(id="store_input", rate=1, token_size=16)]))
+    db.app_graph.nodes.append(ds.AppNode(id="load", func="func_load", executable="examples/sobel/load", output_ports=[ds.AppNodePort(id="load_output", rate=1, token_size=16)]))
+    db.app_graph.nodes.append(ds.AppNode(id="copy", func="func_copy", executable="examples/sobel/copy", input_ports=[ds.AppNodePort(id="copy_input", rate=1, token_size=16)], output_ports=[ds.AppNodePort(id="copy_output_0", rate=1, token_size=16), ds.AppNodePort(id="copy_output_1", rate=1, token_size=16)]))
+    db.app_graph.nodes.append(ds.AppNode(id="gx", func="func_gx", executable="examples/sobel/gx", input_ports=[ds.AppNodePort(id="gx_input", rate=1, token_size=16)], output_ports=[ds.AppNodePort(id="gx_output", rate=1, token_size=16)]))
+    db.app_graph.nodes.append(ds.AppNode(id="gy", func="func_gy", executable="examples/sobel/gy", input_ports=[ds.AppNodePort(id="gy_input", rate=1, token_size=16)], output_ports=[ds.AppNodePort(id="gy_output", rate=1, token_size=16)]))
+    db.app_graph.nodes.append(ds.AppNode(id="combine", func="func_combine", executable="examples/sobel/combine", input_ports=[ds.AppNodePort(id="combine_input_0", rate=1, token_size=16), ds.AppNodePort(id="combine_input_1", rate=1, token_size=16)], output_ports=[ds.AppNodePort(id="combine_output", rate=1, token_size=16)]))
+    db.app_graph.nodes.append(ds.AppNode(id="store", func="func_store", executable="examples/sobel/store", input_ports=[ds.AppNodePort(id="store_input", rate=1, token_size=16)]))
 
     db.app_graph.edges.append(ds.AppEdge(id="edge_load_copy", source_node="load", target_node="copy", source_port="load_output", target_port="copy_input", token_size=16))
     db.app_graph.edges.append(ds.AppEdge(id="edge_copy_gx", source_node="copy", target_node="gx", source_port="copy_output_0", target_port="gx_input", token_size=16))
@@ -128,6 +131,9 @@ def sobel() -> ds.DataBase:
     db.app_graph.edges.append(ds.AppEdge(id="edge_gx_combine", source_node="gx", target_node="combine", source_port="gx_output", target_port="combine_input_0", token_size=16))
     db.app_graph.edges.append(ds.AppEdge(id="edge_gy_combine", source_node="gy", target_node="combine", source_port="gy_output", target_port="combine_input_1", token_size=16))
     db.app_graph.edges.append(ds.AppEdge(id="edge_combine_store", source_node="combine", target_node="store", source_port="combine_output", target_port="store_input", token_size=16))
+
+    db.app_graph.global_mem_image = "examples/sobel/global_mem_image.json"
+    db.app_graph.global_mem_reference = "examples/sobel/global_mem_reference.json"
 
     return db
 
@@ -160,12 +166,15 @@ def minimum()-> ds.DataBase:
     C_entry.instances.append(ds.AlimpInstance(width=4, height=4, energy=10, latency=16, input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1), ds.pair_int_int(key=2, value=2), ds.pair_int_int(key=3, value=3), ds.pair_int_int(key=4, value=4), ds.pair_int_int(key=5, value=5), ds.pair_int_int(key=6, value=6), ds.pair_int_int(key=7, value=7), ds.pair_int_int(key=8, value=8), ds.pair_int_int(key=9, value=9), ds.pair_int_int(key=10, value=10), ds.pair_int_int(key=11, value=11), ds.pair_int_int(key=12, value=12), ds.pair_int_int(key=13, value=13), ds.pair_int_int(key=14, value=14), ds.pair_int_int(key=15, value=15)]))
     db.alimp_lib.entries.append(C_entry)
 
-    db.app_graph.nodes.append(ds.AppNode(id="A", func="FA", executable="examples/minimum/A examples/minimum/input.json", output_ports=[ds.AppNodePort(id="A:ab", rate=1, token_size=16)]))
+    db.app_graph.nodes.append(ds.AppNode(id="A", func="FA", executable="examples/minimum/A", output_ports=[ds.AppNodePort(id="A:ab", rate=1, token_size=16)]))
     db.app_graph.nodes.append(ds.AppNode(id="B", func="FB", executable="examples/minimum/B", input_ports=[ds.AppNodePort(id="B:ab", rate=1, token_size=16)], output_ports=[ds.AppNodePort(id="B:bc", rate=1, token_size=16)]))
-    db.app_graph.nodes.append(ds.AppNode(id="C", func="FC", executable="examples/minimum/C examples/minimum/input.json", input_ports=[ds.AppNodePort(id="C:bc", rate=1, token_size=16)]))
+    db.app_graph.nodes.append(ds.AppNode(id="C", func="FC", executable="examples/minimum/C", input_ports=[ds.AppNodePort(id="C:bc", rate=1, token_size=16)]))
 
     db.app_graph.edges.append(ds.AppEdge(id="A_B", source_node="A", target_node="B", source_port="A:ab", target_port="B:ab", token_size=16))
     db.app_graph.edges.append(ds.AppEdge(id="B_C", source_node="B", target_node="C", source_port="B:bc", target_port="C:bc", token_size=16))
+
+    db.app_graph.global_mem_image = "examples/minimum/global_mem_image.json"
+    db.app_graph.global_mem_reference = "examples/minimum/global_mem_reference.json"
 
     return db
 

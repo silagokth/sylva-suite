@@ -17,21 +17,7 @@ class output_addr_translator(addr_translator_base):
     self.m_output_buffer = memBfr.buffer()
     self.m_output_image  = memImg.mem_image()
     self.infoDEBUG("init done.")
-  
-  def getOutputBfr(self):
-    filename = self.m_path + "/mem/" + self.m_my_name + "_outBuf"
-    filename+= ".json" if self.m_use_json else ".bin"
-    self.infoDEBUG(f"Reading Input Buffer from {filename}.")
-    try:
-      with open(filename, 'rb') as file:
-        string = file.read()
-        if self.m_use_json:
-          Parse(string, self.m_output_buffer)
-        else:
-          self.m_input_buffer.ParseFromString(string)
-    except Exception as e:
-      self.infoDEBUG(f"Failed to get {filename}, assuming the first fire")
-  
+ 
   def writeOutputBfr(self):
     filename = self.m_path + "/mem/" + self.m_my_name + "_outBuf"
     filename+= ".json" if self.m_use_json else ".bin"
@@ -75,7 +61,6 @@ class output_addr_translator(addr_translator_base):
     self.getTranslationTable()
     self.getAddressPattern()
     
-    self.getOutputBfr()
     self.getOutputImage()
 
     # make sure address patern is in increasing order of cycles.
@@ -101,10 +86,9 @@ class output_addr_translator(addr_translator_base):
       # Add a new Buffer line to output buffer
       bfrLine = self.m_output_buffer.mem.add()
       bfrLine.cycle = refTime 
-      bfrLine.value = ImgLine.value if bool(ImgLine) else 0
+      bfrLine.value = ImgLine.value if bool(ImgLine) else "0"
       bfrLine.address = tr.addr_out if bool(tr) else i.address
-      bfrLine.used = 0
-      self.infoDEBUG(f" Added @{bfrLine.cycle} cycle 0x{bfrLine.address:x}: 0x{bfrLine.value:x}")
+      self.infoDEBUG(f" Added @{bfrLine.cycle} cycle 0x{bfrLine.address:x}: {bfrLine.value}")
 
     self.writeOutputBfr()
     self.infoLOW(f"[@{refTime}] Done.")

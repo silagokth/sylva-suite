@@ -71,7 +71,6 @@ class top(base_module):
     self.cmd_path = self.workspace
     self.cstm_env = os.environ.copy()
     self.execute_command("mkdir -p mem", _shell=False)
-    self.execute_command(f"rm -f mem/*", _shell=True)
     self.infoMEDIUM(f"Initiated {len(self.m_node_insts)} nodes.")
     self.infoDEBUG(f"command path = {self.cmd_path}")
 
@@ -95,9 +94,9 @@ class top(base_module):
             lstInst = [inst for inst in self.nTT.tt if inst.node_name == nodeName]
             if len(lstInst) == 0:
               raise SimException(f"Fail to find the timing schedule of this node")
+            # @TODO: Maybe we should pass the firing times as a list to the node function
             elif len(lstInst) > 1:
               raise SimException(f"Haven't tested simulation with firing a node more than once")
-            # run all fire times of a node
             for ttInst in lstInst:
               globalTime = ttInst.cycle
               self.infoMEDIUM(f"ttInst: {ttInst}.")

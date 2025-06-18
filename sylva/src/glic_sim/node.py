@@ -42,14 +42,16 @@ class node(base_module):
 
     if not self.m_config.is_transporter:
       # add relative path to the process command
-      _cmd = ["../../"+each for each in shlex.split(self.m_config.process_cmd)]
-      self.m_config.process_cmd = " ".join(_cmd)
+      self.m_config.process_cmd = "../../" + self.m_config.process_cmd
+      self.m_config.process_cmd += " ./mem/global_mem_image.json"
       if len(self.m_config.in_names) != 0:
+        print(f"node {self.m_my_name} finishes input_address_translate init")
         self.m_in_addrT = input_addr_translator(self.m_my_name, path, useJson, v)
         self.m_config.process_cmd += f" ./mem/{self.m_my_name}_inMem.json"
       if len(self.m_config.out_names) != 0:
         self.m_out_addrT = output_addr_translator(self.m_my_name, path, useJson, v)
         self.m_config.process_cmd += f" ./mem/{self.m_my_name}_outMem.json"
+      print("ok")
       self.m_process = process_module(self.m_my_name, self.m_path, self.m_config.process_cmd, v)
     else:
       if (len(self.m_config.in_names) != 1):

@@ -62,9 +62,8 @@ class transporter_module(base_module):
     self.getTransportInst()
     self.getInputBuffer()
 
-    # Sort the buffer with latest vales (higher cycle) on top
-    #self.m_in_buf.mem.sort(key=lambda x: x.cycle, reverse=True)
-    self.m_in_buf.mem.sort(key=lambda x: x.cycle, reverse=False) # ordered
+    # Sort the buffer with earliest values (lower cycle) on top.
+    self.m_in_buf.mem.sort(key=lambda x: x.cycle, reverse=False)
 
     # We want to make sure the instruction is ordered by cycle time.
     self.m_inst.inst_list.sort(key=lambda x: x.cycle, reverse=False)
@@ -92,7 +91,7 @@ class transporter_module(base_module):
       line = self.m_out_buf.mem.add()
       line.cycle = refTime + self.m_delay 
       line.address = i.addr_wr
-      line.value = bfr.value if bool(bfr) else 0
+      line.value = bfr.value if bool(bfr) else "0"
 
     self.infoDEBUG(f"outbuffer = {self.m_out_buf}")
     self.infoMEDIUM(f"[@{refTime}] Writing output buffer {self.m_out_name}")

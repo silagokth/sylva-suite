@@ -10,7 +10,7 @@
           "tokenSize": 16
         }
       ],
-      "executable": "examples/minimum/A examples/minimum/input.json"
+      "executable": "examples/minimum/A"
     },
     {
       "id": "B",
@@ -41,7 +41,7 @@
           "tokenSize": 16
         }
       ],
-      "executable": "examples/minimum/C examples/minimum/input.json"
+      "executable": "examples/minimum/C"
     }
   ],
   "edges": [
@@ -61,5 +61,7 @@
       "targetPort": "C:bc",
       "tokenSize": 16
     }
-  ]
+  ],
+  "globalMemImage": "examples/minimum/global_mem_image.json",
+  "globalMemReference": "examples/minimum/global_mem_reference.json"
 }

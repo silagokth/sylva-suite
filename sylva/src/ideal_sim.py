@@ -8,7 +8,9 @@ import copy
 import matplotlib.pyplot as plt
 import random
 import json
+import shutil
 
+import lib.glic_sim.proto.mem_image_pb2 as memImg
 import lib.glic_sim.common as common_sim 
 import src.glic_sim.sim as sim 
 
@@ -98,25 +100,32 @@ def generate_simulation_files(db: ds.DataBase, sim_dir: str):
             j["addr_ptrn"] = [{'address': str(x.key), 'cycle': str(x.value)} for x in output_pattern]
             with open(output_pattern_file, 'w+') as f:
                 json.dump(j, f, indent=2)
-          
+      
     # write address translation table of each port to each component folder
     # build a dictionary to store the type of each port
-    port_type = {}
     for node in db.app_graph.nodes:
-        for port in node.input_ports:
-            port_type[port.id] = 'in'
-        for port in node.output_ports:
-            port_type[port.id] = 'out'
-    for chunk_address_assignment in db.synthesized_information.chunk_address_assignments:
-        j={"list":[]}
-        port = chunk_address_assignment.port_id
-        # check if port is input or output
-        port = port_type[port]
-        chunk_address_assignment_file = os.path.join(sim_dir, chunk_address_assignment.app_node_id + '_'+port+'TT.json')
-        j["list"] = [{'addr_in': x, 'addr_out': chunk_address_assignment.address_assignment[x]} for x in chunk_address_assignment.address_assignment]
-        with open(chunk_address_assignment_file, 'w+') as f:
-            json.dump(j, f, indent=2)
+        lst_ports = [port.id for port in node.input_ports]
+        if lst_ports:
+            address_assignment_file = os.path.join(sim_dir, node.id + '_inTT.json')
+            j = {"list":[]}
+            for chunk_address_assignment in db.synthesized_information.chunk_address_assignments:
+                if (chunk_address_assignment.app_node_id == node.id and chunk_address_assignment.port_id in lst_ports):
+                    j["list"].extend([{'addr_in': x, 'addr_out': chunk_address_assignment.address_assignment[x]} 
+                                      for x in chunk_address_assignment.address_assignment])
+            with open(address_assignment_file, 'w+') as f:
+                json.dump(j, f, indent=2)
     
+        lst_ports = [port.id for port in node.output_ports]
+        if lst_ports:
+            address_assignment_file = os.path.join(sim_dir, node.id + '_outTT.json')
+            j = {"list":[]}
+            for chunk_address_assignment in db.synthesized_information.chunk_address_assignments:
+                if (chunk_address_assignment.app_node_id == node.id and chunk_address_assignment.port_id in lst_ports):
+                    j["list"].extend([{'addr_in': x, 'addr_out': chunk_address_assignment.address_assignment[x]} 
+                                      for x in chunk_address_assignment.address_assignment])
+            with open(address_assignment_file, 'w+') as f:
+                json.dump(j, f, indent=2)
+   
     # write transport table of each edge to each edge folder
     for edge in db.app_graph.edges:
         j={"inst_list":[]}
@@ -140,7 +149,46 @@ def run_simulation(sim_dir: str):
     return None
 
 def verify_simulation(sim_dir: str) -> bool:
+    # user provides a global memory input and a global reference (output)
+    reference_dir = os.path.join(sim_dir, './mem/global_mem_reference.json') 
+    reference_image = memImg.mem_image()
+    try:
+        with open(reference_dir, 'rb') as file:
+            Parse(file.read(), reference_image)
+    except Exception as e:
+        logging.error(f"Cannot find the reference memory image {reference_dir}")
+        return False
+    
+    memory_dir = os.path.join(sim_dir, './mem/global_mem_image.json') 
+    memory_image = memImg.mem_image()
+    try:
+        with open(memory_dir, 'rb') as file:
+            Parse(file.read(), memory_image)
+    except Exception as e:
+        logging.error(f"Cannot find the memory image {memory_dir}")
+        return False
+    
+    # comparing all contents of both files
+    if (memory_image != reference_image):
+        return False
     return True
+
+def create_memory_files(db, sim_dir):
+    mem_dir = os.path.join(sim_dir, 'mem')
+    os.makedirs(mem_dir, exist_ok=True)
+    # delete all files in mem directory
+    for filename in os.listdir(mem_dir):
+        file_path = os.path.join(mem_dir, filename)
+        if os.path.isfile(file_path):
+            os.remove(file_path)
+    # copy memory files to mem directory
+    try: 
+        shutil.copy(db.app_graph.global_mem_image, mem_dir)
+        shutil.copy(db.app_graph.global_mem_reference, mem_dir)
+    except PermissionError:
+        logging.error("Cannot copy the global memory files, needed permission")
+    except:
+        logging.error("Cannot copy the global memory files")
 
 def run(db: ds.DataBase, output_dir: str) -> bool:
     logging.info("Start: ideal simulation")
@@ -149,6 +197,7 @@ def run(db: ds.DataBase, output_dir: str) -> bool:
     sim_dir = os.path.join(output_dir, 'ideal_sim')
     os.makedirs(sim_dir, exist_ok=True)
     generate_simulation_files(db, sim_dir)
+    create_memory_files(db, sim_dir)
     run_simulation(sim_dir)
     result = verify_simulation(sim_dir)
     logging.info("Finish: ideal simulation")

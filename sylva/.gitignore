@@ -3,8 +3,11 @@
 __pycache__/
 
 # example directory
+examples/*
+!examples/copy
 examples/copy/*
 !examples/copy/*.*
+!examples/minimum
 examples/minimum/*
 !examples/minimum/*.*
 

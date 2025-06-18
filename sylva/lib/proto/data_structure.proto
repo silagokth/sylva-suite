@@ -121,6 +121,8 @@ message CostMetric {
 message AppGraph {
   repeated AppNode nodes = 1;
   repeated AppEdge edges = 2;
+  string global_mem_image = 3;
+  string global_mem_reference = 4;
 }
 message AppNode {
   string id = 1;
