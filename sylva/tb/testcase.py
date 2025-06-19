@@ -496,7 +496,7 @@ def lenet5() -> ds.DataBase:
     db.hyper_parameter.place_relaxation_factor = 1.5
     db.hyper_parameter.place_reserved_routing_size = 1
 
-    prefix = "work/sim/"
+    prefix = "examples/lenet5/"
 
     def add_entry_instance(db, name, func, prefix, width, height, energy) -> list:
         entry = ds.AlimpEntry()
