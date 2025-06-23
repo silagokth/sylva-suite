@@ -234,13 +234,13 @@ def place_solve_approx_optimal(fp: ds.FloorPlan, db:ds.DataBase) -> bool:
     weighted_distance = []
     for i in range(len(fp.source_node)):
                 weighted_distance.append(model.NewIntVar(
-                    0, 10000, "wdist_%i_%i" % (i, i)))
+                    0, 1000000, "wdist_%i_%i" % (i, i)))
                 model.AddMultiplicationEquality(weighted_distance[i],
                                                 [distance_matrix[i], fp.conn[i]])
 
     # Compute the total weighted distance.
     total_weighted_distance = model.NewIntVar(
-            0, 10000, "total_weighted_distance")
+            0, 1000000, "total_weighted_distance")
     model.Add(sum(weighted_distance) == total_weighted_distance)
 
     # Objective: minimize the total weighted distance.

@@ -24,9 +24,19 @@ def load_all(filename):
     
     memory_blocks = {}
     for entry in input_json["line"]:
-        addr = int(entry["address"])
-        hex_string = entry["value"]        
-        # padding 
+        try:
+            addr = int(entry["address"])
+        except KeyError:
+            addr = 0
+        except Exception as e:
+            raise ValueError
+        try:
+            hex_string = entry["value"]
+        except KeyError:
+            hex_string = ""
+        except Exception as e:
+            raise ValueError
+        #padding 
         while (len(hex_string) < CHUNK_SIZE * 2):
             hex_string = "0" + hex_string
         bytes_chunk = bytes.fromhex(hex_string)[::-1]  # Convert and reverse LSB → MSB

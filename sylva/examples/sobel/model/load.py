@@ -24,10 +24,20 @@ def load_data(filename, size, offset):
     raw_data = bytearray((size + 1) * CHUNK_SIZE)   
 
     for entry in input_json["line"]:
-        addr = int(entry["address"])
+        try:
+            addr = int(entry["address"])
+        except KeyError:
+            addr = 0
+        except Exception as e:
+            raise ValueError
         if (addr-offset) < 0 or (addr-offset) >= size:
             continue
-        hex_string = entry["value"]        
+        try:
+            hex_string = entry["value"]
+        except KeyError:
+            hex_string = ""
+        except Exception as e:
+            raise ValueError
         # padding 
         while (len(hex_string) < CHUNK_SIZE * 2):
             hex_string = "0" + hex_string

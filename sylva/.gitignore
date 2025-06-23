@@ -11,6 +11,10 @@ examples/copy/*
 examples/minimum/*
 !examples/minimum/*.*
 !examples/sobel
+examples/sobel/_*
+examples/sobel/model/*
+!examples/sobel/model/*.*
+
 
 # bin directory
 bin/*
