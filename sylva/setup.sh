@@ -29,21 +29,24 @@ echo "Completed"
 echo "Installing cJSON..."
 sudo apt-get install libcjson-dev  
 echo "Completed"
-echo "Compiling examples..."
+echo "Compiling copy example..."
 nullify pushd examples/copy 
 nullify bash ./run.sh 
 nullify popd
 
+echo "Compiling minimum example..."
 nullify pushd examples/minimum 
 nullify bash ./run.sh 
 nullify popd
 
+echo "Compiling sobel example..."
 nullify pushd examples/sobel 
 nullify bash ./run.sh 
 nullify popd
 
-
-
-
+echo "Compiling lenet5 example..."
+nullify pushd examples/lenet5
+nullify bash ./run.sh 
+nullify popd
 
 echo "Completed"

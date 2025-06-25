@@ -10,7 +10,7 @@
           "tokenSize": 3200
         }
       ],
-      "executable": "examples/sobel/model/load"
+      "executable": "examples/sobel//model/load"
     },
     {
       "id": "copy",
@@ -34,7 +34,7 @@
           "tokenSize": 3200
         }
       ],
-      "executable": "examples/sobel/model/copy"
+      "executable": "examples/sobel//model/copy"
     },
     {
       "id": "gx",
@@ -53,7 +53,7 @@
           "tokenSize": 12800
         }
       ],
-      "executable": "examples/sobel/model/gx"
+      "executable": "examples/sobel//model/gx"
     },
     {
       "id": "gy",
@@ -72,7 +72,7 @@
           "tokenSize": 12800
         }
       ],
-      "executable": "examples/sobel/model/gy"
+      "executable": "examples/sobel//model/gy"
     },
     {
       "id": "combine",
@@ -96,7 +96,7 @@
           "tokenSize": 3200
         }
       ],
-      "executable": "examples/sobel/model/combine"
+      "executable": "examples/sobel//model/combine"
     },
     {
       "id": "store",
@@ -108,7 +108,7 @@
           "tokenSize": 3200
         }
       ],
-      "executable": "examples/sobel/model/store"
+      "executable": "examples/sobel//model/store"
     }
   ],
   "edges": [
@@ -161,6 +161,6 @@
       "tokenSize": 3200
     }
   ],
-  "globalMemImage": "examples/sobel/mem/global_mem_image.json",
-  "globalMemReference": "examples/sobel/mem/global_mem_reference.json"
+  "globalMemImage": "examples/sobel//mem/global_mem_image.json",
+  "globalMemReference": "examples/sobel//mem/global_mem_reference.json"
 }

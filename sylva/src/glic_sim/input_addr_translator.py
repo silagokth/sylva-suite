@@ -62,7 +62,7 @@ class input_addr_translator(addr_translator_base):
     self.getAddressPattern()
     self.getInputBuffer()
 
-    # Sort the buffer with earliest vales (higher cycle) on top
+    # Sort the buffer with earliest vales (lower cycle) on top
     self.m_input_buffer.mem.sort(key=lambda x:x.cycle, reverse=False)
 
     # make sure address patern is in increasing order of cycles.
@@ -87,7 +87,7 @@ class input_addr_translator(addr_translator_base):
         self.m_input_buffer.mem.remove(bfr)
         self.infoHIGH(f"[@{refTime}] For inAddr 0x{i.address:x} found value {bfr.value}.")
       elif len(lst_buf) > 1:
-        self.infoNONE(f"[@{refTime}] For inAddr 0x{i.address:x} write collision detected")
+        self.infoNONE(f"[@{refTime}] For inAddr 0x{i.address:x} write collision detected {lst_buf}")
         raise SimException(f"Fail to get a value from the buffer")
       else:
         self.infoNONE(f"[@{refTime}] For inAddr 0x{i.address:x} could NOT find a value.")
@@ -98,6 +98,7 @@ class input_addr_translator(addr_translator_base):
       imgLine.address = i.address
       imgLine.value = bfr.value if bool(bfr) else "0"
       self.infoDEBUG(f" Added {imgLine.address:x}: {imgLine.value}")
-
+ 
+    self.m_input_image.line.sort(key=lambda x:x.address, reverse=False)
     self.writeInputMemImg()
     self.infoLOW(f"[@{refTime}] Done.")

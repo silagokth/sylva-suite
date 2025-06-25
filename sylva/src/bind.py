@@ -110,10 +110,15 @@ def bind_solve_optimal (db: ds.DataBase) -> int:
         # post constraint: start_time is the max of all predecessors' start_time + 0.5*latency
         model.AddDivisionEquality(HALF_LATENCY[node.id], LATENCY[node.id], 2)
     for node in db.app_graph.nodes:
-        # post constraint: start_time is the max of all predecessors' start_time + 0.5*latency
-        if node.id in predecessors:
+        if node.id in predecessors: 
+            max_predecessor_time = model.NewIntVar(0, db.global_constraint.max_latency, f'max_predecessor_time_{node.id}')
+            predecessor_end_times = []
             for predecessor in predecessors[node.id]:
-                model.Add(START_TIME[node.id] == START_TIME[predecessor] + HALF_LATENCY[predecessor])
+                pred_end = START_TIME[predecessor] + HALF_LATENCY[predecessor]
+                predecessor_end_times.append(pred_end)
+            # post constraint: start_time is the max of all predecessors' start_time + 0.5*latency
+            model.AddMaxEquality(max_predecessor_time, predecessor_end_times)
+            model.Add(START_TIME[node.id] == max_predecessor_time)
         else:
             model.Add(START_TIME[node.id] == 0)
         # post constraint: start_time + latency <= max_latency
@@ -252,10 +257,15 @@ def bind_solve_approx_optimal(db: ds.DataBase, obj_optimal) -> list:
         # post constraint: start_time is the max of all predecessors' start_time + 0.5*latency
         model.AddDivisionEquality(HALF_LATENCY[node.id], LATENCY[node.id], 2)
     for node in db.app_graph.nodes:
-        # post constraint: start_time is the max of all predecessors' start_time + 0.5*latency
         if node.id in predecessors:
+            max_predecessor_time = model.NewIntVar(0, db.global_constraint.max_latency, f'max_predecessor_time_{node.id}')
+            predecessor_end_times = []
             for predecessor in predecessors[node.id]:
-                model.Add(START_TIME[node.id] == START_TIME[predecessor] + HALF_LATENCY[predecessor])
+                pred_end = START_TIME[predecessor] + HALF_LATENCY[predecessor]
+                predecessor_end_times.append(pred_end)
+            # post constraint: start_time is the max of all predecessors' start_time + 0.5*latency
+            model.AddMaxEquality(max_predecessor_time, predecessor_end_times)
+            model.Add(START_TIME[node.id] == max_predecessor_time)
         else:
             model.Add(START_TIME[node.id] == 0)
         # post constraint: start_time + latency <= max_latency
@@ -291,7 +301,7 @@ def bind_solve_approx_optimal(db: ds.DataBase, obj_optimal) -> list:
             model.Add(alimp_entry.instances[i].latency <= db.global_constraint.max_period).OnlyEnforceIf(BINDING_VECS[node.id][i])
     
     # define the objective function, which is the weighted linear combination of area, energy and latency
-    obj = model.NewIntVar(0, 1000000, "obj")
+    obj = model.NewIntVar(0, 2 * 1000000, "obj")
     model.Add(obj == db.hyper_parameter.bind_w_area * sum(ALIMP_AREA.values()) + db.hyper_parameter.bind_w_energy *sum(ALIMP_ENERGY.values()))
 
     # add constraint to limit the max value of obj to relatexed_obj

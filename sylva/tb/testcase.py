@@ -61,6 +61,7 @@ def add_entry_instance(db, name, func, prefix, width, height, energy) -> list:
     print(f"Add entry {name} with {input_token} input tokens and {output_token} output tokens (latency={latency})")
     return (input_token, output_token)
 
+
 def copy()-> ds.DataBase:
     db = ds.DataBase()
     db.global_constraint.max_energy = 100
@@ -96,8 +97,8 @@ def copy()-> ds.DataBase:
     db.app_graph.edges.append(ds.AppEdge(id="A_B", source_node="A", target_node="B", source_port="A:ab", target_port="B:ab", token_size=16))
     db.app_graph.edges.append(ds.AppEdge(id="B_C", source_node="B", target_node="C", source_port="B:bc", target_port="C:bc", token_size=16))
 
-    db.app_graph.global_mem_image = "examples/copy/global_mem_image.json"
-    db.app_graph.global_mem_reference = "examples/copy/global_mem_reference.json"
+    db.app_graph.global_mem_image = "examples/copy/mem/global_mem_image.json"
+    db.app_graph.global_mem_reference = "examples/copy/mem/global_mem_reference.json"
 
     return db
 
@@ -126,12 +127,12 @@ def sobel() -> ds.DataBase:
     (combine_input_token, combine_output_token) = add_entry_instance(db, "combine", "func_combine", prefix, 2, 2, 2)
     (store_input_token, store_output_token) = add_entry_instance(db, "store", "func_store", prefix, 4, 2, 1)
 
-    db.app_graph.nodes.append(ds.AppNode(id="load", func="func_load", executable="examples/sobel/model/load", output_ports=[ds.AppNodePort(id="load_output", rate=1, token_size=load_output_token)]))
-    db.app_graph.nodes.append(ds.AppNode(id="copy", func="func_copy", executable="examples/sobel/model/copy", input_ports=[ds.AppNodePort(id="copy_input", rate=1, token_size=copy_input_token)], output_ports=[ds.AppNodePort(id="copy_output_0", rate=1, token_size=copy_output_token//2), ds.AppNodePort(id="copy_output_1", rate=1, token_size=copy_output_token//2)]))
-    db.app_graph.nodes.append(ds.AppNode(id="gx", func="func_gx", executable="examples/sobel/model/gx", input_ports=[ds.AppNodePort(id="gx_input", rate=1, token_size=gx_input_token)], output_ports=[ds.AppNodePort(id="gx_output", rate=1, token_size=gx_output_token)]))
-    db.app_graph.nodes.append(ds.AppNode(id="gy", func="func_gy", executable="examples/sobel/model/gy", input_ports=[ds.AppNodePort(id="gy_input", rate=1, token_size=gy_input_token)], output_ports=[ds.AppNodePort(id="gy_output", rate=1, token_size=gy_output_token)]))
-    db.app_graph.nodes.append(ds.AppNode(id="combine", func="func_combine", executable="examples/sobel/model/combine", input_ports=[ds.AppNodePort(id="combine_input_0", rate=1, token_size=combine_input_token//2), ds.AppNodePort(id="combine_input_1", rate=1, token_size=combine_input_token//2)], output_ports=[ds.AppNodePort(id="combine_output", rate=1, token_size=combine_output_token)]))
-    db.app_graph.nodes.append(ds.AppNode(id="store", func="func_store", executable="examples/sobel/model/store", input_ports=[ds.AppNodePort(id="store_input", rate=1, token_size=store_input_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="load", func="func_load", executable=f"{prefix}/model/load", output_ports=[ds.AppNodePort(id="load_output", rate=1, token_size=load_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="copy", func="func_copy", executable=f"{prefix}/model/copy", input_ports=[ds.AppNodePort(id="copy_input", rate=1, token_size=copy_input_token)], output_ports=[ds.AppNodePort(id="copy_output_0", rate=1, token_size=copy_output_token//2), ds.AppNodePort(id="copy_output_1", rate=1, token_size=copy_output_token//2)]))
+    db.app_graph.nodes.append(ds.AppNode(id="gx", func="func_gx", executable=f"{prefix}/model/gx", input_ports=[ds.AppNodePort(id="gx_input", rate=1, token_size=gx_input_token)], output_ports=[ds.AppNodePort(id="gx_output", rate=1, token_size=gx_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="gy", func="func_gy", executable=f"{prefix}/model/gy", input_ports=[ds.AppNodePort(id="gy_input", rate=1, token_size=gy_input_token)], output_ports=[ds.AppNodePort(id="gy_output", rate=1, token_size=gy_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="combine", func="func_combine", executable=f"{prefix}/model/combine", input_ports=[ds.AppNodePort(id="combine_input_0", rate=1, token_size=combine_input_token//2), ds.AppNodePort(id="combine_input_1", rate=1, token_size=combine_input_token//2)], output_ports=[ds.AppNodePort(id="combine_output", rate=1, token_size=combine_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="store", func="func_store", executable=f"{prefix}/model/store", input_ports=[ds.AppNodePort(id="store_input", rate=1, token_size=store_input_token)]))
 
     db.app_graph.edges.append(ds.AppEdge(id="edge_load_copy", source_node="load", target_node="copy", source_port="load_output", target_port="copy_input", token_size=copy_input_token))
     db.app_graph.edges.append(ds.AppEdge(id="edge_copy_gx", source_node="copy", target_node="gx", source_port="copy_output_0", target_port="gx_input", token_size=gx_input_token))
@@ -140,8 +141,51 @@ def sobel() -> ds.DataBase:
     db.app_graph.edges.append(ds.AppEdge(id="edge_gy_combine", source_node="gy", target_node="combine", source_port="gy_output", target_port="combine_input_1", token_size=gy_output_token))
     db.app_graph.edges.append(ds.AppEdge(id="edge_combine_store", source_node="combine", target_node="store", source_port="combine_output", target_port="store_input", token_size=store_input_token))
 
-    db.app_graph.global_mem_image = "examples/sobel/mem/global_mem_image.json"
-    db.app_graph.global_mem_reference = "examples/sobel/mem/global_mem_reference.json"
+    db.app_graph.global_mem_image = f"{prefix}/mem/global_mem_image.json"
+    db.app_graph.global_mem_reference = f"{prefix}/mem/global_mem_reference.json"
+
+    return db
+
+def sobel_random() -> ds.DataBase:
+    db = ds.DataBase()
+    db.global_constraint.max_energy = 100
+    db.global_constraint.max_width = 100
+    db.global_constraint.max_height = 100
+    db.global_constraint.max_latency = 5000
+    db.global_constraint.max_period = 2000
+
+    db.hyper_parameter.bind_w_area = 1
+    db.hyper_parameter.bind_w_energy = 1
+    db.hyper_parameter.bind_w_latency = 1
+    db.hyper_parameter.bind_relaxation_factor = 1.1
+    db.hyper_parameter.place_relaxation_factor = 1
+    db.hyper_parameter.place_reserved_routing_size = 1
+
+    prefix = "examples/sobel/"
+
+    (load_input_token, load_output_token) = add_entry_instance(db, "load", "func_load", prefix+"random/", 4, 4, 2)
+    (copy_input_token, copy_output_token) = add_entry_instance(db, "copy", "func_copy", prefix+"random/", 2, 1, 2)
+    (gx_input_token, gx_output_token) = add_entry_instance(db, "gx", "func_gx", prefix+"random/", 4, 4, 10)
+    (gy_input_token, gy_output_token) = add_entry_instance(db, "gy", "func_gy", prefix+"random/", 4, 4, 10)
+    (combine_input_token, combine_output_token) = add_entry_instance(db, "combine", "func_combine", prefix+"random/", 2, 2, 2)
+    (store_input_token, store_output_token) = add_entry_instance(db, "store", "func_store", prefix+"random/", 4, 2, 1)
+
+    db.app_graph.nodes.append(ds.AppNode(id="load", func="func_load", executable=f"{prefix}/model/load", output_ports=[ds.AppNodePort(id="load_output", rate=1, token_size=load_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="copy", func="func_copy", executable=f"{prefix}/model/copy", input_ports=[ds.AppNodePort(id="copy_input", rate=1, token_size=copy_input_token)], output_ports=[ds.AppNodePort(id="copy_output_0", rate=1, token_size=copy_output_token//2), ds.AppNodePort(id="copy_output_1", rate=1, token_size=copy_output_token//2)]))
+    db.app_graph.nodes.append(ds.AppNode(id="gx", func="func_gx", executable=f"{prefix}/model/gx", input_ports=[ds.AppNodePort(id="gx_input", rate=1, token_size=gx_input_token)], output_ports=[ds.AppNodePort(id="gx_output", rate=1, token_size=gx_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="gy", func="func_gy", executable=f"{prefix}/model/gy", input_ports=[ds.AppNodePort(id="gy_input", rate=1, token_size=gy_input_token)], output_ports=[ds.AppNodePort(id="gy_output", rate=1, token_size=gy_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="combine", func="func_combine", executable=f"{prefix}/model/combine", input_ports=[ds.AppNodePort(id="combine_input_0", rate=1, token_size=combine_input_token//2), ds.AppNodePort(id="combine_input_1", rate=1, token_size=combine_input_token//2)], output_ports=[ds.AppNodePort(id="combine_output", rate=1, token_size=combine_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="store", func="func_store", executable=f"{prefix}/model/store", input_ports=[ds.AppNodePort(id="store_input", rate=1, token_size=store_input_token)]))
+
+    db.app_graph.edges.append(ds.AppEdge(id="edge_load_copy", source_node="load", target_node="copy", source_port="load_output", target_port="copy_input", token_size=copy_input_token))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_copy_gx", source_node="copy", target_node="gx", source_port="copy_output_0", target_port="gx_input", token_size=gx_input_token))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_copy_gy", source_node="copy", target_node="gy", source_port="copy_output_1", target_port="gy_input", token_size=gy_input_token))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_gx_combine", source_node="gx", target_node="combine", source_port="gx_output", target_port="combine_input_0", token_size=gx_output_token))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_gy_combine", source_node="gy", target_node="combine", source_port="gy_output", target_port="combine_input_1", token_size=gy_output_token))
+    db.app_graph.edges.append(ds.AppEdge(id="edge_combine_store", source_node="combine", target_node="store", source_port="combine_output", target_port="store_input", token_size=store_input_token))
+
+    db.app_graph.global_mem_image = f"{prefix}/mem/global_mem_image.json"
+    db.app_graph.global_mem_reference = f"{prefix}/mem/global_mem_reference.json"
 
     return db
 
@@ -181,8 +225,8 @@ def minimum()-> ds.DataBase:
     db.app_graph.edges.append(ds.AppEdge(id="A_B", source_node="A", target_node="B", source_port="A:ab", target_port="B:ab", token_size=16))
     db.app_graph.edges.append(ds.AppEdge(id="B_C", source_node="B", target_node="C", source_port="B:bc", target_port="C:bc", token_size=16))
 
-    db.app_graph.global_mem_image = "examples/minimum/global_mem_image.json"
-    db.app_graph.global_mem_reference = "examples/minimum/global_mem_reference.json"
+    db.app_graph.global_mem_image = "examples/minimum/mem/global_mem_image.json"
+    db.app_graph.global_mem_reference = "examples/minimum/mem/global_mem_reference.json"
 
     return db
 
@@ -506,16 +550,16 @@ def lenet5() -> ds.DataBase:
     (store_output_input_token, store_output_output_token) = add_entry_instance(db, "store_output", "output_10", prefix, 5, 1, 10)
     (load_input_input_token, load_input_output_token) = add_entry_instance(db, "load_input", "input_32x32", prefix, 5, 5, 10)
     
-    db.app_graph.nodes.append(ds.AppNode(id="load_input", func="input_32x32", output_ports=[ds.AppNodePort(id="load_input_out", rate=1, token_size=load_input_output_token)]))
-    db.app_graph.nodes.append(ds.AppNode(id="conv1", func="conv_32x32_5x5", input_ports=[ds.AppNodePort(id="conv1_in", rate=1, token_size=conv1_input_token)], output_ports=[ds.AppNodePort(id="conv1_out", rate=1, token_size=conv1_output_token)]))
-    db.app_graph.nodes.append(ds.AppNode(id="pooling1", func="max_pool_28x28_2", input_ports=[ds.AppNodePort(id="pooling1_in", rate=1, token_size=pooling1_input_token)], output_ports=[ds.AppNodePort(id="pooling1_out", rate=1, token_size=pooling1_output_token)]))
-    db.app_graph.nodes.append(ds.AppNode(id="conv2", func="conv_14x14_5x5", input_ports=[ds.AppNodePort(id="conv2_in", rate=1, token_size=conv2_input_token)], output_ports=[ds.AppNodePort(id="conv2_out", rate=1, token_size=conv2_output_token)]))
-    db.app_graph.nodes.append(ds.AppNode(id="pooling2", func="max_pool_10x10_2", input_ports=[ds.AppNodePort(id="pooling2_in", rate=1, token_size=pooling2_input_token)], output_ports=[ds.AppNodePort(id="pooling2_out", rate=1, token_size=pooling2_output_token)]))
-    db.app_graph.nodes.append(ds.AppNode(id="conv3", func="conv_5x5_5x5", input_ports=[ds.AppNodePort(id="conv3_in", rate=1, token_size=conv3_input_token)], output_ports=[ds.AppNodePort(id="conv3_out", rate=1, token_size=conv3_output_token)]))
-    db.app_graph.nodes.append(ds.AppNode(id="reshape", func="reshape_5x5_1", input_ports=[ds.AppNodePort(id="reshape_in", rate=1, token_size=reshape_input_token)], output_ports=[ds.AppNodePort(id="reshape_out", rate=1, token_size=reshape_output_token)]))
-    db.app_graph.nodes.append(ds.AppNode(id="fc1", func="dense_120_84", input_ports=[ds.AppNodePort(id="fc1_in", rate=1, token_size=fc1_input_token)], output_ports=[ds.AppNodePort(id="fc1_out", rate=1, token_size=fc1_output_token)]))
-    db.app_graph.nodes.append(ds.AppNode(id="fc2", func="dense_84_10", input_ports=[ds.AppNodePort(id="fc2_in", rate=1, token_size=fc2_input_token)], output_ports=[ds.AppNodePort(id="fc2_out", rate=1, token_size=fc2_output_token)]))
-    db.app_graph.nodes.append(ds.AppNode(id="store_output", func="output_10", input_ports=[ds.AppNodePort(id="store_output_in", rate=1, token_size=store_output_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="load_input", func="input_32x32", executable=f"{prefix}/model/load_input run --addr 0 --size 64", output_ports=[ds.AppNodePort(id="load_input_out", rate=1, token_size=load_input_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="conv1", func="conv_32x32_5x5", executable=f"{prefix}/model/conv run --input_image_channel 1 --input_image_size 32 --kernel_channel 6 --kernel_size 5 --stride 1 --kernel {prefix}/data/conv1_kernel.json --bias {prefix}/data/conv1_bias.json", input_ports=[ds.AppNodePort(id="conv1_in", rate=1, token_size=conv1_input_token)], output_ports=[ds.AppNodePort(id="conv1_out", rate=1, token_size=conv1_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="pooling1", func="max_pool_28x28_2", executable=f"{prefix}/model/pooling run --input_image_channel 6 --input_image_size 28 --kernel_size 2 --stride 2 --mode average", input_ports=[ds.AppNodePort(id="pooling1_in", rate=1, token_size=pooling1_input_token)], output_ports=[ds.AppNodePort(id="pooling1_out", rate=1, token_size=pooling1_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="conv2", func="conv_14x14_5x5", executable=f"{prefix}/model/conv run --input_image_channel 6 --input_image_size 14 --kernel_channel 16 --kernel_size 5 --stride 1 --kernel {prefix}/data/conv2_kernel.json --bias {prefix}/data/conv2_bias.json", input_ports=[ds.AppNodePort(id="conv2_in", rate=1, token_size=conv2_input_token)], output_ports=[ds.AppNodePort(id="conv2_out", rate=1, token_size=conv2_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="pooling2", func="max_pool_10x10_2", executable=f"{prefix}/model/pooling run --input_image_channel 16 --input_image_size 10 --kernel_size 2 --stride 2 --mode average", input_ports=[ds.AppNodePort(id="pooling2_in", rate=1, token_size=pooling2_input_token)], output_ports=[ds.AppNodePort(id="pooling2_out", rate=1, token_size=pooling2_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="conv3", func="conv_5x5_5x5", executable=f"{prefix}/model/conv run --input_image_channel 16 --input_image_size 5 --kernel_channel 120 --kernel_size 5 --stride 1 --kernel {prefix}/data/conv3_kernel.json --bias {prefix}/data/conv3_bias.json", input_ports=[ds.AppNodePort(id="conv3_in", rate=1, token_size=conv3_input_token)], output_ports=[ds.AppNodePort(id="conv3_out", rate=1, token_size=conv3_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="reshape", func="reshape_5x5_1", executable=f"{prefix}/model/reshape run --input_row 120 --input_col 1 --output_row 1 --output_col 120", input_ports=[ds.AppNodePort(id="reshape_in", rate=1, token_size=reshape_input_token)], output_ports=[ds.AppNodePort(id="reshape_out", rate=1, token_size=reshape_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="fc1", func="dense_120_84", executable=f"{prefix}/model/fc run --input_size 120 --output_size 84 --weight {prefix}/data/fc1_weight.json --bias {prefix}/data/fc1_bias.json --activation=tanh", input_ports=[ds.AppNodePort(id="fc1_in", rate=1, token_size=fc1_input_token)], output_ports=[ds.AppNodePort(id="fc1_out", rate=1, token_size=fc1_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="fc2", func="dense_84_10", executable=f"{prefix}/model/fc run --input_size 84 --output_size 10 --weight {prefix}/data/fc2_weight.json --bias {prefix}/data/fc2_bias.json --activation=softmax", input_ports=[ds.AppNodePort(id="fc2_in", rate=1, token_size=fc2_input_token)], output_ports=[ds.AppNodePort(id="fc2_out", rate=1, token_size=fc2_output_token)]))
+    db.app_graph.nodes.append(ds.AppNode(id="store_output", func="output_10", executable=f"{prefix}/model/store_output run --addr 64 --size 1", input_ports=[ds.AppNodePort(id="store_output_in", rate=1, token_size=store_output_input_token)]))
     db.app_graph.edges.append(ds.AppEdge(id="edge_load_input_conv1", source_node="load_input", target_node="conv1", source_port="load_input_out", target_port="conv1_in", token_size=load_input_output_token))
     db.app_graph.edges.append(ds.AppEdge(id="edge_conv1_pooling1", source_node="conv1", target_node="pooling1", source_port="conv1_out", target_port="pooling1_in", token_size=conv1_output_token))
     db.app_graph.edges.append(ds.AppEdge(id="edge_pooling1_conv2", source_node="pooling1", target_node="conv2", source_port="pooling1_out", target_port="conv2_in", token_size=pooling1_output_token))
@@ -526,5 +570,7 @@ def lenet5() -> ds.DataBase:
     db.app_graph.edges.append(ds.AppEdge(id="edge_fc1_fc2", source_node="fc1", target_node="fc2", source_port="fc1_out", target_port="fc2_in", token_size=fc1_output_token))
     db.app_graph.edges.append(ds.AppEdge(id="edge_fc2_store_output", source_node="fc2", target_node="store_output", source_port="fc2_out", target_port="store_output_in", token_size=fc2_output_token))
 
+    db.app_graph.global_mem_image = f"{prefix}/mem/global_mem_image.json"
+    db.app_graph.global_mem_reference = f"{prefix}/mem/global_mem_reference.json"
 
     return db

@@ -3,6 +3,45 @@
 #include <string.h>
 #include <cjson/cJSON.h>
 
+typedef struct {
+    char *global_image;
+    char *in_mem;
+    char *out_mem;
+} Arguments;
+
+void print_usage(const char *prog_name) {
+    printf("Usage: %s --global-image <path> --in-mem <path> [--out-mem <path>]\n", prog_name);
+}
+
+int parse_arguments(int argc, char *argv[], Arguments *args) {
+    if (argc < 5) { // minimum required args
+        print_usage(argv[0]);
+        return -1;
+    }
+
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--global-image") == 0 && i + 1 < argc) {
+            args->global_image = argv[++i];
+        } else if (strcmp(argv[i], "--in-mem") == 0 && i + 1 < argc) {
+            args->in_mem = argv[++i];
+        } else if (strcmp(argv[i], "--out-mem") == 0 && i + 1 < argc) {
+            args->out_mem = argv[++i];
+        } else {
+            printf("Unknown or incomplete argument: %s\n", argv[i]);
+            print_usage(argv[0]);
+            return -1;
+        }
+    }
+
+    if (args->global_image == NULL || args->in_mem == NULL) {
+        printf("Error: --global-image and --in-mem are required arguments.\n");
+        print_usage(argv[0]);
+        return -1;
+    }
+
+    return 0;
+}
+
 void load_json(const char *filename, cJSON **root) {
     FILE *f = fopen(filename, "rb");
     if (!f) {
@@ -37,15 +76,16 @@ void load_json(const char *filename, cJSON **root) {
 const int base_address = 0x200;
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s <global_mem> <input_mem>\n", argv[0]);
+    Arguments args = {0};
+
+    if (parse_arguments(argc, argv, &args) != 0) {
         return 1;
     }
 
     cJSON *input_mem = NULL;
     cJSON *global_mem = NULL;
-    load_json(argv[1], &global_mem);
-    load_json(argv[2], &input_mem);
+    load_json(args.global_image, &global_mem);
+    load_json(args.in_mem, &input_mem);
 
     cJSON *input_line = cJSON_GetObjectItem(input_mem, "line");
     cJSON *global_line = cJSON_GetObjectItem(global_mem, "line");
@@ -88,7 +128,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Step 3: Write to output file
-    FILE *out = fopen(argv[1], "w");
+    FILE *out = fopen(args.global_image, "w");
     if (!out) {
         perror("Writing output");
         cJSON_Delete(input_mem);

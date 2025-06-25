@@ -57,34 +57,34 @@ def main(graph_file, constraint_file, library_file, parameter_file, noc_file, ou
     
     
     while(True):
-       # if len(db.alimp_binding_options) == 0:
-       #     logging.error('No binding option left')
-       #     sys.exit(1)
-       # 
-       # # place
-       # del db.synthesized_information.alimp_bindings[:]
-       # for binding in db.alimp_binding_options[0].alimp_bindings:
-       #     db.synthesized_information.alimp_bindings.append(binding)
-       # result = place.run(db, output_dir)
-       # if not result:
-       #     db.alimp_binding_options.pop(0)
-       #     continue
+        if len(db.alimp_binding_options) == 0:
+            logging.error('No binding option left')
+            sys.exit(1)
+        
+        # place
+        del db.synthesized_information.alimp_bindings[:]
+        for binding in db.alimp_binding_options[0].alimp_bindings:
+            db.synthesized_information.alimp_bindings.append(binding)
+        result = place.run(db, output_dir)
+        if not result:
+            db.alimp_binding_options.pop(0)
+            continue
 
-       # # route
-       # route.run(db, output_dir)
+        # route
+        route.run(db, output_dir)
 
-       # # noc
-       # result = noc.run(db, output_dir)
-       # if not result:
-       #     db.alimp_binding_options.pop(0)
-       #     continue
+        # noc
+        result = noc.run(db, output_dir)
+        if not result:
+            db.alimp_binding_options.pop(0)
+            continue
 
-       # # glic
-       # glic.run(db)
+        # glic
+        glic.run(db)
 
-       # # write protobuf object "db" to a binary file
-       # with open(os.path.join(output_dir, 'db.bin'), 'wb') as f:
-       #     f.write(db.SerializeToString())
+        # write protobuf object "db" to a binary file
+        with open(os.path.join(output_dir, 'db.bin'), 'wb') as f:
+            f.write(db.SerializeToString())
 
         # read protobuf object "db" from a binary file
         with open(os.path.join(output_dir, 'db.bin'), 'rb') as f:
@@ -95,6 +95,7 @@ def main(graph_file, constraint_file, library_file, parameter_file, noc_file, ou
         if not result:
             logging.info("Fail to verify the design by simulation")
             db.alimp_binding_options.pop(0)
+            exit(1)
             continue
         
         # memory synthesis
@@ -146,7 +147,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # create test database
-    testcase.create_test_db("sobel")
+    testcase.create_test_db("sobel_random")
     
     # call main function
     main(args.graph, args.constraint, args.library, args.parameter, args.noc, args.output)

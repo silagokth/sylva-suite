@@ -3,6 +3,46 @@
 #include <string.h>
 #include <cjson/cJSON.h>
 
+typedef struct {
+    char *global_image;
+    char *in_mem;
+    char *out_mem;
+} Arguments;
+
+void print_usage(const char *prog_name) {
+    printf("Usage: %s [--global-image <path>] --in-mem <path> --out-mem <path>\n", prog_name);
+}
+
+int parse_arguments(int argc, char *argv[], Arguments *args) {
+    if (argc < 5) { // minimum required args
+        print_usage(argv[0]);
+        return -1;
+    }
+
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--global-image") == 0 && i + 1 < argc) {
+            args->global_image = argv[++i];
+        } else if (strcmp(argv[i], "--in-mem") == 0 && i + 1 < argc) {
+            args->in_mem = argv[++i];
+        } else if (strcmp(argv[i], "--out-mem") == 0 && i + 1 < argc) {
+            args->out_mem = argv[++i];
+        } else {
+            printf("Unknown or incomplete argument: %s\n", argv[i]);
+            print_usage(argv[0]);
+            return -1;
+        }
+    }
+
+    if (args->in_mem == NULL || args->out_mem == NULL) {
+        printf("Error: --in-mem and --out-mem are required arguments.\n");
+        print_usage(argv[0]);
+        return -1;
+    }
+
+    return 0;
+}
+
+
 // Comparator for qsort
 int compare_ints(const void *a, const void *b) {
     return (*(int *)a - *(int *)b);
@@ -13,13 +53,14 @@ int compare_ints(const void *a, const void *b) {
 const int base_address = 0x100;
 
 int main(int argc, char *argv[]) {
-    if (argc != 4) {
-        fprintf(stderr, "Usage: %s <global_mem> <input_mem> <output_mem>\n", argv[0]);
+    Arguments args = {0};
+
+    if (parse_arguments(argc, argv, &args) != 0) {
         return 1;
     }
-    
+   
     // open and read the file
-    FILE *fin = fopen(argv[2], "rb");
+    FILE *fin = fopen(args.in_mem, "rb");
     if (fin == NULL) {
         perror("Error opening JSON file");
         return 1;
@@ -99,7 +140,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Write output JSON file
-    FILE *fout = fopen(argv[3], "w");
+    FILE *fout = fopen(args.out_mem, "w");
     if (!fout) {
         fprintf(stderr, "Error opening output file\n");
         cJSON_Delete(new_root);
