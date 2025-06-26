@@ -20,7 +20,7 @@ import tb.testcase as testcase
 
 
 
-def main(graph_file, constraint_file, library_file, parameter_file, noc_file, output_dir):
+def main(graph_file, constraint_file, library_file, parameter_file, technology_file, output_dir):
     db = ds.DataBase()
 
     # read graph file (json) as protobuf objectw
@@ -43,10 +43,10 @@ def main(graph_file, constraint_file, library_file, parameter_file, noc_file, ou
         json_string = f.read()
         Parse(json_string, db.hyper_parameter)
 
-    # read noc file (json) as protobuf object
-    with open(noc_file, 'r') as f:
+    # read technology file (json) as protobuf object
+    with open(technology_file, 'r') as f:
         json_string = f.read()
-        Parse(json_string, db.noc_constraint)
+        Parse(json_string, db.technology_constraint)
 
     # create output directory if not exist
     if not os.path.exists(output_dir):
@@ -108,17 +108,6 @@ def main(graph_file, constraint_file, library_file, parameter_file, noc_file, ou
 
     logging.info("Sylva finished successfully!")
 
-    
-    # # write app graph to json file
-    # app_graph_json = MessageToJson(app_graph)
-    # with open(os.path.join(output_dir, 'app_graph.json'), 'w') as f:
-    #     f.write(app_graph_json)
-
-    # # write global constraint to json file
-    # global_constraint_json = MessageToJson(global_constraint)
-    # with open(os.path.join(output_dir, 'global_constraint.json'), 'w') as f:
-    #     f.write(global_constraint_json)
-    
 
 
 if __name__ == "__main__":
@@ -135,14 +124,14 @@ if __name__ == "__main__":
     # -c: global constraint file
     # -l: alimp library file
     # -p: hyper parameter file
-    # -n: noc constraint file
+    # -t: technology constraint file
     # -o: output directory, by default is the current directory "."
     parser = argparse.ArgumentParser()
     parser.add_argument("-g", "--graph", help="SDF graph file", default="const/app_graph.json")
     parser.add_argument("-c", "--constraint", help="global constraint file", default="const/global_constraint.json")
     parser.add_argument("-l", "--library", help="alimp library file", default="const/alimp_lib.json")
     parser.add_argument("-p", "--parameter", help="hyper parameter file", default="const/hyper_parameter.json")
-    parser.add_argument("-n", "--noc", help="noc constraint file", default="const/noc_constraint.json")
+    parser.add_argument("-t", "--technology", help="technology constraint file", default="const/technology_constraint.json")
     parser.add_argument("-o", "--output", help="output directory", default="bin/")
     args = parser.parse_args()
 
@@ -150,7 +139,7 @@ if __name__ == "__main__":
     testcase.create_test_db("sobel")
     
     # call main function
-    main(args.graph, args.constraint, args.library, args.parameter, args.noc, args.output)
+    main(args.graph, args.constraint, args.library, args.parameter, args.technology, args.output)
 
     # exit
     sys.exit(0)

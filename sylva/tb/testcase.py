@@ -31,7 +31,6 @@ def create_test_db(testcase_name:str):
     hyper_parameter_json = MessageToJson(db.hyper_parameter)
     with open(os.path.join('const/hyper_parameter.json'), 'w') as f:
         f.write(hyper_parameter_json)
-    #TODO: write db.noc_constraint to json file
 
 
 def read_addr_pattern(filename) -> list :

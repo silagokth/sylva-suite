@@ -11,7 +11,7 @@ message DataBase {
   HyperParameter hyper_parameter = 6;
   CostMetric cost_metric = 7;
   repeated AlimpBindingOption alimp_binding_options = 8;
-  NocConstraint noc_constraint = 9;
+  TechConstraint technology_constraint = 9;
   SynthesizedInformation synthesized_information = 10;
 }
 
@@ -73,7 +73,7 @@ message AlimpBinding {
   AlimpInstance alimp_instance = 2;
 }
 
-message NocConstraint {
+message TechConstraint {
   int32 required_period = 1;
   int32 required_slew = 2;
   int32 initial_slew = 3;

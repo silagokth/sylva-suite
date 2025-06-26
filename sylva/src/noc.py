@@ -49,7 +49,7 @@ def assignment_to_wire_type(assignment):
 
 def noc_block_is_path_satisfied(db: ds.DataBase, path: list, slew: float):
     # maximum number of blocks
-    if len(path) > len(db.noc_constraint.timing_table[0].rows):
+    if len(path) > len(db.technology_constraint.timing_table[0].rows):
         return False
     
     # segments[start_index] = end_index, excluding buffers
@@ -75,27 +75,27 @@ def noc_block_is_path_satisfied(db: ds.DataBase, path: list, slew: float):
         # A row index is selected based on the input slew (pessimistic method)
         # TODO: improvement by linear interpolation
         try:
-            target_slew = max([x for x in db.noc_constraint.slew_rates if x <= slowdown_slew])
+            target_slew = max([x for x in db.technology_constraint.slew_rates if x <= slowdown_slew])
         except:
             # input slew rate is too low -> To add more registers
             return False
-        slew_rate_list = list(db.noc_constraint.slew_rates)
+        slew_rate_list = list(db.technology_constraint.slew_rates)
         row = slew_rate_list.index(target_slew) 
         if start_index != 0:
-            slowdown_slew -= db.noc_constraint.buffer_slew_declined_factor
+            slowdown_slew -= db.technology_constraint.buffer_slew_declined_factor
         # lookup the delay time in the table
-        segment_delay.append(db.noc_constraint.timing_table[row].rows[col])
+        segment_delay.append(db.technology_constraint.timing_table[row].rows[col])
 
     # delay improvement from buffers
     buffer_improved_delay = 0
     for i in range (len(path)):
         if path[i] == 'b':
-            buffer_improved_delay += db.noc_constraint.buffer_delay_improved_factor
+            buffer_improved_delay += db.technology_constraint.buffer_delay_improved_factor
     
     # constraints
     requirements = []
-    requirements.append(db.noc_constraint.required_period > sum(segment_delay) - buffer_improved_delay)
-    requirements.append(db.noc_constraint.required_slew < slowdown_slew)
+    requirements.append(db.technology_constraint.required_period > sum(segment_delay) - buffer_improved_delay)
+    requirements.append(db.technology_constraint.required_slew < slowdown_slew)
     if all(r for r in requirements):
         return True
     return False
@@ -120,7 +120,7 @@ def noc_block_insert_buffer(db: ds.DataBase, wire_length: int, slew: float):
     return design
 
 def noc_block_insert_main(db: ds.DataBase, wire_length: int):
-    design = noc_block_insert_buffer(db, wire_length, db.noc_constraint.initial_slew)
+    design = noc_block_insert_buffer(db, wire_length, db.technology_constraint.initial_slew)
     found_solution = True if design else False
     number_of_registers = 0
     # add more registers if design is not found 
@@ -129,7 +129,7 @@ def noc_block_insert_main(db: ds.DataBase, wire_length: int):
             number_of_registers += 1
             design = []
             current_index = 0
-            current_slew = db.noc_constraint.initial_slew
+            current_slew = db.technology_constraint.initial_slew
             # Replacing a register might change some characteristics
             # TODO: slew rate after a register might be a function of the input slew
             # TODO: slew rate could be deteriorated after passing through wire
@@ -144,7 +144,7 @@ def noc_block_insert_main(db: ds.DataBase, wire_length: int):
                 if not segment_design:
                     break
                 current_index = register_index + 1
-                current_slew = db.noc_constraint.register_slew_constant
+                current_slew = db.technology_constraint.register_slew_constant
                 design.extend(segment_design)
                 if i != number_of_registers:
                     design.append('r')
