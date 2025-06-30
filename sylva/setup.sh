@@ -5,9 +5,10 @@ function nullify() {
 }
 
 # install a Python environment and its required dependencies
-# apt install python3
-# apt install python3.12-venv
-# apt install protoc
+echo "Installing python3 and protoc..."
+sudo apt install python3
+sudo apt install python3.12-venv
+sudo apt install protoc
 echo "Making Python environment..."
 rm -rf .venv/
 mkdir .venv/ 

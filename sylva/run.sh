@@ -5,5 +5,5 @@ if [ ! -e "./.venv/" ]; then
   exit 1
 fi
 
-# An example sh script file to run the application
-.venv/bin/python3 -m src.main
+# run the application with the provided parameters
+.venv/bin/python3 -m src.main $@

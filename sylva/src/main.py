@@ -16,7 +16,6 @@ import src.noc as noc
 import src.glic as glic 
 import src.ideal_sim as ideal_sim
 import src.mem_syn as mem_syn
-import tb.testcase as testcase
 
 
 
@@ -135,9 +134,6 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--output", help="output directory", default="bin/")
     args = parser.parse_args()
 
-    # create test database
-    testcase.create_test_db("sobel")
-    
     # call main function
     main(args.graph, args.constraint, args.library, args.parameter, args.technology, args.output)
 

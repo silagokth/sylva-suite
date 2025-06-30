@@ -5,6 +5,7 @@ from google.protobuf.json_format import MessageToJson
 from google.protobuf.json_format import Parse
 import random
 import json
+import argparse
 
 #TODO: ds.pair_int_int(key=0, value=0) is to be undefined in protobuf
 # need to find another way to represent the value
@@ -573,3 +574,12 @@ def lenet5() -> ds.DataBase:
     db.app_graph.global_mem_reference = f"{prefix}/mem/global_mem_reference.json"
 
     return db
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-n", "--name", help="example name")
+    args = parser.parse_args()
+
+    # create test database
+    create_test_db(args.name)
