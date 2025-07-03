@@ -1,0 +1,264 @@
+{
+  "line": [
+    {
+      "address": "0",
+      "value": "fff500100001fffcfff800170009ffef0008000bfff40008000afff9000cffed"
+    },
+    {
+      "address": "1",
+      "value": "ffeaffea000a00120003ffeb000100060010fffefff7fff9ffff0007ffeeffeb"
+    },
+    {
+      "address": "2",
+      "value": "0006ffec0005ffe90009fff40009fff7fff3fff0fffafff7ffedfffcfff2fff8"
+    },
+    {
+      "address": "3",
+      "value": "fff9000afffefffd0014fff3000f00080008fffdffebfffc0005ffe9ffff000c"
+    },
+    {
+      "address": "4",
+      "value": "0017fff50012ffe9ffee0016ffed00000015ffe9fff0ffecffebffff00020010"
+    },
+    {
+      "address": "5",
+      "value": "fff400180016fffffffefff90003fffc000d000dffee000f0009000cfff8ffec"
+    },
+    {
+      "address": "6",
+      "value": "00070004fff1fffeffe9000dfffc0011ffec000500110005000bfffc0015fff7"
+    },
+    {
+      "address": "7",
+      "value": "fff10014fff00011ffe90018fff1ffff000b0015fff20009fffeffeefffc000c"
+    },
+    {
+      "address": "8",
+      "value": "0010fff2ffedfff7fffbffeefff2fff600000007001000100016fff90017000f"
+    },
+    {
+      "address": "9",
+      "value": "000e000000080010fffafff80017fffc0015fff800100002fff9fff70013ffef"
+    },
+    {
+      "address": "10",
+      "value": "000d001700100008fffafffeffeb0011fffc0014000affe9001100140016fffc"
+    },
+    {
+      "address": "11",
+      "value": "0016fff10008fff5000500140016fffa000bffef000bfff00009fffeffedffec"
+    },
+    {
+      "address": "12",
+      "value": "ffff000900090017fff3ffefffe8fffcfff7000b000b000b0001fffe0000fff8"
+    },
+    {
+      "address": "13",
+      "value": "fff6fff800140002fff1fff5ffe900010002fff0fff4fffd00110011fffdfffc"
+    },
+    {
+      "address": "14",
+      "value": "00180010fff0fff9ffff0001fff0fff30006000ffff5000affec0018fff0fff7"
+    },
+    {
+      "address": "15",
+      "value": "ffea0001ffff0000ffe8fffeffee0008fff900090010000a000dfffcffe9fffd"
+    },
+    {
+      "address": "16",
+      "value": "fffafff80014000fffe80005000c000f0008ffec0013ffe80014ffedfff60000"
+    },
+    {
+      "address": "17",
+      "value": "000d0002000100110008000dfff3ffee00000015fffefffc0004000bffeaffe9"
+    },
+    {
+      "address": "18",
+      "value": "001500060010fff8fffc0014ffebfffb0013ffebffeb0015fff6ffecfff80004"
+    },
+    {
+      "address": "19",
+      "value": "fff4ffeefffbfff90017fff20007ffeffff7fffc0003ffee0015fff6ffeafffe"
+    },
+    {
+      "address": "20",
+      "value": "ffe800140010ffed001000090014fff3ffe9fff1001200180013000dfff5000e"
+    },
+    {
+      "address": "21",
+      "value": "0008ffed000efff9ffe8fff9fff70015000afff6fffb0004fff1fff500010011"
+    },
+    {
+      "address": "22",
+      "value": "00050018fffeffeafffaffebfff4fffefffcfff100060000000f0013000f0000"
+    },
+    {
+      "address": "23",
+      "value": "0001ffe8fff8ffe90000000fffeffffafff800050000fffffff8000e0002fff4"
+    },
+    {
+      "address": "24",
+      "value": "000cfffffff8fff1ffe9000c00150000fff3fff6fffaffea000dfffdffe90009"
+    },
+    {
+      "address": "25",
+      "value": "000fffe8ffe9000e0009fff70001fff9ffef00070015fffc0009ffeb000afffb"
+    },
+    {
+      "address": "26",
+      "value": "ffee0002000ffff400030000fff0fffafff6ffe9fffdfff70009fffbfff80014"
+    },
+    {
+      "address": "27",
+      "value": "fff4000600080011001600000001ffe800140016fff6fff600070004fff1fffb"
+    },
+    {
+      "address": "28",
+      "value": "ffe9000a000bfff60016fffa0009fff7ffe8000300110012fff1ffe9000a000d"
+    },
+    {
+      "address": "29",
+      "value": "000c0004000c000ffff400170000ffebfff6000d0007ffeb000bfff000020011"
+    },
+    {
+      "address": "30",
+      "value": "fffe00100011000a00060011ffe900130012fff8fff0fff4fffd00120001fff5"
+    },
+    {
+      "address": "31",
+      "value": "ffed0005000d00080008fff6000700070001fffd0018fff8fffafff10000ffef"
+    },
+    {
+      "address": "32",
+      "value": "fff3ffecfff90002ffffffe8000600080009ffe90000fff3ffed0004fff2000d"
+    },
+    {
+      "address": "33",
+      "value": "fffe000afff5fffefff60000fffd0000ffeb00000007fffbfffdfffcfff7000d"
+    },
+    {
+      "address": "34",
+      "value": "000effecfff6000d0001fffbfffcfff40013000efffa00140010001100050001"
+    },
+    {
+      "address": "35",
+      "value": "000effedfff9000c0007fff7000000150015000fffedfff7fffe000b0018fff1"
+    },
+    {
+      "address": "36",
+      "value": "000f0009fff60006fff300000000000dffecfff40003ffe80001fff10002fffe"
+    },
+    {
+      "address": "37",
+      "value": "fff6fff40002000c000bfff700000010001800160004000b0012ffef00090000"
+    },
+    {
+      "address": "38",
+      "value": "ffebffec0008fff0fffc0007000fffea00150003fff0000dffec00030001fffa"
+    },
+    {
+      "address": "39",
+      "value": "ffea000e00000001000700070004001500080017fff7001800140000ffee000f"
+    },
+    {
+      "address": "40",
+      "value": "0014fff90009ffeafff9ffe80005ffedfff100050011000bffea001200050009"
+    },
+    {
+      "address": "41",
+      "value": "000afff700120004fff0fff0fffdfffcffe90007fffa00110011fff200030016"
+    },
+    {
+      "address": "42",
+      "value": "ffec0013fffa001600050000fffd00150006fff00001000a0003fff70017fff3"
+    },
+    {
+      "address": "43",
+      "value": "000cfff2fffdffec0016fffdffee000800140014fffaffeeffeeffeafffc0016"
+    },
+    {
+      "address": "44",
+      "value": "ffef000d0012000f0001ffedfff7000fffea0003ffff00070011ffe8fffd0015"
+    },
+    {
+      "address": "45",
+      "value": "fffe000a000cfff2ffeeffecfffafff3fff90014fff5000f000ffff60000000f"
+    },
+    {
+      "address": "46",
+      "value": "001000120011fffaffec00180016ffe80008000ffff300030009fff60008fffb"
+    },
+    {
+      "address": "47",
+      "value": "fff20008fffa00160002ffeb0018ffef0002ffeefff9fffcfff10006ffffffeb"
+    },
+    {
+      "address": "48",
+      "value": "fffbffecfff9fff50009000700000000fff0ffeffffefffa0007fffffff8ffeb"
+    },
+    {
+      "address": "49",
+      "value": "0006fffdfffd000f000000090004fffcffe8fff3fff60002ffeefff8fff1ffea"
+    },
+    {
+      "address": "50",
+      "value": "0004001700140018ffec00080011fffbffeaffef0018fffc00000004000d0006"
+    },
+    {
+      "address": "51",
+      "value": "0004000ffff900150013000000100013fff0ffe9fff40000fff60010fffc0011"
+    },
+    {
+      "address": "52",
+      "value": "fff70002000fffe9000effff0010000f000affef001200040000fff30001000a"
+    },
+    {
+      "address": "53",
+      "value": "fffc0008ffe90006000a0016000200090005fffc000cfff0000e00080002000d"
+    },
+    {
+      "address": "54",
+      "value": "fff6fffa0018fff9ffe8ffecffeeffe8ffef0000000effeb000cfff8fff0ffeb"
+    },
+    {
+      "address": "55",
+      "value": "0000000cfffd0017ffee0000fffa0001000c0004fffffff2fff70002ffed000f"
+    },
+    {
+      "address": "56",
+      "value": "0017ffe8000e00000009fffcffee0002fff40012fff1000dfffa00110000000f"
+    },
+    {
+      "address": "57",
+      "value": "001700000017ffefffec0006000500000005ffef00000010ffe9ffedffe9fff1"
+    },
+    {
+      "address": "58",
+      "value": "ffec0008fff4fffd000f0000ffff000a0011000ffff90001000a0014ffee0014"
+    },
+    {
+      "address": "59",
+      "value": "fffe0016000c000900100003ffea000900150014000fffeb0007ffebfff20015"
+    },
+    {
+      "address": "60",
+      "value": "ffeefff0ffe90000ffea0014ffeaffe90007ffec00090005ffecffeb0007000f"
+    },
+    {
+      "address": "61",
+      "value": "ffe9ffff0017fffc00040001fff7fff3fff5fff600060016ffe9ffebfffafff0"
+    },
+    {
+      "address": "62",
+      "value": "fffdffefffe80002fffa0000000d000400180011ffef0007ffe80010000a0002"
+    },
+    {
+      "address": "63",
+      "value": "ffeafff8fffd00040001000bffecfff8000affeafff80000ffedfff4000cfffc"
+    },
+    {
+      "address": "64",
+      "value": "001100060006000b0003000b000e000a00090009000000000000000000000000"
+    }
+  ]
+}
