@@ -1,14 +1,31 @@
 use std::fs;
-use std::error::Error;
+use serde_json::{from_str, to_string_pretty};
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 
-/// Reads the entire contents of a file and returns it as a `String`.
-pub fn load_file(path: &str) -> Result<String, Box<dyn Error>> {
-    let content = fs::read_to_string(path)?;
-    Ok(content)
+/// Loads and deserializes a JSON file into a generic Rust type, with filename-aware error reporting.
+pub fn load_json_file<T>(filename: &str) -> Result<T, Box<dyn std::error::Error>>
+where
+    T: DeserializeOwned,
+{
+    let file_content = fs::read_to_string(filename)
+        .map_err(|e| Box::<dyn std::error::Error>::from(format!("Error reading file '{}': {}", filename, e)))?;
+    let data: T = from_str(&file_content)
+        .map_err(|e| Box::<dyn std::error::Error>::from(format!("Error parsing JSON in file '{}': {}", filename, e)))?;
+    Ok(data)
 }
 
-/// Writes a string to a file. If the file exists, it will be overwritten.
-pub fn write_file(path: &str, content: &str) -> Result<(), Box<dyn Error>> {
-    fs::write(path, content)?;
+/// Writes a serializable Rust object to a JSON file, with filename-aware error reporting.
+pub fn write_json_file<T>(filename: &str, content: &T) -> Result<(), Box<dyn std::error::Error>>
+where
+    T: Serialize,
+{
+    let json_string = to_string_pretty(content)
+        .map_err(|e| Box::<dyn std::error::Error>::from(format!("Error serializing JSON for file '{}': {}", filename, e)))?;
+
+    fs::write(filename, json_string)
+        .map_err(|e| Box::<dyn std::error::Error>::from(format!("Error writing to file '{}': {}", filename, e)))?;
+
     Ok(())
 }
+

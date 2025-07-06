@@ -11,7 +11,6 @@ use models::{
 
 use process_module::ProcessModule;
 use transporter_module::TransporterModule;
-use serde_json::from_str;
 
 pub struct Node {
     name: String,
@@ -105,8 +104,7 @@ impl Node {
         // use the offset to shift addresses.
         for name in &self.config.in_names {
             let filename = format!("{}/mem/{}_outBuf.json", self.path, name); 
-            let file_content = file_handler::load_file(&filename)?;
-            let buf: BufferList = from_str(&file_content)?;
+            let buf: BufferList = file_handler::load_json_file(&filename)?;
             for item in buf.mem {
                 in_buf.mem.push(item.clone())
             }  
@@ -114,8 +112,7 @@ impl Node {
         
         // write an input buffer
         let write_filename = format!("{}/mem/{}_inBuf.json", self.path, self.name); 
-        let write_content = serde_json::to_string_pretty(&in_buf)?; 
-        file_handler::write_file(&write_filename, &write_content)?;
+        file_handler::write_json_file(&write_filename, &in_buf)?;
         Ok(())
     }
 

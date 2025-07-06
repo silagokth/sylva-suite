@@ -8,7 +8,6 @@ mod transporter_module;
 use models::{NodeConfigMap, TimeTable};
 use node::Node;
 use clap::Parser;
-use serde_json::from_str;
 use std::collections::HashMap;
  
 /// Arguments to locate JSON files.
@@ -45,10 +44,8 @@ struct Sim {
 
 impl Sim {
     fn new(config_dir: String, time_table_dir: String, path: String) -> Result<Self, Box<dyn std::error::Error>> {
-        let config_file = file_handler::load_file(&config_dir)?;
-        let config_data: NodeConfigMap = from_str(&config_file)?;
-        let time_table_file = file_handler::load_file(&time_table_dir)?;
-        let time_table_data: TimeTable = from_str(&time_table_file)?;
+        let config_data: NodeConfigMap = file_handler::load_json_file(&config_dir)?;
+        let time_table_data: TimeTable = file_handler::load_json_file(&time_table_dir)?;
         
         let mut node_insts: HashMap<String, Node> = HashMap::new();
         for (name, node_config) in config_data.config_map.iter() {

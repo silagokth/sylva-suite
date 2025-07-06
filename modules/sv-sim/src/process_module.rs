@@ -10,19 +10,6 @@ use models::{
     AddressPatternList,
     TranslationTableList,
 };
-use serde::de::DeserializeOwned;
-use serde_json::from_str;
-
-
-fn load_json_file<T>(filename: &str) -> Result<T, Box<dyn std::error::Error>>
-where
-    T: DeserializeOwned,
-{
-    let file_content = file_handler::load_file(filename)?;
-    let data: T = serde_json::from_str(&file_content)?;
-    Ok(data)
-}
-
 
 pub struct ProcessModule {
     name: String,
@@ -63,39 +50,15 @@ impl ProcessModule {
         }
     }
 
-    fn get_in_buffer(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let file_content = file_handler::load_file(&self.in_buf_path)?;
-        let buffer_data: BufferList = from_str(&file_content)?;
-        self.in_buf = buffer_data;
-        Ok(())
-    } 
-
-    fn write_in_memory(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let content = serde_json::to_string_pretty(&self.in_mem)?;
-        file_handler::write_file(&self.in_mem_path, &content)?;
-        Ok(())
-    }
-
-    fn get_out_memory(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let file_content = file_handler::load_file(&self.out_mem_path)?;
-        let memory_data: MemoryList = from_str(&file_content)?;
-        self.out_mem = memory_data;
-        Ok(())
-    } 
-
-    fn write_out_buffer(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let content = serde_json::to_string_pretty(&self.out_buf)?;
-        file_handler::write_file(&self.out_buf_path, &content)?;
-        Ok(())
-    }
 
     fn handle_input_address_pattern(&mut self, global_time: i64) -> Result<(), Box<dyn std::error::Error>>  {
         println!("[@{}] Starting input Addr Translation.", global_time);
         let address_pattern_file = format!("{}/{}_inAP.json", self.path, self.name);
-        self.address_pattern = load_json_file(&address_pattern_file)?;
+        self.address_pattern = file_handler::load_json_file(&address_pattern_file)?;
         let translation_table_file = format!("{}/{}_inTT.json", self.path, self.name);
-        self.translation_table = load_json_file(&translation_table_file)?;
-        self.get_in_buffer()?;
+        self.translation_table = file_handler::load_json_file(&translation_table_file)?;
+        
+        self.in_buf = file_handler::load_json_file(&self.in_buf_path)?;
 
         // Sort the in_buf by cycle (earliest first)
         self.in_buf.mem.sort_by(|a, b| a.cycle.cmp(&b.cycle));
@@ -160,7 +123,7 @@ impl ProcessModule {
             }
         } 
 
-        self.write_in_memory()?;
+        file_handler::write_json_file(&self.in_mem_path, &self.in_mem)?;
         println!("[@{}] Input Addr Translation done.", ref_time);
         Ok(())
     }
@@ -169,11 +132,12 @@ impl ProcessModule {
     fn handle_output_address_pattern(&mut self, global_time: i64) -> Result<(), Box<dyn std::error::Error>> {
         println!("[@{}] Starting output Addr Translation.", global_time);
         let address_pattern_file = format!("{}/{}_outAP.json", self.path, self.name);
-        self.address_pattern = load_json_file(&address_pattern_file)?;
+        self.address_pattern = file_handler::load_json_file(&address_pattern_file)?;
         let translation_table_file = format!("{}/{}_outTT.json", self.path, self.name);
-        self.translation_table = load_json_file(&translation_table_file)?;
-        self.get_out_memory()?;
-
+        self.translation_table = file_handler::load_json_file(&translation_table_file)?;
+    
+        self.out_mem = file_handler::load_json_file(&self.out_mem_path)?;
+        
         // Sort the address_pattern by cycle (earliest first)
         self.address_pattern.addr_ptrn.sort_by(|a, b| a.cycle.cmp(&b.cycle));
 
@@ -223,7 +187,7 @@ impl ProcessModule {
             self.out_buf.mem.push(new_line);
         } 
 
-        self.write_out_buffer()?;
+        file_handler::write_json_file(&self.out_buf_path, &self.out_buf)?;
         println!("[@{}] Output Addr Translation done.", ref_time);
         Ok(())
     }
