@@ -1,0 +1,84 @@
+{
+  "mem": [
+    {
+      "cycle": 18,
+      "address": 0,
+      "value": "100"
+    },
+    {
+      "cycle": 19,
+      "address": 0,
+      "value": "104"
+    },
+    {
+      "cycle": 20,
+      "address": 0,
+      "value": "108"
+    },
+    {
+      "cycle": 21,
+      "address": 0,
+      "value": "113"
+    },
+    {
+      "cycle": 22,
+      "address": 0,
+      "value": "121"
+    },
+    {
+      "cycle": 23,
+      "address": 0,
+      "value": "134"
+    },
+    {
+      "cycle": 24,
+      "address": 0,
+      "value": "145"
+    },
+    {
+      "cycle": 25,
+      "address": 0,
+      "value": "153"
+    },
+    {
+      "cycle": 26,
+      "address": 0,
+      "value": "162"
+    },
+    {
+      "cycle": 27,
+      "address": 0,
+      "value": "168"
+    },
+    {
+      "cycle": 28,
+      "address": 0,
+      "value": "172"
+    },
+    {
+      "cycle": 29,
+      "address": 0,
+      "value": "177"
+    },
+    {
+      "cycle": 30,
+      "address": 0,
+      "value": "185"
+    },
+    {
+      "cycle": 31,
+      "address": 0,
+      "value": "189"
+    },
+    {
+      "cycle": 32,
+      "address": 0,
+      "value": "193"
+    },
+    {
+      "cycle": 33,
+      "address": 0,
+      "value": "199"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "config_map": {
+    "A": {
+      "is_transporter": false,
+      "in_names": [],
+      "out_names": [
+        "transporter_A_B"
+      ],
+      "process_cmd": "examples/minimum/A"
+    },
+    "B": {
+      "is_transporter": false,
+      "in_names": [
+        "transporter_A_B"
+      ],
+      "out_names": [
+        "transporter_B_C"
+      ],
+      "process_cmd": "examples/minimum/B"
+    },
+    "C": {
+      "is_transporter": false,
+      "in_names": [
+        "transporter_B_C"
+      ],
+      "out_names": [],
+      "process_cmd": "examples/minimum/C"
+    },
+    "transporter_A_B": {
+      "is_transporter": true,
+      "in_names": [
+        "A"
+      ],
+      "out_names": [
+        "B"
+      ],
+      "delay": 0
+    },
+    "transporter_B_C": {
+      "is_transporter": true,
+      "in_names": [
+        "B"
+      ],
+      "out_names": [
+        "C"
+      ],
+      "delay": 0
+    }
+  }
+}
