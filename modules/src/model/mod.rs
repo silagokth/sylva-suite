@@ -176,8 +176,8 @@ pub struct Coordinate {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FloorPlan {
-    pub app_node_ids: String,
-    pub app_edge_ids: String,
+    pub app_node_ids: Vec<String>,
+    pub app_edge_ids: Vec<String>,
     pub max_width: i32,
     pub max_height: i32,
     pub pos: Vec<RectanglePosition>,
@@ -342,8 +342,8 @@ impl DataBase {
                 delay: 0,
             },
             floor_plan: FloorPlan {
-                app_node_ids: String::new(),
-                app_edge_ids: String::new(),
+                app_node_ids: vec![],
+                app_edge_ids: vec![],
                 max_width: 0,
                 max_height: 0,
                 pos: vec![],

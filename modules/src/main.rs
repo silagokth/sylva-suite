@@ -1,7 +1,9 @@
 mod model;
 mod file_handler;
 mod solver;
+
 mod bind;
+mod place;
 
 use log::{info, error, debug};
 use clap::Parser;
@@ -31,7 +33,7 @@ struct Args {
 }
 
 
-fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     env_logger::init();
     
@@ -57,7 +59,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     /* run the compilation */
     info!("Sylva starts compilation!");
 
-    let _ = bind::run(&mut db, args.output);
+    bind::run(&mut db, &args.output)?;
+    place::run(&mut db, &args.output)?;
      
 
     info!("Sylva finished successfully!");

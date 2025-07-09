@@ -6,36 +6,30 @@ use std::collections::HashMap;
 use serde_json;
 
 
-fn get_predecessor_list(app_graph: &AppGraph) -> HashMap<i32, Vec<i32>> {
+fn get_predecessor_list(app_graph: &AppGraph) -> Result<HashMap<i32, Vec<i32>>, Box<dyn std::error::Error>> {
     let mut predecessors: HashMap<i32, Vec<i32>> = HashMap::new();
 
     for edge in &app_graph.edges {
         // Find source and target node indices by their IDs
         let source_index = match app_graph.nodes.iter().enumerate().find(|(_, n)| n.id == edge.source_node) {
             Some((i, _)) => i as i32,
-            None => {
-                error!("Cannot find the source node '{}'", edge.source_node);
-                std::process::exit(1);
-            }
+            None => return Err(Box::from(format!("Cannot find the source node '{}'", edge.source_node))),
         };
 
         let target_index = match app_graph.nodes.iter().enumerate().find(|(_, n)| n.id == edge.target_node) {
             Some((i, _)) => i as i32,
-            None => {
-                error!("Cannot find the target node '{}'", edge.target_node);
-                std::process::exit(1);
-            }
+            None => return Err(Box::from(format!("Cannot find the target node '{}'", edge.target_node))),
         };
 
         // Add the source index as a predecessor of the target index
         predecessors.entry(target_index + 1).or_default().push(source_index + 1);
     }
 
-    predecessors
+    Ok(predecessors)
 }
 
 
-fn add_bind_constraints(db: &DataBase, solver: &mut Solver, max_objective_value: i32) -> () {
+fn add_bind_constraints(db: &DataBase, solver: &mut Solver, max_objective_value: i32) -> Result<(), Box<dyn std::error::Error>> {
     
     // Geometry constraint:
     //  The width and height of any alimp cannot be larger than the global width and height
@@ -57,10 +51,7 @@ fn add_bind_constraints(db: &DataBase, solver: &mut Solver, max_objective_value:
                                         .iter()
                                         .find(|entry| entry.func == node.func) {
             Some(entry) => &entry.instances,        
-            _ => {
-                error!("Cannot find Alimp entry from App Graph");
-                std::process::exit(1);
-            }
+            None => return Err(Box::from(format!("Cannot find Alimp entry from App Graph"))),
         };
        
         // selected Alimp index
@@ -129,11 +120,12 @@ fn add_bind_constraints(db: &DataBase, solver: &mut Solver, max_objective_value:
     //    after half a latency of all its previous nodes.
     
     solver.add(String::from("% add latency constraints")); 
-    solver.add(format!("array[1..{}] of var int: latency_nodes;", db.app_graph.nodes.len()));
-    solver.add(format!("array[1..{}] of var int: start_time_nodes;", db.app_graph.nodes.len()));
-    solver.add(format!("array[1..{}] of var int: end_time_nodes;", db.app_graph.nodes.len()));
+    solver.add(format!("array[1..{}] of var 0..{}: latency_nodes;", db.app_graph.nodes.len(), db.global_constraint.max_latency));
+    solver.add(format!("array[1..{}] of var 0..{}: start_time_nodes;", db.app_graph.nodes.len(), db.global_constraint.max_latency));
+    solver.add(format!("array[1..{}] of var 0..{}: end_time_nodes;", db.app_graph.nodes.len(), db.global_constraint.max_latency));
+    solver.new_line();
    
-    let predecessors: HashMap<i32, Vec<i32>> = get_predecessor_list(&db.app_graph);
+    let predecessors: HashMap<i32, Vec<i32>> = get_predecessor_list(&db.app_graph)?;
     node_index = 1;
     for node in &db.app_graph.nodes {
         // get Alimp instances of this node
@@ -142,10 +134,7 @@ fn add_bind_constraints(db: &DataBase, solver: &mut Solver, max_objective_value:
                                         .iter()
                                         .find(|entry| entry.func == node.func) {
             Some(entry) => &entry.instances,        
-            _ => {
-                error!("Cannot find Alimp entry from App Graph");
-                std::process::exit(1);
-            }
+            None => return Err(Box::from(format!("Cannot find Alimp entry from App Graph"))),
         };
         
         let number_of_options = alimp_instances.len();
@@ -169,10 +158,6 @@ fn add_bind_constraints(db: &DataBase, solver: &mut Solver, max_objective_value:
             solver.add(format!("constraint start_time_nodes[{}] == 0;", node_index));
         } else {
             if let Some(prev_indices) = predecessors.get(&node_index) {
-                solver.add(format!("constraint start_time_nodes[{}] <= {};",
-                        node_index,
-                        db.global_constraint.max_latency
-                ));
                 for prev_index in prev_indices {
                     solver.add(format!("constraint start_time_nodes[{}] >= start_time_nodes[{}] + (latency_nodes[{}] div 2);", 
                             node_index,
@@ -194,6 +179,14 @@ fn add_bind_constraints(db: &DataBase, solver: &mut Solver, max_objective_value:
             node_index
         ));
 
+        // add throughput constraint: Any alimp instance should have 
+        // a latency that is smaller than the max period
+        solver.add(format!("constraint latency_nodes[{}] <= {}; % throughput contraint", 
+            node_index,
+            db.global_constraint.max_period
+        ));
+
+        solver.new_line();
         node_index += 1;
     }
 
@@ -205,13 +198,15 @@ fn add_bind_constraints(db: &DataBase, solver: &mut Solver, max_objective_value:
         db.hyper_parameter.bind_w_area,
         db.hyper_parameter.bind_w_energy
     ));
+
+    Ok(())
 }
 
 
 fn optimal_binding(db: &mut DataBase, module_dir: String) -> std::result::Result<i64, Box<dyn std::error::Error>> {
     // formulating model 
     let mut solver = Solver::new(String::from("bind_optimal"), module_dir);
-    add_bind_constraints(db, &mut solver, 1000000);
+    add_bind_constraints(db, &mut solver, 1000000)?;
     solver.add(String::from("solve minimize objective;")); 
     solver.add(String::from("output [\"{objective:\\(objective)}\"];")); 
 
@@ -219,22 +214,25 @@ fn optimal_binding(db: &mut DataBase, module_dir: String) -> std::result::Result
     let acceptable_status = vec![String::from("OPTIMAL_SOLUTION")];
     let solutions = solver.solve("", acceptable_status)?;
     debug!("Minizinc solutions: \n{:?}", solutions);
-    let parsed_json_value: serde_json::Value = serde_json::from_str(&solutions[0])
-        .expect("Failed to parse JSON output");
+    let parsed_json_value: serde_json::Value = serde_json::from_str(&solutions[0])?;
     
     // return the minimized objective value 
     let objective_value: i64 = parsed_json_value
         .get("objective")
         .and_then(|v| v.as_i64())
-        .expect("'objective' not found");
+        .ok_or_else(|| {
+            Box::from("objective not found")
+            as Box<dyn std::error::Error>
+        })?;
     Ok(objective_value)
 }
 
 
 fn approximate_optimal_binding(db: &mut DataBase, module_dir: String, minimized_objective: i64) -> std::result::Result<Vec<HashMap<String, i32>>, Box<dyn std::error::Error>> {
     // add new objective and its constraint, and search for all feasible solutions
+    // These numbers should be adjusted
     let mut solver = Solver::new(String::from("approx_bind_optimal"), module_dir);
-    add_bind_constraints(db, &mut solver, 2*1000000);
+    add_bind_constraints(db, &mut solver, 2*1000000)?;
     solver.add(format!("constraint objective <= 2 * {};", minimized_objective)); 
     solver.add(String::from("solve satisfy;")); 
     
@@ -255,8 +253,7 @@ fn approximate_optimal_binding(db: &mut DataBase, module_dir: String, minimized_
     // put solutions into a suitable HashMap object
     let mut ret: Vec<HashMap<String, i32>> = vec![];
     for sol in solutions {
-        let sol_json: serde_json::Value = serde_json::from_str(&sol)
-            .expect("Failed to parse JSON output");
+        let sol_json: serde_json::Value = serde_json::from_str(&sol)?;
 
         let mut j = HashMap::new();
         for node in &db.app_graph.nodes {
@@ -264,7 +261,10 @@ fn approximate_optimal_binding(db: &mut DataBase, module_dir: String, minimized_
             let selected_position: i32 = sol_json
                 .get(name)
                 .and_then(|v| v.as_i64())
-                .expect("JSON field not found") as i32;
+                .ok_or_else(|| {
+                    Box::from("JSON field not found")
+                    as Box<dyn std::error::Error>
+                })? as i32;
             // -1 because it starts from 1 in minizinc
             j.entry(node.id.clone()).or_insert(selected_position - 1);
         }
@@ -294,10 +294,7 @@ fn apply_binding(db: &mut DataBase, bindings: Vec<HashMap<String, i32>>) -> std:
                                     .iter()
                                     .find(|entry| entry.id == node_id) {
                 Some(entry) => &entry.func,
-                _ => {
-                    error!("Cannot find node func in App Graph");
-                    std::process::exit(1);
-                }
+                _ => return Err(Box::from("Cannot find node func in App Graph")),
             };
 
             // get alimp instances of this node
@@ -306,10 +303,7 @@ fn apply_binding(db: &mut DataBase, bindings: Vec<HashMap<String, i32>>) -> std:
                                         .iter()
                                         .find(|entry| entry.func == *node_func) {
                 Some(entry) => &entry.instances,        
-                _ => {
-                    error!("Cannot find Alimp entry from App Graph");
-                    std::process::exit(1);
-                }
+                _ => return Err(Box::from("Cannot find Alimp entry from App Graph")),
             };
 
             // select alimp instance
@@ -331,22 +325,20 @@ fn apply_binding(db: &mut DataBase, bindings: Vec<HashMap<String, i32>>) -> std:
 }
 
 
-pub fn run(db: &mut DataBase, dir: String) -> std::result::Result<(), Box<dyn std::error::Error>> {
+pub fn run(db: &mut DataBase, dir: &String) -> Result<(), Box<dyn std::error::Error>> {
     info!("Start: binding");
     let module_dir = format!("{}bind", dir);
     match std::fs::create_dir_all(&module_dir) {
         Ok(_) => (),
         Err(e) => {
             error!("Failed to create {} with {}", module_dir, e);
-            std::process::exit(1);
+            return Err(Box::new(e));
         },
     };
 
-    // Stage 1: optimal binding
     info!("Stage 1: optimal binding"); 
     let minimized_objective = optimal_binding(db, module_dir.clone())?;
     
-    // Stage 2: approximate optimal binding by relaxing objective function
     info!("Stage 2: approximate optimal binding with the objective value {}", minimized_objective); 
     let valid_bindings = approximate_optimal_binding(db, module_dir.clone(), minimized_objective)?;
     

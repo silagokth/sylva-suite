@@ -32,7 +32,8 @@ def create_floor_plan(db: ds.DataBase) -> ds.FloorPlan:
                 instance = binding.alimp_instance
                 # The height is inflated: 1 for input buffer, 1 for output buffer, 1 for the transporters attached to output buffer, and 1 on each side for routing space.
                 # The width is inflated: 1 on each side for routing space.
-                shape = ds.RectangleShape(width=instance.width+2*db.hyper_parameter.place_reserved_routing_size, height=instance.height+3+2*db.hyper_parameter.place_reserved_routing_size)
+                shape = ds.RectangleShape(width=instance.width+2*db.hyper_parameter.place_reserved_routing_size, 
+                    height=instance.height+3+2*db.hyper_parameter.place_reserved_routing_size)
                 fp.shape.append(shape)
                 fp.pos.append(ds.RectanglePosion(x=-1, y=-1))
                 break
@@ -124,7 +125,8 @@ def place_solve_optimal(fp: ds.FloorPlan) -> bool:
     max_y_position = model.NewIntVar(0, fp.max_height, "max_y_position")
     model.AddMaxEquality(max_y_position, [y for y in y_end])
 
-    # add a restriction of the ration between max_x_position and max_y_position. the ratio should be greater than 0.5 and less than 2
+    # add a restriction of the ration between max_x_position and max_y_position. 
+    # the ratio should be greater than 0.5 and less than 2
     model.Add(max_x_position * 2 >= max_y_position)
     model.Add(max_x_position <= max_y_position * 2)
 

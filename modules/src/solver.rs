@@ -74,21 +74,20 @@ fn minizinc_parser(file_path: &str) -> Result<Vec<MiniZincStreamEntry>, Box<dyn 
 
 /// Helper function to convert a MiniZinc-like object string to valid JSON.
 /// E.g., "{objective:33, other_var:true}" -> "{"objective":33,"other_var":true}"
-fn make_json_valid(s: &str) -> String { 
+fn make_json_valid(s: &str) -> Result<String, regex::Error> { 
     // Regex to find unquoted keys (word characters before a colon)
-    let re = Regex::new(r"(\w+)\s*:")
-        .expect("Failed to compile regex");
+    let re = Regex::new(r"(\w+)\s*:")?;
 
     // Replace `key:` with `"key":`
     let json_string = re.replace_all(s, r#""$1":"#).to_string();
 
     // Ensure it's wrapped in {} if it was just content
     if json_string.starts_with('{') && json_string.ends_with('}') {
-        json_string
+        Ok(json_string)
     } else {
         // This case might happen if MiniZinc output wasn't a brace-enclosed object
         // For now, assume it always is.
-        format!("{{{}}}", json_string)
+        Ok(format!("{{{}}}", json_string))
     }
 }
 
@@ -115,6 +114,12 @@ impl Solver {
 
     pub fn new_line(&mut self) {
         self.model.push('\n');
+    }
+
+
+    #[allow(dead_code)]
+    pub fn to_string(&mut self) -> String {
+        self.model.clone()
     }
 
     pub fn solve(&mut self, args: &str, acceptable_status: Vec<String>) -> Result<Vec<String>, Box<dyn std::error::Error>> {
@@ -155,7 +160,7 @@ impl Solver {
             match entry {
                 MiniZincStreamEntry::Solution(sol) => {
                     let trimmed_solution = sol.output.default.trim_matches(|c| c == '{' || c == '}');
-                    let valid_json_str = make_json_valid(&format!("{{{}}}", trimmed_solution));
+                    let valid_json_str = make_json_valid(&format!("{{{}}}", trimmed_solution))?;
                     solutions.push(valid_json_str);
                 },
                 MiniZincStreamEntry::Status(status_entry) => {
