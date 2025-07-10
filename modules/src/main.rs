@@ -5,7 +5,7 @@ mod solver;
 mod bind;
 mod place;
 
-use log::{info, error, debug};
+use log::{info, error};
 use clap::Parser;
 
 

@@ -1,8 +1,8 @@
 % minimising the total area to get estimated max width and height
 int: N = 3;
-int: MAX_WIDTH = 99;
-int: MAX_HEIGHT = 99;
-array [1..N] of int: widths = [3, 6, 6];
+int: MAX_WIDTH = 100;
+int: MAX_HEIGHT = 100;
+array [1..N] of int: widths = [6, 3, 6];
 array [1..N] of int: heights = [6, 6, 9];
 
 % x and y coordinates
@@ -18,9 +18,9 @@ constraint forall(i in 1..N)(
   y[i] + heights[i] <= MAX_HEIGHT
 );
 
-% No overlap between any two nodes in both x and y directions
+% No overlap between any two nodes
 constraint forall(i, j in 1..N where i < j)(
-  (x[i] + widths[i] <= x[j] \/ x[j] + widths[j] <= x[i]) /\
+  (x[i] + widths[i] <= x[j] \/ x[j] + widths[j] <= x[i]) \/
   (y[i] + heights[i] <= y[j] \/ y[j] + heights[j] <= y[i])
 );
 
@@ -46,4 +46,4 @@ solve minimize (max_x_position * max_y_position);
 
 
 % ========= output =========
-output ["{max_x_position:\(max_x_position), max_y_position:\(max_y_position)}"];
+output ["{x:\(x),y:\(y),max_x_position:\(max_x_position),max_y_position:\(max_y_position)}"];
