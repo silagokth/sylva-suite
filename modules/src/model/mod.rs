@@ -160,18 +160,35 @@ pub struct TimingRow {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RoutingGraph {
-    pub app_edge_id: String,
-    pub path: Vec<Coordinate>,
-    pub delay: i32,
+    pub nodes: Vec<Node>,
+    pub edges: Vec<Edge>,
+    pub channels: Vec<Channel>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Coordinate {
-    pub x: i32,
-    pub y: i32,
+pub struct Node {
+    pub id: String,
+    pub weight: f64,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Edge {
+    pub source: String,
+    pub target: String,
+    pub weight: f64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Channel {
+    pub app_edge_id: String,
+    pub source: String,
+    pub target: String,
+    pub traffic: f64,
+    pub path: Vec<String>,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -267,6 +284,13 @@ pub struct RoutingPath {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct Coordinate {
+    pub x: i32,
+    pub y: i32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ChunkAddressAssignment {
     pub app_node_id: String,
     pub port_id: String,
@@ -337,9 +361,9 @@ impl DataBase {
                 timing_table: vec![],
             },
             routing_graph: RoutingGraph {
-                app_edge_id: String::new(),
-                path: vec![],
-                delay: 0,
+                nodes: vec![],
+                edges: vec![],
+                channels: vec![],
             },
             floor_plan: FloorPlan {
                 app_node_ids: vec![],

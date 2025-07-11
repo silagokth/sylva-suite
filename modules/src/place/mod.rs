@@ -1,4 +1,4 @@
-use crate::model::{DataBase, FloorPlan, RectangleShape, RectanglePosition};
+use crate::model::{DataBase, FloorPlan, RectangleShape, RectanglePosition, Placement};
 use crate::solver::Solver;
 use log::{info, warn, error, debug};
 use serde_json;
@@ -464,6 +464,26 @@ pub fn generate_placement(
 }
 
 
+fn update_placement(
+    db: &mut DataBase,
+    fp: &FloorPlan,
+) -> () {
+    // nodes and their coordinates
+    for (index, node_id) in fp.app_node_ids.iter().enumerate() {
+        let placement = Placement {
+            app_node_id: node_id.clone(),
+            x: fp.pos[index].x + 1,
+            y: fp.pos[index].y + 2,
+        };
+        db.synthesized_information.placements.push(placement);
+    }
+    
+    // area information
+    db.synthesized_information.max_width = fp.max_width;
+    db.synthesized_information.max_height = fp.max_height;
+}
+
+
 
 pub fn run(
     db: &mut DataBase, 
@@ -510,7 +530,7 @@ pub fn run(
     info!("Stege 3: generating placement results and updating synthesized information");
     debug!("Floorplan: \n {:?}", fp);
     generate_placement(db, &fp, &module_dir)?;
-    
+    update_placement(db, &mut fp);
 
     info!("Finish: placement");
     Ok(())

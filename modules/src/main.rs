@@ -4,6 +4,7 @@ mod solver;
 
 mod bind;
 mod place;
+mod route;
 
 use log::{info, error};
 use clap::Parser;
