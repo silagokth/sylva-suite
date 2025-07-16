@@ -138,26 +138,24 @@ pub struct HyperParameter {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TechConstraint {
-    pub required_period: i32,
-    pub required_slew: i32,
-    pub initial_slew: i32,
-    pub buffer_slew_declined_factor: i32,
-    pub buffer_delay_improved_factor: i32,
-    pub register_slew_constant: i32,
-    pub number_slew_rates: i32,
-    pub number_wire_blocks: i32,
-    pub slew_rates: Vec<i32>,
+    pub required_period: f64,
+    pub required_slew: f64,
+    pub initial_slew: f64,
+    pub buffer_slew_declined_factor: f64,
+    pub buffer_delay_improved_factor: f64,
+    pub register_slew_constant: f64,
+    pub slew_rates: Vec<f64>,
     pub timing_table: Vec<TimingRow>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TimingRow {
-    pub rows: Vec<i32>,
+    pub rows: Vec<f64>,
 }
  
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct RoutingGraph {
     pub nodes: Vec<Node>,
@@ -165,14 +163,14 @@ pub struct RoutingGraph {
     pub channels: Vec<Channel>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Node {
     pub id: String,
     pub weight: f64,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Edge {
     pub source: String,
@@ -180,7 +178,7 @@ pub struct Edge {
     pub weight: f64,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Channel {
     pub app_edge_id: String,
