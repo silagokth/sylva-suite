@@ -3,6 +3,7 @@ use log::{info, debug, error};
 use std::collections::{HashMap};
 use regex::Regex;
 use plotters::prelude::*;
+use plotters::element::PointCollection;
 
 mod insert;
 
@@ -226,7 +227,7 @@ fn plot_graph(
     module_dir: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let output_file = format!("{}/layout_graph.png", module_dir);
-    let root = BitMapBackend::new(&output_file, (1024, 768)).into_drawing_area();
+    let root = BitMapBackend::new(&output_file, (1024, 1024)).into_drawing_area();
     root.fill(&WHITE)?;
 
     let max_x = db.synthesized_information.max_width.clone();
@@ -331,29 +332,79 @@ fn plot_graph(
                 chart.plotting_area().draw(&Circle::new((x - 0.3, y + 0.3), 2, RED.filled()))?;
             }
 
+            fn draw_array<T: DrawingBackend, C: CoordTranslate>(
+                area: &DrawingArea<T, C>,
+                start_x: f64,
+                start_y: f64,
+                end_x: f64,
+                end_y: f64,
+            ) -> Result<(), Box<dyn std::error::Error>> 
+            where
+                C::From: Into<(f64, f64)>,
+                for<'a> &'a PathElement<(f64, f64)>: PointCollection<'a, <C as CoordTranslate>::From>,
+                for<'a> &'a Polygon<(f64, f64)>: PointCollection<'a, <C as CoordTranslate>::From>,
+                <T as DrawingBackend>::ErrorType: 'static,
+            {
+                area.draw(&PathElement::new(
+                    vec![(start_x, start_y), (end_x, end_y)], 
+                    ShapeStyle::from(&BLACK).stroke_width(2),
+                ))?;
+                        
+                let arrow_head_size = 0.2; // Adjust size of the arrowhead
+                let arrow_angle = std::f64::consts::PI / 6.0; // 30 degrees for arrow head
+
+                let dx = end_x - start_x;
+                let dy = end_y - start_y;
+                let angle = dy.atan2(dx); // Angle of the line
+
+                // calculate points for the two "wings" of the arrowhead
+                let x1 = end_x - arrow_head_size * (angle - arrow_angle).cos();
+                let y1 = end_y - arrow_head_size * (angle - arrow_angle).sin();
+
+                let x2 = end_x - arrow_head_size * (angle + arrow_angle).cos();
+                let y2 = end_y - arrow_head_size * (angle + arrow_angle).sin();
+                
+                // draw arrowhead
+                area.draw(&PathElement::new(
+                    vec![(end_x, end_y), (x1, y1)],
+                    ShapeStyle::from(&BLACK).stroke_width(2),
+                ))?;
+                area.draw(&PathElement::new(
+                    vec![(end_x, end_y), (x2, y2)],
+                    ShapeStyle::from(&BLACK).stroke_width(2),
+                ))?;
+
+                area.draw(&Polygon::new(
+                    vec![(end_x, end_y), (x1, y1), (x2, y2)],
+                    BLACK.filled(),
+                ))?;
+            
+                Ok(())
+            }
+
             // directional arrows
             match block.get("n") {
-                Some(Some("e")) => chart.plotting_area().draw(&PathElement::new(vec![(x, y), (x + 0.3, y - 0.3)], &BLACK))?,
-                Some(Some("w")) => chart.plotting_area().draw(&PathElement::new(vec![(x, y), (x - 0.3, y - 0.3)], &BLACK))?,
-                Some(Some("s")) => chart.plotting_area().draw(&PathElement::new(vec![(x, y), (x, y - 0.5)], &BLACK))?,
+                Some(Some("e")) => draw_array(chart.plotting_area(), x, y + 0.5, x + 0.5, y)?,
+                Some(Some("w")) => draw_array(chart.plotting_area(), x, y + 0.5, x - 0.5, y)?,
+                Some(Some("s")) => draw_array(chart.plotting_area(), x, y + 0.5, x, y - 0.5)?,
                 _ => {}
             }
             match block.get("s") {
-                Some(Some("e")) => chart.plotting_area().draw(&PathElement::new(vec![(x, y - 0.5), (x + 0.5, y)], &BLACK))?,
-                Some(Some("w")) => chart.plotting_area().draw(&PathElement::new(vec![(x, y), (x - 0.3, y + 0.3)], &BLACK))?,
-                Some(Some("n")) => chart.plotting_area().draw(&PathElement::new(vec![(x, y), (x, y + 0.5)], &BLACK))?,
+                Some(Some("e")) => draw_array(chart.plotting_area(), x, y - 0.5, x + 0.5, y)?,
+                Some(Some("w")) => draw_array(chart.plotting_area(), x, y - 0.5, x - 0.5, y)?,
+                Some(Some("n")) => draw_array(chart.plotting_area(), x, y - 0.5, x, y + 0.5)?,
                 _ => {}
             }
             match block.get("e") {
-                Some(Some("w")) => chart.plotting_area().draw(&PathElement::new(vec![(x, y), (x - 0.5, y)], &BLACK))?,
-                Some(Some("s")) => chart.plotting_area().draw(&PathElement::new(vec![(x, y), (x - 0.3, y - 0.3)], &BLACK))?,
-                Some(Some("n")) => chart.plotting_area().draw(&PathElement::new(vec![(x, y), (x - 0.3, y + 0.3)], &BLACK))?,
+                Some(Some("w")) => draw_array(chart.plotting_area(), x + 0.5, y, x - 0.5, y)?,
+                Some(Some("s")) => draw_array(chart.plotting_area(), x + 0.5, y, x, y - 0.5)?,
+                Some(Some("n")) => draw_array(chart.plotting_area(), x + 0.5, y, x, y + 0.5)?,
                 _ => {}
             }
             match block.get("w") {
-                Some(Some("s")) => chart.plotting_area().draw(&PathElement::new(vec![(x, y), (x + 0.3, y - 0.3)], &BLACK))?,
-                Some(Some("n")) => chart.plotting_area().draw(&PathElement::new(vec![(x, y), (x + 0.3, y + 0.3)], &BLACK))?,
-                Some(Some("e")) => chart.plotting_area().draw(&PathElement::new(vec![(x, y), (x + 0.5, y)], &BLACK))?,
+                Some(Some("s")) => draw_array(chart.plotting_area(), x - 0.5, y, x, y - 0.5)?,
+                Some(Some("n")) => draw_array(chart.plotting_area(), x - 0.5, y, x, y + 0.5)?,
+                Some(Some("e")) => draw_array(chart.plotting_area(), x - 0.5, y, x + 0.5, y)?,
                 _ => {}
             }
         }
@@ -363,13 +414,13 @@ fn plot_graph(
     for i in 0..max_x {
         chart.draw_series(LineSeries::new(
             vec![(i as f64 - 0.5, -0.5), (i as f64 - 0.5, max_y as f64 - 0.5)],
-            ShapeStyle::from(&RGBColor(200, 200, 200)).stroke_width(2),
+            ShapeStyle::from(&RGBColor(200, 200, 200)).stroke_width(1),
         ))?;
     }
     for i in 0..max_y {
         chart.draw_series(LineSeries::new(
             vec![(-0.5, i as f64 - 0.5), (max_x as f64 - 0.5, i as f64 - 0.5)],
-            ShapeStyle::from(&RGBColor(200, 200, 200)).stroke_width(2),
+            ShapeStyle::from(&RGBColor(200, 200, 200)).stroke_width(1),
         ))?;
     }
 

@@ -1,2 +1,2 @@
-{"type": "solution", "output": {"default": "{objective:31}", "raw": "{objective:31}"}, "sections": ["default", "raw"], "time": 104}
-{"type": "status", "status": "OPTIMAL_SOLUTION", "time": 104}
+{"type": "solution", "output": {"default": "{objective:31}", "raw": "{objective:31}"}, "sections": ["default", "raw"], "time": 101}
+{"type": "status", "status": "OPTIMAL_SOLUTION", "time": 101}
