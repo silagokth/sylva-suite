@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
+pub mod sim;
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DataBase {

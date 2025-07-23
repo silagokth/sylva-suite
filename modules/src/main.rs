@@ -7,6 +7,7 @@ mod place;
 mod route;
 mod noc;
 mod glic;
+mod sim;
 
 use log::{info, error};
 use clap::Parser;
@@ -67,7 +68,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     route::run(&mut db, &args.output)?;
     noc::run(&mut db, &args.output)?;
     glic::run(&mut db, &args.output)?;
-     
+    
+    /* save synthesized information */
+    let bin_file = format!("{}/db.bin", args.output);
+    file_handler::write_json_file(&bin_file, &db)?;
+    //db = file_handler::load_json_file(&bin_file)?;
+    
+    let sim = sim::run(&mut db, &args.output)?;
+    if !sim {
+        error!("Failed to verify the simulation");
+        std::process::exit(1);
+    }
 
     info!("Sylva finished successfully!");
     Ok(())
