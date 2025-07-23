@@ -211,8 +211,11 @@ fn optimal_binding(db: &mut DataBase, module_dir: String) -> std::result::Result
     solver.add(String::from("output [\"{objective:\\(objective)}\"];")); 
 
     // solving
-    let acceptable_status = vec![String::from("OPTIMAL_SOLUTION")];
-    let solutions = solver.solve("", acceptable_status)?;
+    let (status, solutions) = solver.solve("")?;
+    match status.as_str() {
+        "OPTIMAL_SOLUTION" => {}
+        _ => return Err(format!("MiniZinc status: {}", status).into()),
+    };
     debug!("Minizinc solutions: \n{:?}", solutions);
     let parsed_json_value: serde_json::Value = serde_json::from_str(&solutions[0])?;
     
@@ -246,8 +249,11 @@ fn approximate_optimal_binding(db: &mut DataBase, module_dir: String, minimized_
     solver.add(output_str);
 
     // solving 
-    let acceptable_status = vec![String::from("ALL_SOLUTIONS")];
-    let solutions = solver.solve("-a", acceptable_status)?; // -a: search for all
+    let (status, solutions) = solver.solve("-a")?; // -a: search for all
+    match status.as_str() {
+        "ALL_SOLUTIONS" => {}
+        _ => return Err(format!("MiniZinc status: {}", status).into()),
+    };
     debug!("Minizinc solutions: \n{:?}", solutions);
 
     // put solutions into a suitable HashMap object

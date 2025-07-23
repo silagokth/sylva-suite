@@ -1,6 +1,6 @@
 use crate::file_handler::{write_file};
 use std::process::Command;
-use log::{error, debug};
+use log::{error};
 use std::fs::File;
 use std::io::{BufReader, BufRead};
 use serde::Deserialize;
@@ -122,10 +122,9 @@ impl Solver {
         self.model.clone()
     }
 
-    pub fn solve(&mut self, args: &str, acceptable_status: Vec<String>) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    pub fn solve(&mut self, args: &str) -> Result<(String, Vec<String>), Box<dyn std::error::Error>> {
         // write minizinc file 
         let minizinc_filename = format!("{}/{}.mzn", self.dir, self.name);
-        debug!("write file ok");
         write_file(&minizinc_filename, self.model.clone())?;
 
         // run minizinc with cp-sat solver and save the output as a file
@@ -148,12 +147,10 @@ impl Solver {
             error!("MiniZinc stdout: {}", stdout);
             error!("MiniZinc stderr: {}", stderr);
             return Err(format!("MiniZinc command failed. Stderr: {}", stderr).into());
-        } else {
-            debug!("minizinc solver is executed successfully");   
         }
 
         // read the output file and parse the result
-        let mut found_status = false;
+        let mut status = String::new();
         let mut solutions: Vec<String>= vec![];
         let parsed_entries = minizinc_parser(&output_filename)?;
         for entry in parsed_entries {
@@ -164,11 +161,7 @@ impl Solver {
                     solutions.push(valid_json_str);
                 },
                 MiniZincStreamEntry::Status(status_entry) => {
-                    found_status = true;
-                    if !acceptable_status.contains(&status_entry.status) {
-                        error!("Minizinc status is unacceptable: {}", status_entry.status);
-                        return Err(format!("Unacceptable MiniZinc status: {}", status_entry.status).into());
-                    }
+                    status = status_entry.status;
                 },
                 MiniZincStreamEntry::Unknown(map) => {
                     error!("Unknown minizinc entry type: {:?}", map);
@@ -178,16 +171,11 @@ impl Solver {
         }
 
 
-        if !found_status {
+        if status.is_empty() {
             error!("No status entry found in MiniZinc output.");
             return Err("MiniZinc output missing status entry.".into());
         }
 
-        if solutions.len() == 0 {
-            error!("No solution entry found in MiniZinc output.");
-            return Err("MiniZinc output missing solution entry.".into());
-        }
-
-        Ok(solutions)
+        Ok((status, solutions))
     }
 }

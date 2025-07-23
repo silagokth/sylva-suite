@@ -194,8 +194,11 @@ fn place_solve_optimal(
     }\"];")); 
 
     /* solving the model */
-    let acceptable_status = vec![String::from("OPTIMAL_SOLUTION")];
-    let solutions = solver.solve("", acceptable_status)?;
+    let (status, solutions) = solver.solve("")?;
+    match status.as_str() {
+        "OPTIMAL_SOLUTION" => {}
+        _ => return Err(format!("MiniZinc status: {}", status).into()),
+    };
     debug!("Minizinc solutions: \n{:?}", solutions);
     let parsed_json_value: serde_json::Value = serde_json::from_str(&solutions[0])?;
 
@@ -338,8 +341,11 @@ fn place_solve_approx_optimal(
     }\"];")); 
 
     /* solving the model */
-    let acceptable_status = vec![String::from("OPTIMAL_SOLUTION"), String::from("FEASIBLE")];
-    let solutions = solver.solve("", acceptable_status)?;
+    let (status, solutions) = solver.solve("")?;
+    match status.as_str() {
+        "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
+        _ => return Err(format!("MiniZinc status: {}", status).into()),
+    };
     debug!("Minizinc solutions: \n{:?}", solutions);
     let parsed_json_value: serde_json::Value = serde_json::from_str(&solutions[0])?;
 

@@ -17,7 +17,7 @@ pub struct DataBase {
 }
 
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AppGraph{
     pub nodes: Vec<AppNode>,
@@ -26,7 +26,7 @@ pub struct AppGraph{
     pub global_mem_reference: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AppNode {
     pub id: String,
@@ -43,7 +43,7 @@ pub struct AppNode {
     pub executable: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AppNodePort {
     pub id: String,
@@ -56,7 +56,7 @@ pub struct AppNodePort {
     pub addr_time_patterns: Vec<PairIntInt>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AppEdge {
     pub id: String,

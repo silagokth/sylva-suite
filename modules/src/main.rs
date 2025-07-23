@@ -6,6 +6,7 @@ mod bind;
 mod place;
 mod route;
 mod noc;
+mod glic;
 
 use log::{info, error};
 use clap::Parser;
@@ -65,6 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     place::run(&mut db, &args.output)?;
     route::run(&mut db, &args.output)?;
     noc::run(&mut db, &args.output)?;
+    glic::run(&mut db, &args.output)?;
      
 
     info!("Sylva finished successfully!");
