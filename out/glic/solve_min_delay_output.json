@@ -1,2 +1,2 @@
-{"type": "solution", "output": {"default": "{delay:18}", "raw": "{delay:18}"}, "sections": ["default", "raw"], "time": 106}
-{"type": "status", "status": "OPTIMAL_SOLUTION", "time": 106}
+{"type": "solution", "output": {"default": "{delay:18}", "raw": "{delay:18}"}, "sections": ["default", "raw"], "time": 184}
+{"type": "status", "status": "OPTIMAL_SOLUTION", "time": 184}

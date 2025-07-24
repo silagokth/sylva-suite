@@ -1,0 +1,84 @@
+{
+  "mem": [
+    {
+      "cycle": 1,
+      "address": 0,
+      "value": "0"
+    },
+    {
+      "cycle": 2,
+      "address": 0,
+      "value": "100"
+    },
+    {
+      "cycle": 3,
+      "address": 0,
+      "value": "200"
+    },
+    {
+      "cycle": 4,
+      "address": 0,
+      "value": "300"
+    },
+    {
+      "cycle": 5,
+      "address": 0,
+      "value": "400"
+    },
+    {
+      "cycle": 6,
+      "address": 0,
+      "value": "500"
+    },
+    {
+      "cycle": 7,
+      "address": 0,
+      "value": "600"
+    },
+    {
+      "cycle": 8,
+      "address": 0,
+      "value": "700"
+    },
+    {
+      "cycle": 9,
+      "address": 0,
+      "value": "800"
+    },
+    {
+      "cycle": 10,
+      "address": 0,
+      "value": "900"
+    },
+    {
+      "cycle": 11,
+      "address": 0,
+      "value": "1000"
+    },
+    {
+      "cycle": 12,
+      "address": 0,
+      "value": "1100"
+    },
+    {
+      "cycle": 13,
+      "address": 0,
+      "value": "1200"
+    },
+    {
+      "cycle": 14,
+      "address": 0,
+      "value": "1300"
+    },
+    {
+      "cycle": 15,
+      "address": 0,
+      "value": "1400"
+    },
+    {
+      "cycle": 16,
+      "address": 0,
+      "value": "1500"
+    }
+  ]
+}

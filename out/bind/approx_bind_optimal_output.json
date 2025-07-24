@@ -1,5 +1,5 @@
-{"type": "solution", "output": {"default": "{objective:34, selected_alimp_A:2, selected_alimp_B:1, selected_alimp_C:1}", "raw": "{objective:34, selected_alimp_A:2, selected_alimp_B:1, selected_alimp_C:1}"}, "sections": ["default", "raw"], "time": 50}
-{"type": "solution", "output": {"default": "{objective:31, selected_alimp_A:2, selected_alimp_B:1, selected_alimp_C:2}", "raw": "{objective:31, selected_alimp_A:2, selected_alimp_B:1, selected_alimp_C:2}"}, "sections": ["default", "raw"], "time": 83}
-{"type": "solution", "output": {"default": "{objective:35, selected_alimp_A:1, selected_alimp_B:1, selected_alimp_C:1}", "raw": "{objective:35, selected_alimp_A:1, selected_alimp_B:1, selected_alimp_C:1}"}, "sections": ["default", "raw"], "time": 112}
-{"type": "solution", "output": {"default": "{objective:32, selected_alimp_A:1, selected_alimp_B:1, selected_alimp_C:2}", "raw": "{objective:32, selected_alimp_A:1, selected_alimp_B:1, selected_alimp_C:2}"}, "sections": ["default", "raw"], "time": 141}
-{"type": "status", "status": "ALL_SOLUTIONS", "time": 169}
+{"type": "solution", "output": {"default": "{objective:34, selected_alimp_A:2, selected_alimp_B:1, selected_alimp_C:1}", "raw": "{objective:34, selected_alimp_A:2, selected_alimp_B:1, selected_alimp_C:1}"}, "sections": ["default", "raw"], "time": 90}
+{"type": "solution", "output": {"default": "{objective:31, selected_alimp_A:2, selected_alimp_B:1, selected_alimp_C:2}", "raw": "{objective:31, selected_alimp_A:2, selected_alimp_B:1, selected_alimp_C:2}"}, "sections": ["default", "raw"], "time": 147}
+{"type": "solution", "output": {"default": "{objective:35, selected_alimp_A:1, selected_alimp_B:1, selected_alimp_C:1}", "raw": "{objective:35, selected_alimp_A:1, selected_alimp_B:1, selected_alimp_C:1}"}, "sections": ["default", "raw"], "time": 197}
+{"type": "solution", "output": {"default": "{objective:32, selected_alimp_A:1, selected_alimp_B:1, selected_alimp_C:2}", "raw": "{objective:32, selected_alimp_A:1, selected_alimp_B:1, selected_alimp_C:2}"}, "sections": ["default", "raw"], "time": 244}
+{"type": "status", "status": "ALL_SOLUTIONS", "time": 291}

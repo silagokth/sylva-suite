@@ -1,2 +1,2 @@
-{"type": "solution", "output": {"default": "{x:[3, 0, 3],y:[0, 3, 6],max_x_position:9,max_y_position:15,distance_matrix:[3, 3]}", "raw": "{x:[3, 0, 3],y:[0, 3, 6],max_x_position:9,max_y_position:15,distance_matrix:[3, 3]}"}, "sections": ["default", "raw"], "time": 60}
-{"type": "status", "status": "OPTIMAL_SOLUTION", "time": 60}
+{"type": "solution", "output": {"default": "{x:[3, 0, 3],y:[0, 3, 6],max_x_position:9,max_y_position:15,distance_matrix:[3, 3]}", "raw": "{x:[3, 0, 3],y:[0, 3, 6],max_x_position:9,max_y_position:15,distance_matrix:[3, 3]}"}, "sections": ["default", "raw"], "time": 113}
+{"type": "status", "status": "OPTIMAL_SOLUTION", "time": 114}
