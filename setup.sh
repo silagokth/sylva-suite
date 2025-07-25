@@ -1,4 +1,7 @@
 #!/bin/bash
+pushd modules/
+cargo build --all
+popd
 
 rm -rf examples/
 mkdir examples/

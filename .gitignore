@@ -1,8 +1,8 @@
 # ignore bin/ out/ config/ and examples/
-bin/
-examples/
-config/
-out/
+/bin/
+/examples/
+/config/
+/out/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
