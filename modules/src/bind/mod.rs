@@ -1,4 +1,4 @@
-use crate::model::{DataBase, AppGraph, AlimpBindingOption, AlimpBinding};
+use sv_lib::model::{DataBase, AppGraph, AlimpBindingOption, AlimpBinding};
 use crate::solver::Solver;
 use log::{info, error, debug};
 use itertools::Itertools;

@@ -1,11 +1,10 @@
-use crate::models;
-use crate::file_handler;
-
-use models::{
+use sv_lib::sim::{
     TransporterInstructionList, 
     BufferList, 
     Buffer
 };
+use sv_lib::file_handler;
+
 
 pub struct TransporterModule {
     in_name: String,

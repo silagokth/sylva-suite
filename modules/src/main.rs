@@ -1,6 +1,7 @@
-mod model;
-mod file_handler;
-mod solver;
+use sv_lib::model::{DataBase};
+use sv_lib::{file_handler};
+use log::{info, error};
+use clap::Parser;
 
 mod bind;
 mod place;
@@ -9,9 +10,7 @@ mod noc;
 mod glic;
 mod sim;
 
-use log::{info, error};
-use clap::Parser;
-
+mod solver;
 
 /// Arguments to get the configuration files and output directory 
 #[derive(Parser, Debug)]
@@ -42,7 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     
     // create empty data structure 
-    let mut db = model::DataBase::new();
+    let mut db = DataBase::new();
 
     // read configuration files and store the information in ds 
     db.app_graph = file_handler::load_json_file(&args.graph)?;

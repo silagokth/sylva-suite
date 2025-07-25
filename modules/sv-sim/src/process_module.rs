@@ -1,8 +1,4 @@
-use crate::models;
-use crate::file_handler;
-use crate::command_runner; 
-
-use models::{
+use sv_lib::sim::{
     MemoryList, 
     Memory,
     BufferList, 
@@ -10,6 +6,8 @@ use models::{
     AddressPatternList,
     TranslationTableList,
 };
+use sv_lib::file_handler;
+use crate::command_runner; 
 
 pub struct ProcessModule {
     name: String,

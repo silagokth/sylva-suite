@@ -1,2 +1,0 @@
-{"type": "solution", "output": {"default": "{x:[0, 0, 3],y:[0, 6, 6],max_x_position:9,max_y_position:15}", "raw": "{x:[0, 0, 3],y:[0, 6, 6],max_x_position:9,max_y_position:15}"}, "sections": ["default", "raw"], "time": 93}
-{"type": "status", "status": "OPTIMAL_SOLUTION", "time": 93}

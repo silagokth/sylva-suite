@@ -1,4 +1,4 @@
-use crate::model::{RoutingGraph, Node, Edge};
+use sv_lib::model::{RoutingGraph, Node, Edge};
 use std::collections::{HashMap, HashSet};
 
 

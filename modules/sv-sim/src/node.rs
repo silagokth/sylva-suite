@@ -1,13 +1,8 @@
-use crate::models;
-use crate::file_handler;
+use sv_lib::sim::{NodeConfig, BufferList};
+use sv_lib::file_handler;
 use crate::command_runner; 
 use crate::process_module;
 use crate::transporter_module;
-
-use models::{
-    NodeConfig,
-    BufferList,
-};
 
 use process_module::ProcessModule;
 use transporter_module::TransporterModule;

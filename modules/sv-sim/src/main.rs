@@ -1,15 +1,15 @@
-mod models;
-mod file_handler;
+use sv_lib::sim::{NodeConfigMap, TimeTable};
+use sv_lib::{file_handler};
+use clap::Parser;
+use std::collections::HashMap;
+ 
 mod node;
 mod command_runner;
 mod process_module;
 mod transporter_module;
 
-use models::{NodeConfigMap, TimeTable};
 use node::Node;
-use clap::Parser;
-use std::collections::HashMap;
- 
+
 /// Arguments to locate JSON files.
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -119,6 +119,8 @@ impl Sim {
                 panic!("Fail to fire a node (conflict graph detected).");
             }
         }
+        
+        println!("Exiting simulation");
         Ok(())
     }
 }

@@ -1,5 +1,5 @@
 #[allow(unused_imports)]
-use crate::model::{TechConstraint, TimingRow};
+use sv_lib::model::{TechConstraint, TimingRow};
 use std::collections::{HashMap, HashSet};
 
 pub fn is_path_satisfied(

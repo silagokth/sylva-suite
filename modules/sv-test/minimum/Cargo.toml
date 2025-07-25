@@ -1,0 +1,24 @@
+[package]
+name = "minimum"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "minimum-A"
+path = "src/A.rs"
+
+[[bin]]
+name = "minimum-B"
+path = "src/B.rs"
+
+[[bin]]
+name = "minimum-C"
+path = "src/C.rs"
+
+[[bin]]
+name = "minimum-memory"
+path = "src/memory.rs"
+
+[dependencies]
+sv-lib = { path = "../../sv-lib" }
+clap = { version = "4.5", features = ["derive"] }

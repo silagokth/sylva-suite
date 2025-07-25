@@ -1,4 +1,4 @@
-use crate::model::{DataBase, PairIntInt};
+use sv_lib::model::{DataBase, PairIntInt};
 use crate::solver::Solver;
 use log::{debug};
 use serde_json;

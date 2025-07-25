@@ -1,2 +1,0 @@
-{"type": "solution", "output": {"default": "{end_time:[16, 35, 38], k_A_B:1, min_delay_A_B:2, k_B_C:1, min_delay_B_C:18}", "raw": "{end_time:[16, 35, 38], k_A_B:1, min_delay_A_B:2, k_B_C:1, min_delay_B_C:18}"}, "sections": ["default", "raw"], "time": 92}
-{"type": "status", "status": "OPTIMAL_SOLUTION", "time": 92}

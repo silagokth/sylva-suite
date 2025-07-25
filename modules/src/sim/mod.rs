@@ -1,5 +1,5 @@
-use crate::model::{DataBase, PairIntInt};
-use crate::model::sim::{
+use sv_lib::model::{DataBase, PairIntInt};
+use sv_lib::sim::{
     MemoryList, NodeConfigMap, NodeConfig, 
     TimeTable, TTNode, AddressPatternList, AddressPattern, 
     TranslationTableList, TranslationTable,
@@ -249,13 +249,6 @@ fn run_simulator(
         .stderr(std::process::Stdio::piped())
         .spawn()
         .map_err(|e| format!("Failed to execute simulation binary: {}", e))?;
-
-
-    let _ = std::process::Command::new("sh")
-        .arg("-c")
-        .arg(&command_str)
-        .output()
-        .map_err(|e| format!("Failed to execute simulation binary: {}", e))?;
     
     let stdout = child
         .stdout
@@ -285,15 +278,16 @@ fn run_simulator(
         }
     });
 
-    println!("");
     
     let status = child.wait()?;
 
     stdout_thread.join().unwrap();
     stderr_thread.join().unwrap();
 
+    println!("");
+    
     if !status.success() {
-        return Err("Simulation binary exited with error".into());
+        return Err(format!("Simulation binary exited with error {:?}", status).into());
     }
 
     Ok(())

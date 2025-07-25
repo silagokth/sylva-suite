@@ -1,4 +1,4 @@
-use crate::model::{DataBase, ChunkAddressAssignment, TransportTable, TransportTableEntry};
+use sv_lib::model::{DataBase, ChunkAddressAssignment, TransportTable, TransportTableEntry};
 use log::{info, debug, error};
 use itertools::Itertools;
 use std::collections::{HashMap};
