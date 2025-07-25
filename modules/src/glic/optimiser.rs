@@ -61,7 +61,7 @@ pub fn solve_min_delay(
     }\"];")); 
 
     /* solving the model */
-    let (status, solutions) = solver.solve("--time-limit 30000")?;
+    let (status, solutions) = solver.solve("--time-limit 30000 -p 8")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
         "UNSATISFIABLE" => return Ok(-1),
@@ -339,7 +339,7 @@ pub fn solve_channel_width(
 
 
     /* solving the model */
-    let (status, solutions) = solver.solve("--time-limit 120000")?;
+    let (status, solutions) = solver.solve("--time-limit 120000 -p 8")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" => {}
         _ => return Err(format!("MiniZinc status: {}", status).into()),
@@ -546,7 +546,7 @@ fn solve_node_schedule(
     ));
 
     /* solving the model */
-    let (status, solutions) = solver.solve("--time-limit 180000")?;
+    let (status, solutions) = solver.solve("--time-limit 180000 -p 8")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
         _ => return Err(format!("MiniZinc status: {}", status).into()),

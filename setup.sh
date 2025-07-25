@@ -6,12 +6,18 @@ popd
 rm -rf examples/
 mkdir examples/
 
-mkdir examples/minimum/
-mkdir examples/minimum/mem
+mkdir -p examples/minimum/mem
 cp modules/target/debug/minimum-A examples/minimum/A
 cp modules/target/debug/minimum-B examples/minimum/B
 cp modules/target/debug/minimum-C examples/minimum/C
 ./modules/target/debug/minimum-memory --image examples/minimum/mem/global_mem_image.json --reference examples/minimum/mem/global_mem_reference.json
+
+mkdir -p examples/copy/mem
+cp modules/target/debug/copy-A examples/copy/A
+cp modules/target/debug/copy-B examples/copy/B
+cp modules/target/debug/copy-C examples/copy/C
+./modules/target/debug/copy-memory --image examples/copy/mem/global_mem_image.json --reference examples/copy/mem/global_mem_reference.json
+
 
 # move binaries to bin
 rm -rf bin/
