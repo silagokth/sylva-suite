@@ -8,30 +8,37 @@ use clap::Parser;
 #[command(author, version, about, long_about = None)]
 struct Args {
     #[arg(long = "global-image", help="path to global memory image")]
-    global_image: Option<String>,
+    global_image: String,
 
     #[arg(long = "in-mem", help="path to input memory")]
     in_mem: String,
     
     #[arg(long = "out-mem", help="path to output memory")]
-    out_mem: String,
+    out_mem: Option<String>,
 }
 
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
+    let mut global_memory: MemoryList = load_json_file(&args.global_image)?; 
     let input: MemoryList = load_json_file(&args.in_mem)?; 
     
-    let mut output = MemoryList { line: Vec::new() };     
-    for l in input.line.iter() {
-        output.line.push(Memory{
-            address: l.address,
-            value: l.value.clone(),
+    let mut next_address = global_memory.line
+        .iter()
+        .map(|m| m.address)
+        .max()
+        .unwrap_or(0) + 1;
+    
+    for chunk in &input.line {
+        global_memory.line.push(Memory {
+            address: next_address,
+            value: chunk.value.clone(),
         });
+        next_address += 1;
     }
 
-    write_json_file(&args.out_mem, &output)?;
+    write_json_file(&args.global_image, &global_memory)?;
 
     let program_name = std::env::args().next().unwrap_or_else(|| "<program>".to_string());
     println!("{} completed", program_name);

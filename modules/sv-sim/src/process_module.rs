@@ -121,6 +121,9 @@ impl ProcessModule {
             }
         } 
 
+        // sort the memory by address
+        self.in_mem.line.sort_by(|a, b| a.address.cmp(&b.address));
+        
         file_handler::write_json_file(&self.in_mem_path, &self.in_mem)?;
         println!("[@{}] Input Addr Translation done.", ref_time);
         Ok(())

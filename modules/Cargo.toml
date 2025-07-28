@@ -9,7 +9,8 @@ members = [
     "sv-sim",
     "sv-test/config",
     "sv-test/minimum",
-    "sv-test/copy"
+    "sv-test/copy",
+    "sv-test/sobel"
 ]
 
 [dependencies]

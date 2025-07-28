@@ -2,6 +2,7 @@ use sv_lib::sim::{MemoryList, Memory};
 use sv_lib::file_handler::{load_json_file, write_json_file};
 use clap::Parser;
 
+
 // Arguments 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -83,17 +84,17 @@ fn encode_image(data: Vec<Vec<i32>>) -> Result<MemoryList, Box<dyn std::error::E
 
 
 
-fn gx(img: &Vec<Vec<u8>>) -> Vec<Vec<i32>> {
+fn gy(img: &Vec<Vec<u8>>) -> Vec<Vec<i32>> {
     let height = img.len();
     let width = img[0].len();
 
     let kernel: [[i32; 3]; 3] = [
-        [-1, 0, 1],
-        [-2, 0, 2],
-        [-1, 0, 1],
+        [1, 2, 1],
+        [0, 0, 0],
+        [-1, -2, -1],
     ];
 
-    let mut gx = vec![vec![0i32; width]; height];
+    let mut gy = vec![vec![0i32; width]; height];
 
     for i in 1..height - 1 {
         for j in 1..width - 1 {
@@ -104,12 +105,13 @@ fn gx(img: &Vec<Vec<u8>>) -> Vec<Vec<i32>> {
                     sum += pixel * kernel[ki][kj];
                 }
             }
-            gx[i][j] = sum; 
+            gy[i][j] = sum;
         }
     }
 
-    gx
+    gy
 }
+
 
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -117,8 +119,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let input: MemoryList = load_json_file(&args.in_mem)?; 
     let image: Vec<Vec<u8>> = decode_image(&input)?;   
-    let gx_image: Vec<Vec<i32>> = gx(&image);
-    let output: MemoryList = encode_image(gx_image)?;
+    let gy_image: Vec<Vec<i32>> = gy(&image);
+    let output: MemoryList = encode_image(gy_image)?;
 
     write_json_file(&args.out_mem, &output)?;
 

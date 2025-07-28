@@ -170,12 +170,6 @@ impl Solver {
             }
         }
 
-
-        if status.is_empty() {
-            error!("No status entry found in MiniZinc output.");
-            return Err("MiniZinc output missing status entry.".into());
-        }
-
         Ok((status, solutions))
     }
 }

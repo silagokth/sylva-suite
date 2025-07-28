@@ -16,14 +16,17 @@ pub fn solve_min_delay(
     
     let src_keys: HashSet<i32> = src_addr_pattern.keys().cloned().collect();
     let dst_keys: HashSet<i32> = dst_addr_pattern.keys().cloned().collect();
-    let common_addr: HashSet<i32> = src_keys
+    let mut common_addr: Vec<i32> = src_keys
         .intersection(&dst_keys)
         .cloned()
         .collect();
 
+    common_addr.sort();
+
     let mut solver = Solver::new(String::from("solve_min_delay"), module_dir);
 
     /* formulating the model */
+    solver.add(format!("include \"cumulative.mzn\";"));
     solver.add(format!("int: N = {};", common_addr.len()));
     solver.add(format!("int: WIDTH = {};", channel_width));
     solver.add(format!("int: MAX_DELAY = {};", max_delay));
@@ -44,8 +47,11 @@ pub fn solve_min_delay(
     \n);"));
     solver.add(format!(
         " % At any moment, there can be WIDTH transfers in the communication channel\
-        \nconstraint forall(x in min(tr_read)..max(tr_read))(\
-        \n  count(tr_read, x) <= WIDTH\
+        \nconstraint cumulative(\
+        \n  [tr_read[i] | i in 1..N],\
+        \n  [1 | i in 1..N],\
+        \n  [1 | i in 1..N],\
+        \n  WIDTH\
     \n);"));
     solver.new_line();
     solver.new_line();
@@ -285,8 +291,9 @@ pub fn solve_channel_width(
             
             if min_delay != -1 {
                 // terminate if no improvement
-                if min_delay_list.last() == Some(&min_delay) {
-                    break;
+                match min_delay_list.last() {
+                    Some(&val) if val == min_delay => break,
+                    _ => {}
                 }
                 k_list.push(k);
                 min_delay_list.push(min_delay);
@@ -413,8 +420,7 @@ fn solve_node_schedule(
     // get all edges attached to the input of this node
     let edges: Vec<_> = db.app_graph.edges
         .iter()
-        .find(|e| e.target_node == node_id)
-        .into_iter()
+        .filter(|e| e.target_node == node_id)
         .cloned()
         .collect();
 
@@ -429,22 +435,24 @@ fn solve_node_schedule(
     solver.new_line();
     
     solver.add(format!("% input and output buffers"));
+    let mut min_buffer_counts = 0;
     for edge in &edges {
         let input_addr_time_patterns = translate_addr_time(db, &edge.target_node, &edge.target_port, "in")?;
-        let input_max_buffer_size = most_frequent_value_count(&input_addr_time_patterns); 
+        let input_min_counts = most_frequent_value_count(&input_addr_time_patterns); 
 
         let output_addr_time_patterns = translate_addr_time(db, &edge.source_node, &edge.source_port, "out")?;
-        let output_max_buffer_size = most_frequent_value_count(&output_addr_time_patterns); 
+        let output_min_counts = most_frequent_value_count(&output_addr_time_patterns); 
         
-        solver.add(format!("var 0..{}: IB_{};", 2 * input_max_buffer_size, _rename(&edge.target_port)));
-        solver.add(format!("var 0..{}: OB_{};", 2 * output_max_buffer_size, _rename(&edge.source_port)));
+        min_buffer_counts += input_min_counts + output_min_counts;
+
+        solver.add(format!("var {}..{}: IB_{};", input_min_counts, 3 * input_min_counts, _rename(&edge.target_port)));
+        solver.add(format!("var {}..{}: OB_{};", output_min_counts, 3 * output_min_counts, _rename(&edge.source_port)));
     }
     solver.new_line();
     solver.new_line();
     solver.new_line();
 
     solver.add(format!("% ========= main scheduling ========="));
-    let mut max_buffer_size = 0;
     for edge in &edges {
         let output_addr_time_patterns = translate_addr_time(db, &edge.source_node, &edge.source_port, "out")?; 
         let input_addr_time_patterns = translate_addr_time(db, &edge.target_node, &edge.target_port, "in")?; 
@@ -467,8 +475,6 @@ fn solve_node_schedule(
                     edge.token_size
             ).into());
         }
-
-        max_buffer_size += 2 * edge.token_size;
 
         let (channel_width, min_delay) = channels.get(&edge.id).ok_or("Node is not found in channels")?;
         let size = format!("TOKENSIZE_{}", edge.id);
@@ -523,7 +529,7 @@ fn solve_node_schedule(
     solver.new_line();
 
     solver.add(format!("% ========= objective ========="));
-    solver.add(format!("var {}..{}: BUFFER_SIZE;", 2 * edges.len(), max_buffer_size));
+    solver.add(format!("var {}..{}: BUFFER_SIZE;", min_buffer_counts, 3 * min_buffer_counts));
     solver.add(format!("constraint BUFFER_SIZE = sum([{}]) + sum([{}]);", 
         edges.iter().map(|e| format!("OB_{}", _rename(&e.source_port))).into_iter().collect::<Vec<_>>().join(", "),
         edges.iter().map(|e| format!("IB_{}", _rename(&e.target_port))).into_iter().collect::<Vec<_>>().join(", ")
@@ -546,7 +552,7 @@ fn solve_node_schedule(
     ));
 
     /* solving the model */
-    let (status, solutions) = solver.solve("--time-limit 180000 -p 8")?;
+    let (status, solutions) = solver.solve("--time-limit 180000 -p 16")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
         _ => return Err(format!("MiniZinc status: {}", status).into()),

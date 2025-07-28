@@ -249,9 +249,9 @@ fn approximate_optimal_binding(db: &mut DataBase, module_dir: String, minimized_
     solver.add(output_str);
 
     // solving 
-    let (status, solutions) = solver.solve("-a")?; // -a: search for all
+    let (status, solutions) = solver.solve("-a --time-limit 10000")?; // -a: search for all
     match status.as_str() {
-        "ALL_SOLUTIONS" => {}
+        "ALL_SOLUTIONS" | "" => {} // allow time-out (no status)
         _ => return Err(format!("MiniZinc status: {}", status).into()),
     };
     debug!("Minizinc solutions: \n{:?}", solutions);

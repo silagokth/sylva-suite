@@ -4,37 +4,39 @@ version = "0.1.0"
 edition = "2024"
 
 [[bin]]
-name = "copy-load"
+name = "sobel-load"
 path = "src/load.rs"
 
 [[bin]]
-name = "copy-copy"
+name = "sobel-copy"
 path = "src/copy.rs"
 
 [[bin]]
-name = "copy-gx"
+name = "sobel-gx"
 path = "src/gx.rs"
 
 [[bin]]
-name = "copy-gy"
+name = "sobel-gy"
 path = "src/gy.rs"
 
 [[bin]]
-name = "copy-combine"
+name = "sobel-combine"
 path = "src/combine.rs"
 
 [[bin]]
-name = "copy-store"
+name = "sobel-store"
 path = "src/store.rs"
 
-[[bin]]
-name = "copy-convert"
-path = "src/convert.rs"
+#[[bin]]
+#name = "sobel-convert"
+#path = "src/convert.rs"
 
 [[bin]]
-name = "copy-memory"
+name = "sobel-memory"
 path = "src/memory.rs"
 
 [dependencies]
 sv-lib = { path = "../../sv-lib" }
 clap = { version = "4.5", features = ["derive"] }
+hex = "0.4" 
+bytemuck = "1.23.1"

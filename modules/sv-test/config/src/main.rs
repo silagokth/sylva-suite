@@ -2,6 +2,7 @@ use sv_lib::model::*;
 use sv_lib::file_handler;
 use clap::Parser;
 
+mod sobel;
 
 // Arguments 
 #[derive(Parser)]
@@ -23,6 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match args.name.as_str() {
         "minimum" => minimum(&mut db)?,
         "copy" => copy(&mut db)?,
+        "sobel" => sobel::sobel(&mut db)?,
         _ => {
             eprintln!("Unknown example name: {}", args.name);
             std::process::exit(1);

@@ -485,7 +485,6 @@ pub fn run(
 
     info!("Stage 1: noc block identification");
     noc_identification(db)?;
-    debug!("wire assignment before noc = \n{:?}", db.synthesized_information.wire_assignment);
     
     info!("Stage 2: noc synthesis and update information");
     noc_synthesis(db)?;

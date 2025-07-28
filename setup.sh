@@ -18,6 +18,15 @@ cp modules/target/debug/copy-B examples/copy/B
 cp modules/target/debug/copy-C examples/copy/C
 ./modules/target/debug/copy-memory --image examples/copy/mem/global_mem_image.json --reference examples/copy/mem/global_mem_reference.json
 
+mkdir -p examples/sobel/mem
+cp modules/target/debug/sobel-load examples/sobel/load
+cp modules/target/debug/sobel-copy examples/sobel/copy
+cp modules/target/debug/sobel-gx examples/sobel/gx
+cp modules/target/debug/sobel-gy examples/sobel/gy
+cp modules/target/debug/sobel-combine examples/sobel/combine
+cp modules/target/debug/sobel-store examples/sobel/store
+./modules/target/debug/sobel-memory --image examples/sobel/mem/global_mem_image.json --reference examples/sobel/mem/global_mem_reference.json
+
 
 # move binaries to bin
 rm -rf bin/

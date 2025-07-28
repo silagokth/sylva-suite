@@ -26,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut output = MemoryList { line: Vec::new() };     
     
     // load 3200 chunks 0..3199    
-    for i in 0..3199 {
+    for i in 0..3200 {
         let value = global_memory.line
             .iter()
             .find(|entry| entry.address == i)

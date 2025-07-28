@@ -2,6 +2,7 @@ use sv_lib::sim::{MemoryList, Memory};
 use sv_lib::file_handler::{load_json_file, write_json_file};
 use clap::Parser;
 
+
 // Arguments 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -20,25 +21,34 @@ struct Args {
 const HEIGHT: usize = 320;
 const WIDTH: usize = 320;
 const CHUNK_SIZE: usize = 32; 
+const TOKEN_SIZE: usize = 4 * 3200;
 
-
-fn decode_image(data: &MemoryList) -> Result<Vec<Vec<u8>>, Box<dyn std::error::Error>> {
-    if data.line.len() * CHUNK_SIZE < HEIGHT * WIDTH {
+fn decode_image(data: &MemoryList, offset: i32) -> Result<Vec<Vec<i32>>, Box<dyn std::error::Error>> {
+    if data.line.len() * (CHUNK_SIZE / 4) < HEIGHT * WIDTH {
         return Err("Insufficient pixel data".into());
     }
     
-    let mut flat_pixels: Vec<u8> = Vec::with_capacity(HEIGHT * WIDTH);
+    let mut flat_pixels: Vec<i32> = Vec::with_capacity(HEIGHT * WIDTH);
 
     for chunk in data.line.iter() {
+        if chunk.address < offset as i64 {
+            continue;    
+        }
+
         let hex_str = chunk.value.trim();
         let bytes = hex::decode(hex_str)?;
         
         if bytes.len() != CHUNK_SIZE {
             return Err(format!("Chunk size mismatch: expected {}, got {}", CHUNK_SIZE, bytes.len()).into());
         }
-        
-        flat_pixels.extend_from_slice(&bytes);
-        
+
+        for i in 0..(CHUNK_SIZE / 4) {
+            let start = i * 4;
+            let raw_bytes = &bytes[start..start + 4];
+            let val = i32::from_le_bytes(raw_bytes.try_into()?);
+            flat_pixels.push(val);
+        }
+
         if flat_pixels.len() >= HEIGHT * WIDTH {
             break;
         }
@@ -46,8 +56,7 @@ fn decode_image(data: &MemoryList) -> Result<Vec<Vec<u8>>, Box<dyn std::error::E
 
     flat_pixels.truncate(HEIGHT * WIDTH);
 
-    // reshape to Vec<Vec<u8>>
-    let mut reshaped: Vec<Vec<u8>> = Vec::with_capacity(HEIGHT);
+    let mut reshaped: Vec<Vec<i32>> = Vec::with_capacity(HEIGHT);
     for row in flat_pixels.chunks(WIDTH) {
         reshaped.push(row.to_vec());
     }
@@ -57,21 +66,19 @@ fn decode_image(data: &MemoryList) -> Result<Vec<Vec<u8>>, Box<dyn std::error::E
 
 
 
-fn encode_image(data: Vec<Vec<i32>>) -> Result<MemoryList, Box<dyn std::error::Error>> {
-    let mut flat: Vec<i32> = data.into_iter().flatten().collect();
+fn encode_image(data: Vec<Vec<u8>>) -> Result<MemoryList, Box<dyn std::error::Error>> {
+    let mut flat: Vec<u8> = data.into_iter().flatten().collect();
 
     // pad with zeros if needed
-    let remainder = (flat.len() * 4) % CHUNK_SIZE;
+    let remainder = flat.len() % CHUNK_SIZE;
     if remainder != 0 {
-        flat.extend(std::iter::repeat(0i32).take(CHUNK_SIZE - remainder));
+        flat.extend(std::iter::repeat(0u8).take(CHUNK_SIZE - remainder));
     }
 
     let mut memory = MemoryList { line: Vec::new() };
 
-    for (i, chunk) in flat.chunks(CHUNK_SIZE / 4).enumerate() {
-        let bytes: &[u8] = bytemuck::cast_slice(chunk);
-        let hex_string = hex::encode(bytes); 
-        
+    for (i, chunk) in flat.chunks(CHUNK_SIZE).enumerate() {
+        let hex_string = hex::encode(chunk); // turns 32 bytes into 64-character hex
         memory.line.push(Memory {
             address: i as i64,
             value: hex_string,
@@ -83,42 +90,33 @@ fn encode_image(data: Vec<Vec<i32>>) -> Result<MemoryList, Box<dyn std::error::E
 
 
 
-fn gx(img: &Vec<Vec<u8>>) -> Vec<Vec<i32>> {
-    let height = img.len();
-    let width = img[0].len();
+fn combine(gx: &Vec<Vec<i32>>, gy: &Vec<Vec<i32>>) -> Vec<Vec<u8>> {
+    let height = gx.len();
+    let width = gx[0].len();
+    let mut result = vec![vec![0u8; width]; height];
 
-    let kernel: [[i32; 3]; 3] = [
-        [-1, 0, 1],
-        [-2, 0, 2],
-        [-1, 0, 1],
-    ];
-
-    let mut gx = vec![vec![0i32; width]; height];
-
-    for i in 1..height - 1 {
-        for j in 1..width - 1 {
-            let mut sum = 0i32;
-            for ki in 0..3 {
-                for kj in 0..3 {
-                    let pixel = img[i + ki - 1][j + kj - 1] as i32;
-                    sum += pixel * kernel[ki][kj];
-                }
-            }
-            gx[i][j] = sum; 
+    for i in 0..height {
+        for j in 0..width {
+            let gx_val = gx[i][j];
+            let gy_val = gy[i][j];
+            let magnitude = ((gx_val * gx_val + gy_val * gy_val) as f64).sqrt().round();
+            result[i][j] = magnitude.clamp(0.0, 255.0) as u8;
         }
     }
 
-    gx
+    result
 }
+
 
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     let input: MemoryList = load_json_file(&args.in_mem)?; 
-    let image: Vec<Vec<u8>> = decode_image(&input)?;   
-    let gx_image: Vec<Vec<i32>> = gx(&image);
-    let output: MemoryList = encode_image(gx_image)?;
+    let gx: Vec<Vec<i32>> = decode_image(&input, 0)?;   
+    let gy: Vec<Vec<i32>> = decode_image(&input, TOKEN_SIZE as i32)?;   
+    let result: Vec<Vec<u8>> = combine(&gx, &gy);
+    let output: MemoryList = encode_image(result)?;
 
     write_json_file(&args.out_mem, &output)?;
 
