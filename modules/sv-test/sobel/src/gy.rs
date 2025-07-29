@@ -1,7 +1,7 @@
 use sv_lib::sim::{MemoryList, Memory};
 use sv_lib::file_handler::{load_json_file, write_json_file};
 use clap::Parser;
-
+use byteorder::WriteBytesExt;
 
 // Arguments 
 #[derive(Parser)]
@@ -32,12 +32,13 @@ fn decode_image(data: &MemoryList) -> Result<Vec<Vec<u8>>, Box<dyn std::error::E
 
     for chunk in data.line.iter() {
         let hex_str = chunk.value.trim();
-        let bytes = hex::decode(hex_str)?;
+        let mut bytes = hex::decode(hex_str)?;
         
         if bytes.len() != CHUNK_SIZE {
             return Err(format!("Chunk size mismatch: expected {}, got {}", CHUNK_SIZE, bytes.len()).into());
         }
         
+        bytes.reverse();
         flat_pixels.extend_from_slice(&bytes);
         
         if flat_pixels.len() >= HEIGHT * WIDTH {
@@ -70,8 +71,14 @@ fn encode_image(data: Vec<Vec<i32>>) -> Result<MemoryList, Box<dyn std::error::E
     let mut memory = MemoryList { line: Vec::new() };
 
     for (i, chunk) in flat.chunks(CHUNK_SIZE / 4).enumerate() {
-        let bytes: &[u8] = bytemuck::cast_slice(chunk);
-        let hex_string = hex::encode(bytes); 
+        let mut buffer = Vec::with_capacity(CHUNK_SIZE);
+
+        for &value in chunk {
+            buffer.write_i32::<byteorder::LittleEndian>(value)?;
+        }
+    
+        buffer.reverse();
+        let hex_string = hex::encode(buffer);
         
         memory.line.push(Memory {
             address: i as i64,

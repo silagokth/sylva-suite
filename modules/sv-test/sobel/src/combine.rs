@@ -2,7 +2,6 @@ use sv_lib::sim::{MemoryList, Memory};
 use sv_lib::file_handler::{load_json_file, write_json_file};
 use clap::Parser;
 
-
 // Arguments 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -42,12 +41,16 @@ fn decode_image(data: &MemoryList, offset: i32) -> Result<Vec<Vec<i32>>, Box<dyn
             return Err(format!("Chunk size mismatch: expected {}, got {}", CHUNK_SIZE, bytes.len()).into());
         }
 
+        let mut words: Vec<i32> = Vec::with_capacity(CHUNK_SIZE / 4);
         for i in 0..(CHUNK_SIZE / 4) {
             let start = i * 4;
             let raw_bytes = &bytes[start..start + 4];
-            let val = i32::from_le_bytes(raw_bytes.try_into()?);
-            flat_pixels.push(val);
+            let val = i32::from_be_bytes(raw_bytes.try_into()?);
+            words.push(val);
         }
+        words.reverse();
+
+        flat_pixels.extend(words);
 
         if flat_pixels.len() >= HEIGHT * WIDTH {
             break;
@@ -78,7 +81,10 @@ fn encode_image(data: Vec<Vec<u8>>) -> Result<MemoryList, Box<dyn std::error::Er
     let mut memory = MemoryList { line: Vec::new() };
 
     for (i, chunk) in flat.chunks(CHUNK_SIZE).enumerate() {
-        let hex_string = hex::encode(chunk); // turns 32 bytes into 64-character hex
+        let mut reversed_chunk = chunk.to_vec();
+        reversed_chunk.reverse();
+
+        let hex_string = hex::encode(reversed_chunk);
         memory.line.push(Memory {
             address: i as i64,
             value: hex_string,

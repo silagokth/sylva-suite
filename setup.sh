@@ -25,6 +25,7 @@ cp modules/target/debug/sobel-gx examples/sobel/gx
 cp modules/target/debug/sobel-gy examples/sobel/gy
 cp modules/target/debug/sobel-combine examples/sobel/combine
 cp modules/target/debug/sobel-store examples/sobel/store
+cp modules/target/debug/sobel-image examples/sobel/sobel-image
 ./modules/target/debug/sobel-memory --image examples/sobel/mem/global_mem_image.json --reference examples/sobel/mem/global_mem_reference.json
 
 
