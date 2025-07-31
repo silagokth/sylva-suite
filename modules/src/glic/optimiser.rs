@@ -567,7 +567,7 @@ fn solve_node_schedule(
     ));
 
     /* solving the model */
-    let (status, solutions) = solver.solve("-p 16", 180, interrupt)?;
+    let (status, solutions) = solver.solve("-p 16", 300, interrupt)?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
         "UNKNOWN" => {

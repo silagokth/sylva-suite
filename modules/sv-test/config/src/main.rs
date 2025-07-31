@@ -5,6 +5,7 @@ use clap::Parser;
 mod minimum;
 mod copy;
 mod sobel;
+mod sobel_random;
 mod lenet5;
 
 // Arguments 
@@ -28,6 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "minimum" => minimum::minimum(&mut db)?,
         "copy" => copy::copy(&mut db)?,
         "sobel" => sobel::sobel(&mut db)?,
+        "sobel-random" => sobel_random::sobel_random(&mut db)?,
         "lenet5" => lenet5::lenet5(&mut db)?,
         _ => {
             eprintln!("Unknown example name: {}", args.name);

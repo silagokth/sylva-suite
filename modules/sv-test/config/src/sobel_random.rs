@@ -1,7 +1,10 @@
 use sv_lib::model::*;
+use rand::Rng;
+use rand::rngs::StdRng;
+use rand::SeedableRng;
 
 
-pub fn sobel(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
+pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
  
     db.global_constraint.max_energy = 100;
     db.global_constraint.max_width = 100;
@@ -16,8 +19,10 @@ pub fn sobel(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
     db.hyper_parameter.place_relaxation_factor = 1.0;
     db.hyper_parameter.place_reserved_routing_size = 1;
 
+    let mut rng = StdRng::seed_from_u64(123);
+
     let mut input_patterns: Vec<PairIntInt> = vec![];
-    let mut output_patterns = (0..3200)
+    let mut output_patterns: Vec<_> = (0..3200)
         .map(|i| {
             let min_value = 10 + i / 20 * 5;
             let max_value = 14 + i / 20 * 5;
@@ -63,8 +68,16 @@ pub fn sobel(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
 
     output_patterns = (0..6400)
         .map(|i| {
-            let min_value = 20 + i / 40 * 5;
-            let max_value = 24 + i / 40 * 5;
+            let min_value = if i < 3200 {
+                20 + i / 20 * 5
+            } else {
+                20 + (i - 3200) / 20 * 5
+            };
+            let max_value = if i < 3200 {
+                24 + i / 20 * 5
+            } else {
+                24 + (i - 3200) / 20 * 5
+            }; 
             let random_value = rng.gen_range(min_value..=max_value);
 
             PairIntInt {
@@ -88,23 +101,35 @@ pub fn sobel(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
                 input_addr_time_patterns: input_patterns.clone(),
                 output_addr_time_patterns: output_patterns.clone(),
                 ..Default::default()
-                
-                    input_addr_time_patterns:  (0..3200)
-                    .map(|i| PairIntInt {
-                        key: i,
-                        value: i / 4,
-                    })
-                    .collect(), 
-                output_addr_time_patterns: (0..6400)
-                    .map(|i| PairIntInt {
-                        key: i,
-                        value: 20 + (i % 3200) / 4,
-                    })
-                    .collect(), 
-                ..Default::default()
             },
         ],
     });
+
+    input_patterns = (0..3200)
+        .map(|i| {
+            let min_value = i / 20 * 5;
+            let max_value = 4 + i / 20 * 5;
+            let random_value = rng.gen_range(min_value..=max_value);
+
+            PairIntInt {
+                key: i,
+                value: random_value,
+            }
+        })
+        .collect();
+
+    output_patterns = (0..12800)
+        .map(|i| {
+            let min_value = 100 + i / 160 * 10;
+            let max_value = 109 + i / 160 * 10;
+            let random_value = rng.gen_range(min_value..=max_value);
+
+            PairIntInt {
+                key: i,
+                value: random_value,
+            }
+        })
+        .collect();
 
     db.alimp_lib.entries.push(AlimpEntry {
         func: "func_gx".to_string(),
@@ -113,23 +138,42 @@ pub fn sobel(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
                 width: 4, 
                 height: 4, 
                 energy: 10, 
-                latency: 900,
-                input_addr_time_patterns:  (0..3200)
-                    .map(|i| PairIntInt {
-                        key: i,
-                        value: i / 4,
-                    })
-                    .collect(), 
-                output_addr_time_patterns: (0..12800)
-                    .map(|i| PairIntInt {
-                        key: i,
-                        value: 100 + i / 16,
-                    })
-                    .collect(), 
+                latency: std::cmp::max(
+                    input_patterns.iter().map(|p| p.value).max().unwrap_or(0), 
+                    output_patterns.iter().map(|p| p.value).max().unwrap_or(0)
+                    ) + 1,
+                input_addr_time_patterns: input_patterns.clone(),
+                output_addr_time_patterns: output_patterns.clone(),
                 ..Default::default()
             },
         ],
     });
+
+    input_patterns = (0..3200)
+        .map(|i| {
+            let min_value = i / 20 * 5;
+            let max_value = 4 + i / 20 * 5;
+            let random_value = rng.gen_range(min_value..=max_value);
+
+            PairIntInt {
+                key: i,
+                value: random_value,
+            }
+        })
+        .collect();
+
+    output_patterns = (0..12800)
+        .map(|i| {
+            let min_value = 100 + i / 160 * 10;
+            let max_value = 109 + i / 160 * 10;
+            let random_value = rng.gen_range(min_value..=max_value);
+
+            PairIntInt {
+                key: i,
+                value: random_value,
+            }
+        })
+        .collect();
 
     db.alimp_lib.entries.push(AlimpEntry {
         func: "func_gy".to_string(),
@@ -138,23 +182,42 @@ pub fn sobel(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
                 width: 4, 
                 height: 4, 
                 energy: 10, 
-                latency: 900,
-                input_addr_time_patterns:  (0..3200)
-                    .map(|i| PairIntInt {
-                        key: i,
-                        value: i / 4,
-                    })
-                    .collect(), 
-                output_addr_time_patterns: (0..12800)
-                    .map(|i| PairIntInt {
-                        key: i,
-                        value: 100 + i / 16,
-                    })
-                    .collect(), 
+                latency: std::cmp::max(
+                    input_patterns.iter().map(|p| p.value).max().unwrap_or(0), 
+                    output_patterns.iter().map(|p| p.value).max().unwrap_or(0)
+                    ) + 1,
+                input_addr_time_patterns: input_patterns.clone(),
+                output_addr_time_patterns: output_patterns.clone(),
                 ..Default::default()
             },
         ],
     });
+
+    input_patterns = (0..25600)
+        .map(|i| {
+            let min_value = (i % 12800) / 160 * 10;
+            let max_value = 9 + (i % 12800) / 160 * 10;
+            let random_value = rng.gen_range(min_value..=max_value);
+
+            PairIntInt {
+                key: i,
+                value: random_value,
+            }
+        })
+        .collect();
+
+    output_patterns = (0..3200)
+        .map(|i| {
+            let min_value = 100 + i / 20 * 5;
+            let max_value = 104 + i / 20 * 5;
+            let random_value = rng.gen_range(min_value..=max_value);
+
+            PairIntInt {
+                key: i,
+                value: random_value,
+            }
+        })
+        .collect();
 
     db.alimp_lib.entries.push(AlimpEntry {
         func: "func_combine".to_string(),
@@ -163,23 +226,31 @@ pub fn sobel(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
                 width: 2, 
                 height: 2, 
                 energy: 2, 
-                latency: 900,
-                input_addr_time_patterns:  (0..25600)
-                    .map(|i| PairIntInt {
-                        key: i,
-                        value: (i % 12800) / 16,
-                    })
-                    .collect(), 
-                output_addr_time_patterns: (0..3200)
-                    .map(|i| PairIntInt {
-                        key: i,
-                        value: 100 + i / 4,
-                    })
-                    .collect(), 
+                latency: std::cmp::max(
+                    input_patterns.iter().map(|p| p.value).max().unwrap_or(0), 
+                    output_patterns.iter().map(|p| p.value).max().unwrap_or(0)
+                    ) + 1,
+                input_addr_time_patterns: input_patterns.clone(),
+                output_addr_time_patterns: output_patterns.clone(),
                 ..Default::default()
             },
         ],
     });
+
+    input_patterns = (0..3200)
+        .map(|i| {
+            let min_value = i / 20 * 5;
+            let max_value = 4 + i / 20 * 5;
+            let random_value = rng.gen_range(min_value..=max_value);
+
+            PairIntInt {
+                key: i,
+                value: random_value,
+            }
+        })
+        .collect();
+
+    output_patterns = vec![];
 
     db.alimp_lib.entries.push(AlimpEntry {
         func: "func_store".to_string(),
@@ -188,14 +259,12 @@ pub fn sobel(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
                 width: 4, 
                 height: 2, 
                 energy: 1, 
-                latency: 800,
-                input_addr_time_patterns:  (0..3200)
-                    .map(|i| PairIntInt {
-                        key: i,
-                        value: i / 4,
-                    })
-                    .collect(), 
-                output_addr_time_patterns: vec![],
+                latency: std::cmp::max(
+                    input_patterns.iter().map(|p| p.value).max().unwrap_or(0), 
+                    output_patterns.iter().map(|p| p.value).max().unwrap_or(0)
+                    ) + 1,
+                input_addr_time_patterns: input_patterns.clone(),
+                output_addr_time_patterns: output_patterns.clone(),
                 ..Default::default()
             },
         ],
