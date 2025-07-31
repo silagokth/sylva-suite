@@ -4,7 +4,7 @@ use log::{info, error, debug};
 use itertools::Itertools;
 use std::collections::HashMap;
 use serde_json;
-
+use std::sync::{Arc, atomic::AtomicBool};
 
 fn get_predecessor_list(app_graph: &AppGraph) -> Result<HashMap<i32, Vec<i32>>, Box<dyn std::error::Error>> {
     let mut predecessors: HashMap<i32, Vec<i32>> = HashMap::new();
@@ -203,7 +203,7 @@ fn add_bind_constraints(db: &DataBase, solver: &mut Solver, max_objective_value:
 }
 
 
-fn optimal_binding(db: &mut DataBase, module_dir: String) -> std::result::Result<i64, Box<dyn std::error::Error>> {
+fn optimal_binding(db: &mut DataBase, interrupt: &Arc<AtomicBool>, module_dir: String) -> std::result::Result<i64, Box<dyn std::error::Error>> {
     // formulating model 
     let mut solver = Solver::new(String::from("bind_optimal"), module_dir);
     add_bind_constraints(db, &mut solver, 1000000)?;
@@ -211,7 +211,7 @@ fn optimal_binding(db: &mut DataBase, module_dir: String) -> std::result::Result
     solver.add(String::from("output [\"{objective:\\(objective)}\"];")); 
 
     // solving
-    let (status, solutions) = solver.solve("")?;
+    let (status, solutions) = solver.solve("", 20, interrupt)?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" => {}
         _ => return Err(format!("MiniZinc status: {}", status).into()),
@@ -231,7 +231,7 @@ fn optimal_binding(db: &mut DataBase, module_dir: String) -> std::result::Result
 }
 
 
-fn approximate_optimal_binding(db: &mut DataBase, module_dir: String, minimized_objective: i64) -> std::result::Result<Vec<HashMap<String, i32>>, Box<dyn std::error::Error>> {
+fn approximate_optimal_binding(db: &mut DataBase, interrupt: &Arc<AtomicBool>, module_dir: String, minimized_objective: i64) -> std::result::Result<Vec<HashMap<String, i32>>, Box<dyn std::error::Error>> {
     // add new objective and its constraint, and search for all feasible solutions
     // These numbers should be adjusted
     let mut solver = Solver::new(String::from("approx_bind_optimal"), module_dir);
@@ -249,9 +249,15 @@ fn approximate_optimal_binding(db: &mut DataBase, module_dir: String, minimized_
     solver.add(output_str);
 
     // solving 
-    let (status, solutions) = solver.solve("-a --time-limit 10000")?; // -a: search for all
+    let (status, solutions) = solver.solve("-a", 20, interrupt)?; // -a: search for all
     match status.as_str() {
-        "ALL_SOLUTIONS" | "" => {} // allow time-out (no status)
+        "ALL_SOLUTIONS" => {} 
+        // allow time-out (unknown sending ctrl-c)
+        "UNKNOWN" => {
+            if solutions.is_empty() {
+                return Err(format!("MiniZinc status: {}", status).into());
+            }
+        }
         _ => return Err(format!("MiniZinc status: {}", status).into()),
     };
     debug!("Minizinc solutions: \n{:?}", solutions);
@@ -330,8 +336,12 @@ fn apply_binding(db: &mut DataBase, bindings: Vec<HashMap<String, i32>>) -> std:
     Ok(())   
 }
 
-
-pub fn run(db: &mut DataBase, dir: &String) -> Result<(), Box<dyn std::error::Error>> {
+#[allow(unused_variables)]
+pub fn run(
+    db: &mut DataBase, 
+    interrupt: &Arc<AtomicBool>, 
+    dir: &String,
+) -> Result<(), Box<dyn std::error::Error>> {
     info!("Start: binding");
     let module_dir = format!("{}bind", dir);
     match std::fs::create_dir_all(&module_dir) {
@@ -343,10 +353,10 @@ pub fn run(db: &mut DataBase, dir: &String) -> Result<(), Box<dyn std::error::Er
     };
 
     info!("Stage 1: optimal binding"); 
-    let minimized_objective = optimal_binding(db, module_dir.clone())?;
+    let minimized_objective = optimal_binding(db, interrupt, module_dir.clone())?;
     
     info!("Stage 2: approximate optimal binding with the objective value {}", minimized_objective); 
-    let valid_bindings = approximate_optimal_binding(db, module_dir.clone(), minimized_objective)?;
+    let valid_bindings = approximate_optimal_binding(db, interrupt, module_dir.clone(), minimized_objective)?;
     
     info!("Stage 3: found {} solutions starting the binding process", valid_bindings.len()); 
     debug!("valid bindings are \n {:?}", valid_bindings); 

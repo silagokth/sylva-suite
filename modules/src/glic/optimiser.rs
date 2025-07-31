@@ -3,6 +3,7 @@ use crate::solver::Solver;
 use log::{debug};
 use serde_json;
 use std::collections::{HashMap, HashSet};
+use std::sync::{Arc, atomic::AtomicBool};
 use itertools::Itertools;
 
 
@@ -11,6 +12,7 @@ pub fn solve_min_delay(
     dst_addr_pattern: &HashMap<i32, i32>,
     channel_width: i32,
     max_delay: i32,
+    interrupt: &Arc<AtomicBool>,
     module_dir: String,
 ) -> Result<i32, Box<dyn std::error::Error>> {
     
@@ -67,7 +69,7 @@ pub fn solve_min_delay(
     }\"];")); 
 
     /* solving the model */
-    let (status, solutions) = solver.solve("--time-limit 30000 -p 8")?;
+    let (status, solutions) = solver.solve("-p 8", 30, interrupt)?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
         "UNSATISFIABLE" => return Ok(-1),
@@ -219,6 +221,7 @@ fn stats_address_patterns(
 
 pub fn solve_channel_width(
     db: &mut DataBase,
+    interrupt: &Arc<AtomicBool>,
     module_dir: String,
 ) -> Result<HashMap<String, (i32, i32)>, Box<dyn std::error::Error>> {
  
@@ -286,6 +289,7 @@ pub fn solve_channel_width(
                 &input_addr_time_patterns,
                 k,
                 max_latency_of_two_nodes,
+                interrupt,
                 module_dir.clone(),
             )?;
             
@@ -346,7 +350,7 @@ pub fn solve_channel_width(
 
 
     /* solving the model */
-    let (status, solutions) = solver.solve("--time-limit 120000 -p 8")?;
+    let (status, solutions) = solver.solve("-p 16", 120, interrupt)?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" => {}
         _ => return Err(format!("MiniZinc status: {}", status).into()),
@@ -406,6 +410,7 @@ fn solve_node_schedule(
     node_id: &str,
     fire_times: HashMap<String, i32>,
     channels: HashMap<String, (i32, i32)>,
+    interrupt: &Arc<AtomicBool>,
     module_dir: String,
 ) -> Result<ScheduleStruct, Box<dyn std::error::Error>> {
 
@@ -414,7 +419,7 @@ fn solve_node_schedule(
         label.replace(':', "_")
     }
 
-
+        
     let mut solver = Solver::new(format!("solve_schedule_{}", node_id), module_dir.clone());
     
     // get all edges attached to the input of this node
@@ -427,7 +432,7 @@ fn solve_node_schedule(
     /* formulating the model */
     solver.add(format!("include \"cumulative.mzn\";")); 
     solver.new_line();
-    solver.add(format!("int: MAX_DELAY = {};", db.global_constraint.max_latency)); 
+    solver.add(format!("int: MAX_DELAY = {};", db.synthesized_information.max_latency)); 
     solver.add(format!("int: EXECUTION_TIME = {};", db.app_graph.nodes.iter().find(|n| n.id == node_id).map(|n| n.execution_time).ok_or("Node is not found")?));
     solver.add(format!("var 0..MAX_DELAY: fire_time;"));
     solver.add(format!("var 0..MAX_DELAY: end_time;"));
@@ -436,17 +441,27 @@ fn solve_node_schedule(
     
     solver.add(format!("% input and output buffers"));
     let mut min_buffer_counts = 0;
+    let mut max_buffer_counts = 0;
     for edge in &edges {
+        let (_, min_delay) = channels.get(&edge.id).ok_or("Node is not found in channels")?;
+        
         let input_addr_time_patterns = translate_addr_time(db, &edge.target_node, &edge.target_port, "in")?;
-        let input_min_counts = most_frequent_value_count(&input_addr_time_patterns); 
+        let input_same_times = most_frequent_value_count(&input_addr_time_patterns); 
+        let input_min_counts = input_same_times;
 
         let output_addr_time_patterns = translate_addr_time(db, &edge.source_node, &edge.source_port, "out")?;
-        let output_min_counts = most_frequent_value_count(&output_addr_time_patterns); 
-        
-        min_buffer_counts += input_min_counts + output_min_counts;
+        let output_same_times = most_frequent_value_count(&output_addr_time_patterns); 
+        let output_less_than_min_delay = output_addr_time_patterns.values().filter(|&&v| v < *min_delay).count();
+        let output_min_counts = std::cmp::max(output_same_times, output_less_than_min_delay as i32);
 
-        solver.add(format!("var {}..{}: IB_{};", input_min_counts, 3 * input_min_counts, _rename(&edge.target_port)));
-        solver.add(format!("var {}..{}: OB_{};", output_min_counts, 3 * output_min_counts, _rename(&edge.source_port)));
+        let input_max_counts = edge.token_size;
+        let output_max_counts = edge.token_size; 
+
+        min_buffer_counts += input_min_counts + output_min_counts;
+        max_buffer_counts += 2 * input_max_counts + output_max_counts;
+
+        solver.add(format!("var {}..{}: IB_{};", input_min_counts, input_max_counts, _rename(&edge.target_port)));
+        solver.add(format!("var {}..{}: OB_{};", output_min_counts, output_max_counts, _rename(&edge.source_port)));
     }
     solver.new_line();
     solver.new_line();
@@ -529,11 +544,11 @@ fn solve_node_schedule(
     solver.new_line();
 
     solver.add(format!("% ========= objective ========="));
-    solver.add(format!("var {}..{}: BUFFER_SIZE;", min_buffer_counts, 3 * min_buffer_counts));
+    solver.add(format!("var {}..{}: BUFFER_SIZE;", min_buffer_counts, max_buffer_counts));
     solver.add(format!("constraint BUFFER_SIZE = sum([{}]) + sum([{}]);", 
         edges.iter().map(|e| format!("OB_{}", _rename(&e.source_port))).into_iter().collect::<Vec<_>>().join(", "),
         edges.iter().map(|e| format!("IB_{}", _rename(&e.target_port))).into_iter().collect::<Vec<_>>().join(", ")
-    )); 
+    ));
     solver.add(format!("solve minimize BUFFER_SIZE;")); 
     solver.new_line();
     solver.new_line();
@@ -552,15 +567,22 @@ fn solve_node_schedule(
     ));
 
     /* solving the model */
-    let (status, solutions) = solver.solve("--time-limit 180000 -p 16")?;
+    let (status, solutions) = solver.solve("-p 16", 180, interrupt)?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
+        "UNKNOWN" => {
+            if solutions.is_empty() {
+                return Err(format!("MiniZinc status: {}", status).into());
+            }
+            // Minizinc UNKNOWN status. This happens with CP-SAT when trying to find the optimal solution
+            debug!("Use a feasible solution because Minizinc cannot find the optimal solution");
+        }
         _ => return Err(format!("MiniZinc status: {}", status).into()),
     };
     let parsed_json_value: serde_json::Value = serde_json::from_str(&solutions[0])?;
 
     // formatting output 
-    let mut result: ScheduleStruct = ScheduleStruct {
+    let mut result = ScheduleStruct {
         fire_time: HashMap::new(),
         end_time: HashMap::new(),
         k: HashMap::new(),
@@ -630,6 +652,7 @@ fn solve_node_schedule(
             .collect::<Vec<_>>()
         );
     }
+    
 
     Ok(result)
 }
@@ -643,6 +666,7 @@ fn solve_node_schedule(
 pub fn solve_scheduling(
     db: &DataBase,
     channels: HashMap<String, (i32, i32)>,
+    interrupt: &Arc<AtomicBool>,
     module_dir: String,
 ) -> Result<ScheduleStruct, Box<dyn std::error::Error>> {
 
@@ -690,6 +714,7 @@ pub fn solve_scheduling(
                         &node.id,
                         schedule.fire_time.clone(),
                         channels.clone(),
+                        interrupt,
                         module_dir.clone()
                     )?;
 

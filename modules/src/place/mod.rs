@@ -5,6 +5,7 @@ use serde_json;
 use plotters::style::{Color, BLACK, FontStyle};
 use plotters::prelude::*;
 use rand::Rng;
+use std::sync::{Arc, atomic::AtomicBool};
 
 
 
@@ -121,6 +122,7 @@ fn create_floor_plan(
  * */
 fn place_solve_optimal(
     fp: &mut FloorPlan, 
+    interrupt: &Arc<AtomicBool>,
     module_dir: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
 
@@ -194,7 +196,7 @@ fn place_solve_optimal(
     }\"];")); 
 
     /* solving the model */
-    let (status, solutions) = solver.solve("")?;
+    let (status, solutions) = solver.solve("-p 16", 120, interrupt)?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" => {}
         _ => return Err(format!("MiniZinc status: {}", status).into()),
@@ -236,6 +238,7 @@ fn place_solve_optimal(
 fn place_solve_approx_optimal(
     db: &mut DataBase,
     fp: &mut FloorPlan,
+    interrupt: &Arc<AtomicBool>,
     module_dir: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
  
@@ -341,7 +344,7 @@ fn place_solve_approx_optimal(
     }\"];")); 
 
     /* solving the model */
-    let (status, solutions) = solver.solve("")?;
+    let (status, solutions) = solver.solve("-p 16", 120, interrupt)?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
         _ => return Err(format!("MiniZinc status: {}", status).into()),
@@ -491,8 +494,10 @@ fn update_placement(
 
 
 
+#[allow(unused_variables)]
 pub fn run(
     db: &mut DataBase, 
+    interrupt: &Arc<AtomicBool>,
     dir: &String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     info!("Start: placement");
@@ -510,7 +515,7 @@ pub fn run(
     debug!("working floorplan: \n {:?}", fp);
 
     info!("Stege 2: start optimal placement");
-    match place_solve_optimal(&mut fp, module_dir.clone()) {
+    match place_solve_optimal(&mut fp, interrupt, module_dir.clone()) {
         Ok(()) => (),
         err => {
             warn!("Cannot find an optimal solution for the placement problem");
@@ -525,7 +530,7 @@ pub fn run(
     // first relax the width and height constraints from the previous solution
     fp.max_width = (fp.max_width as f64 * db.hyper_parameter.place_relaxation_factor).round() as i32;
     fp.max_height = (fp.max_height as f64 * db.hyper_parameter.place_relaxation_factor).round() as i32;
-    match place_solve_approx_optimal(db, &mut fp, module_dir.clone()) {
+    match place_solve_approx_optimal(db, &mut fp, interrupt, module_dir.clone()) {
         Ok(()) => (),
         err => {
             warn!("Cannot find an approximate optimal solution for the placement problem");

@@ -9,6 +9,7 @@ use crate::file_handler;
 use log::{info, error};
 use std::collections::HashMap;
 use std::io::BufRead;
+use std::sync::{Arc, atomic::AtomicBool};
 
 
 
@@ -311,8 +312,10 @@ fn verify_simulation(
 
 
 
+#[allow(unused_variables)]
 pub fn run(
     db: &mut DataBase, 
+    interrupt: &Arc<AtomicBool>,
     dir: &String,
 ) -> Result<bool, Box<dyn std::error::Error>> {
     info!("Start: simulation");

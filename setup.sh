@@ -6,6 +6,7 @@ popd
 rm -rf examples/
 mkdir examples/
 
+# managing examples
 mkdir -p examples/minimum/mem
 cp modules/target/debug/minimum-A examples/minimum/A
 cp modules/target/debug/minimum-B examples/minimum/B
@@ -28,6 +29,16 @@ cp modules/target/debug/sobel-store examples/sobel/store
 cp modules/target/debug/sobel-image examples/sobel/sobel-image
 ./modules/target/debug/sobel-memory --image examples/sobel/mem/global_mem_image.json --reference examples/sobel/mem/global_mem_reference.json
 
+mkdir -p examples/lenet5/mem
+mkdir -p examples/lenet5/data
+cp modules/sv-test/lenet5/data/* examples/lenet5/data/
+cp modules/target/debug/lenet5-load-input examples/lenet5/load-input
+cp modules/target/debug/lenet5-conv examples/lenet5/conv
+cp modules/target/debug/lenet5-pooling examples/lenet5/pooling
+cp modules/target/debug/lenet5-reshape examples/lenet5/reshape
+cp modules/target/debug/lenet5-fc examples/lenet5/fc
+cp modules/target/debug/lenet5-store-output examples/lenet5/store-output
+./modules/target/debug/lenet5-memory --image examples/lenet5/mem/global_mem_image.json --reference examples/lenet5/mem/global_mem_reference.json
 
 # move binaries to bin
 rm -rf bin/

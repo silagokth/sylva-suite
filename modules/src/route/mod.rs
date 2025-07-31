@@ -2,6 +2,7 @@ use sv_lib::model::{DataBase, RoutingGraph, Node, Edge, Channel, RoutingPath, Co
 use log::{info, error};
 use std::collections::{HashMap, HashSet};
 use plotters::prelude::*;
+use std::sync::{Arc, atomic::AtomicBool};
 
 mod graph;
 
@@ -598,9 +599,10 @@ fn plot_routing_graph(
 }
 
 
-
+#[allow(unused_variables)]
 pub fn run(
     db: &mut DataBase, 
+    interrupt: &Arc<AtomicBool>,
     dir: &String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     info!("Start: routing");

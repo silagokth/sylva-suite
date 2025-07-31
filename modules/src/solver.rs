@@ -1,12 +1,20 @@
 use crate::file_handler::{write_file};
-use std::process::Command;
+use std::process::{Command};
 use log::{error};
 use std::fs::File;
 use std::io::{BufReader, BufRead};
 use serde::Deserialize;
 use serde_json;
 use std::collections::HashMap;
-use regex::Regex; 
+use regex::Regex;
+use std::time::{Duration, Instant};
+use std::thread;
+use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
+
+use std::os::unix::process::CommandExt; // for pre_exec
+use nix::sys::signal::{killpg, Signal};
+use nix::unistd::Pid;
+
 
 #[derive(Debug, Deserialize)]
 #[serde(untagged)] 
@@ -46,6 +54,7 @@ struct StatusEntry {
     #[serde(default)]
     time: u64,
 }
+
 
 
 fn minizinc_parser(file_path: &str) -> Result<Vec<MiniZincStreamEntry>, Box<dyn std::error::Error>> {
@@ -122,31 +131,81 @@ impl Solver {
         self.model.clone()
     }
 
-    pub fn solve(&mut self, args: &str) -> Result<(String, Vec<String>), Box<dyn std::error::Error>> {
+    // kill the process after duration_seconds by ctrl-c 
+    // this is because cp-sat in minizinc cannot produce a feasible solution of an optimal problem
+    // after killing it with timeout flag, so we need to kill it with ctrl-c to allow minizinc to 
+    // get the converging solution.
+    pub fn solve(
+        &mut self, 
+        args: &str, 
+        duration_seconds: u64, 
+        interrupted: &Arc<AtomicBool>,
+    ) -> Result<(String, Vec<String>), Box<dyn std::error::Error>> {
+        let terminated = Arc::new(AtomicBool::new(false));
+
         // write minizinc file 
         let minizinc_filename = format!("{}/{}.mzn", self.dir, self.name);
         write_file(&minizinc_filename, self.model.clone())?;
 
         // run minizinc with cp-sat solver and save the output as a file
         let output_filename = format!("{}/{}_output.json", self.dir, self.name);
-        let command_str = format!("minizinc --output-time --json-stream {} --solver cp-sat {} -o {} ",
-            args,
-            minizinc_filename,
-            output_filename
-        );
-        let output = Command::new("sh")
-            .arg("-c")
-            .arg(&command_str)
-            .output()
-            .map_err(|e| format!("Failed to execute minizinc command: {}", e))?;
+
+        let mut child = unsafe { 
+            Command::new("minizinc")
+            .arg(&minizinc_filename)
+            .arg("--output-time")
+            .arg("--json-stream")
+            .args(args.split_whitespace()) // if args is a string like "--some-flag val"
+            .arg("--solver").arg("cp-sat")
+            .arg("-o").arg(&output_filename)
+            .pre_exec(|| {
+                libc::setsid(); 
+                Ok(())
+            })
+            .spawn()
+            .map_err(|e| format!("Failed to spawn minizinc: {}", e))?
+        };
+       
+        let pgid = Pid::from_raw(child.id() as i32);
+        let start = Instant::now();
+        let timeout = Duration::from_secs(duration_seconds);
+        let was_killed = Arc::new(AtomicBool::new(false));
+
+        let was_killed_clone = was_killed.clone();    
+        let interrupted_clone = interrupted.clone();
+        let terminated_clone = terminated.clone();
         
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            error!("MiniZinc process exited with non-zero status: {}", output.status);
-            error!("MiniZinc stdout: {}", stdout);
-            error!("MiniZinc stderr: {}", stderr);
-            return Err(format!("MiniZinc command failed. Stderr: {}", stderr).into());
+        // spawn timeout/interrupt monitor
+        let monitor = thread::spawn(move || {
+            while start.elapsed() < timeout {
+                if interrupted_clone.load(Ordering::SeqCst) {
+                    // received Ctrl-C. terminating MiniZinc process
+                    if let Err(e) = killpg(pgid, Signal::SIGINT) {
+                        eprintln!("Failed to kill process group: {}", e);
+                    }
+                    return;
+                }
+
+                if terminated_clone.load(Ordering::SeqCst) {
+                    return; // ended normally
+                }
+
+                thread::sleep(Duration::from_secs(1));
+            }
+        
+            if let Err(e) = killpg(pgid, Signal::SIGINT) {
+                eprintln!("Failed to kill process group: {}", e);
+            }
+            was_killed_clone.store(true, Ordering::SeqCst);
+        });
+    
+        // Wait for process to exit
+        let process_status = child.wait()?;
+        terminated.store(true, Ordering::SeqCst);
+        monitor.join().unwrap();
+        
+        if !process_status.success() && !was_killed.load(Ordering::SeqCst) {
+            return Err(format!("MiniZinc exited with non-zero status: {:?}", process_status.code()).into());
         }
 
         // read the output file and parse the result

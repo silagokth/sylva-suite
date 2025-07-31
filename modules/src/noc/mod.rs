@@ -4,6 +4,7 @@ use std::collections::{HashMap};
 use regex::Regex;
 use plotters::prelude::*;
 use plotters::element::PointCollection;
+use std::sync::{Arc, atomic::AtomicBool};
 
 mod insert;
 
@@ -468,9 +469,10 @@ fn plot_graph(
 
 
 
-
+#[allow(unused_variables)]
 pub fn run(
     db: &mut DataBase, 
+    interrupt: &Arc<AtomicBool>,
     dir: &String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     info!("Start: noc synthesis");

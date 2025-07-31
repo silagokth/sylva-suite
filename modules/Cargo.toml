@@ -10,7 +10,8 @@ members = [
     "sv-test/config",
     "sv-test/minimum",
     "sv-test/copy",
-    "sv-test/sobel"
+    "sv-test/sobel",
+    "sv-test/lenet5"
 ]
 
 [dependencies]
@@ -24,3 +25,5 @@ plotters = "0.3"
 rand = "0.8"
 itertools = "0.12"
 regex = "1"
+nix = "0.30.1"
+libc = "0.2.174"
