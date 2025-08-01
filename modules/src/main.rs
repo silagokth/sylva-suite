@@ -1,0 +1,85 @@
+use sv_lib::model::{DataBase};
+use sv_lib::{file_handler, setup};
+use log::{info, error};
+use clap::Parser;
+
+mod bind;
+mod place;
+mod route;
+mod noc;
+mod glic;
+mod sim;
+
+mod solver;
+
+/// Arguments to get the configuration files and output directory 
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    #[arg(short = 'g', long = "graph", help="SDF graph file")]
+    graph: String,
+
+    #[arg(short = 'c', long = "constraint", help="global constraint file")]
+    constraint_file: String,
+
+    #[arg(short = 'l', long = "library", help="alimp library file")]
+    alimp_lib: String,
+
+    #[arg(short = 'p', long = "parameter", help="hyper parameter file")]
+    hyper_parameter: String,
+
+    #[arg(short = 't', long = "technology", help="technology constraint file")]
+    technology_constraint: String,
+
+    #[arg(short = 'o', long = "output", help="output directory")]
+    output: String,
+}
+
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = Args::parse();
+    env_logger::init();
+    let interrupted = setup::interrupt()?;
+    
+    // create empty data structure 
+    let mut db = DataBase::new();
+
+    // read configuration files and store the information in ds 
+    db.app_graph = file_handler::load_json_file(&args.graph)?;
+    db.global_constraint = file_handler::load_json_file(&args.constraint_file)?;
+    db.alimp_lib = file_handler::load_json_file(&args.alimp_lib)?;
+    db.hyper_parameter = file_handler::load_json_file(&args.hyper_parameter)?;
+    db.technology_constraint = file_handler::load_json_file(&args.technology_constraint)?;
+    
+    // This will create the output directory if it doesn't exist
+    match std::fs::create_dir_all(&args.output) {
+        Ok(_) => (),
+        Err(e) => {       
+            error!("Failed to create {} with {}", args.output, e);
+            std::process::exit(1);
+        },
+    };    
+
+    /* run the compilation */
+    info!("Sylva starts compilation!");
+
+    bind::run(&mut db, &interrupted, &args.output)?;
+    place::run(&mut db, &interrupted, &args.output)?;
+    route::run(&mut db, &interrupted, &args.output)?;
+    noc::run(&mut db, &interrupted, &args.output)?;
+    glic::run(&mut db, &interrupted, &args.output)?;
+  
+    /* save synthesized information */
+    let bin_file = format!("{}/db.bin", args.output);
+    file_handler::write_json_file(&bin_file, &db)?;
+    //db = file_handler::load_json_file(&bin_file)?;
+    
+    let sim = sim::run(&mut db, &interrupted, &args.output)?;
+    if !sim {
+        error!("Failed to verify the simulation");
+        std::process::exit(1);
+    }
+
+    info!("Sylva finished successfully!");
+    Ok(())
+}

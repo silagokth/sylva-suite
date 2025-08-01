@@ -1,0 +1,43 @@
+[package]
+name = "sobel"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "sobel-load"
+path = "src/load.rs"
+
+[[bin]]
+name = "sobel-copy"
+path = "src/copy.rs"
+
+[[bin]]
+name = "sobel-gx"
+path = "src/gx.rs"
+
+[[bin]]
+name = "sobel-gy"
+path = "src/gy.rs"
+
+[[bin]]
+name = "sobel-combine"
+path = "src/combine.rs"
+
+[[bin]]
+name = "sobel-store"
+path = "src/store.rs"
+
+[[bin]]
+name = "sobel-image"
+path = "src/sobel-image.rs"
+
+[[bin]]
+name = "sobel-memory"
+path = "src/memory.rs"
+
+[dependencies]
+sv-lib = { path = "../../sv-lib" }
+clap = { version = "4.5", features = ["derive"] }
+image = "0.24" 
+hex = "0.4" 
+byteorder = "1.5.0"
