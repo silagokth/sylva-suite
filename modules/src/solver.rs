@@ -194,18 +194,18 @@ impl Solver {
             }
        
             // killing N times: required for some big parallel minizinc problems  
-            for i in 0..5 {
+            for i in 0..3 {
                 if let Err(e) = killpg(pgid, Signal::SIGINT) {
                     eprintln!("Failed to kill process group: {}", e);
                 }
 
-                thread::sleep(Duration::from_millis(4000));
+                thread::sleep(Duration::from_millis(20000));
 
                 if terminated_clone.load(Ordering::SeqCst) {
                     break;
                 }
 
-                if i == 4 {
+                if i == 2 {
                     error!("Failed to kill minizinc process. This needs to be done manually");
                 }
             }

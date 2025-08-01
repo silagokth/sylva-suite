@@ -442,6 +442,7 @@ fn solve_node_schedule(
     solver.add(format!("% input and output buffers"));
     let mut min_buffer_counts = 0;
     let mut max_buffer_counts = 0;
+    let mut problem_size = 0;
     for edge in &edges {
         let (_, min_delay) = channels.get(&edge.id).ok_or("Node is not found in channels")?;
         
@@ -459,6 +460,7 @@ fn solve_node_schedule(
 
         min_buffer_counts += input_min_counts + output_min_counts;
         max_buffer_counts += 2 * input_max_counts + output_max_counts;
+        problem_size += edge.token_size;
 
         solver.add(format!("var {}..{}: IB_{};", input_min_counts, input_max_counts, _rename(&edge.target_port)));
         solver.add(format!("var {}..{}: OB_{};", output_min_counts, output_max_counts, _rename(&edge.source_port)));
@@ -549,7 +551,9 @@ fn solve_node_schedule(
         edges.iter().map(|e| format!("OB_{}", _rename(&e.source_port))).into_iter().collect::<Vec<_>>().join(", "),
         edges.iter().map(|e| format!("IB_{}", _rename(&e.target_port))).into_iter().collect::<Vec<_>>().join(", ")
     ));
-    solver.add(format!("solve minimize BUFFER_SIZE;")); 
+    let all_t1s = edges.iter().map(|e| format!("T1_{}", e.id)).collect::<Vec<String>>().join(" ++ ");
+    solver.add(format!("solve :: int_search([fire_time] ++ {}, first_fail, indomain_min, complete)", all_t1s)); 
+    solver.add(format!("    minimize BUFFER_SIZE;")); 
     solver.new_line();
     solver.new_line();
      
@@ -567,7 +571,13 @@ fn solve_node_schedule(
     ));
 
     /* solving the model */
-    let (status, solutions) = solver.solve("-p 16", 300, interrupt)?;
+    let time_limit = match problem_size {
+        a if a > 20000 => 10 * 60,
+        a if a > 10000 => 6 * 60,
+        a if a > 1000 => 4 * 60,
+        _ => 3 * 60,
+    };
+    let (status, solutions) = solver.solve("-p 16", time_limit, interrupt)?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
         "UNKNOWN" => {

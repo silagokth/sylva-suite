@@ -6,6 +6,8 @@ use rand::SeedableRng;
 
 pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
  
+    println!("This example creates a very large problem size and is not yet tested");
+
     db.global_constraint.max_energy = 100;
     db.global_constraint.max_width = 100;
     db.global_constraint.max_height = 100;
