@@ -330,7 +330,7 @@ fn place_solve_approx_optimal(
     solver.new_line();
 
     solver.add(format!("% ========= objective ========="));
-    solver.add(format!("solve minimize sum(weighted_distance);")); 
+    solver.add(format!("solve minimize (2 * sum(weighted_distance) + (max_x_position * max_y_position));")); 
     solver.new_line();
     solver.new_line();
     
