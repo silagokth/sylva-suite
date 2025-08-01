@@ -78,7 +78,7 @@ pub fn sobel(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
                 output_addr_time_patterns: (0..12800)
                     .map(|i| PairIntInt {
                         key: i,
-                        value: 100 + i / 16,
+                        value: i / 16,
                     })
                     .collect(), 
                 ..Default::default()
