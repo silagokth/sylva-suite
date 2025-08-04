@@ -284,23 +284,27 @@ fn plot_graph(
             RGBColor(255, 165, 0).filled(),
         ))?;
 
-        // Output buffer (red, above node)
-        chart.plotting_area().draw(&Rectangle::new(
-            [(x_f - 0.5, y_f + h_f - 0.5), (x_f - 0.5 + w_f, y_f + h_f + 0.5)],
-            RED.filled(),
-        ))?;
+        if node.input_ports.len() > 0 {
+            // Input buffer (purple, below node)
+            chart.plotting_area().draw(&Rectangle::new(
+                [(x_f - 0.5, y_f - 1.5), (x_f - 0.5 + w_f, y_f - 0.5)],
+                RGBColor(160, 32, 240).filled(),
+            ))?;
+        }
+        
+        if node.output_ports.len() > 0 {
+            // Output buffer (red, above node)
+            chart.plotting_area().draw(&Rectangle::new(
+                [(x_f - 0.5, y_f + h_f - 0.5), (x_f - 0.5 + w_f, y_f + h_f + 0.5)],
+                RED.filled(),
+            ))?;
 
-        // Input buffer (purple, below node)
-        chart.plotting_area().draw(&Rectangle::new(
-            [(x_f - 0.5, y_f - 1.5), (x_f - 0.5 + w_f, y_f - 0.5)],
-            RGBColor(160, 32, 240).filled(),
-        ))?;
-
-        // Transporter (green, above buffer)
-        chart.plotting_area().draw(&Rectangle::new(
-            [(x_f - 0.5, y_f + h_f + 0.5), (x_f - 0.5 + w_f, y_f + h_f + 1.5)],
-            GREEN.filled(),
-        ))?;
+            // Transporter (green, above buffer)
+            chart.plotting_area().draw(&Rectangle::new(
+                [(x_f - 0.5, y_f + h_f + 0.5), (x_f - 0.5 + w_f, y_f + h_f + 1.5)],
+                GREEN.filled(),
+            ))?;
+        }
     }
 
     // draw routing paths
