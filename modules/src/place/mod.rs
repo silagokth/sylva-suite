@@ -8,6 +8,54 @@ use rand::Rng;
 use std::sync::{Arc, atomic::AtomicBool};
 
 
+// return width, height
+fn dimension(
+   db: &DataBase,
+   node_id: &str,
+) -> Result<(i32, i32, i32, i32, i32, i32, i32, i32), Box<dyn std::error::Error>> {
+    let instance = db.synthesized_information.alimp_bindings
+        .iter()
+        .find(|b| b.app_node_id == node_id)
+        .map(|b| &b.alimp_instance)
+        .ok_or_else(|| {
+            Box::from(format!("Cannot find the alimp instance {}", node_id))
+            as Box<dyn std::error::Error>
+        })?;
+    
+    let (number_inputs, number_outputs) = db.app_graph.nodes
+        .iter()
+        .find(|n| n.id == node_id)
+        .map(|n| (n.input_ports.len() as i32, n.output_ports.len() as i32))
+        .ok_or_else(|| {
+            Box::from(format!("Cannot find the app_graph {}", node_id))
+            as Box<dyn std::error::Error>
+        })?;
+
+    // verify dimensions
+    if instance.width < number_inputs || instance.width < number_outputs {
+        return Err(format!("Alimp instance {} cannot fit {} inputs and {} outputs", node_id, number_inputs, number_outputs).into());
+    }
+
+    // MANDATORY 
+    // The height is inflated: 1 for input buffer, 
+    // 1 for output buffer, 
+    // 1 for the transporters attached to output buffer, 
+    let routing_reserved_size = &db.hyper_parameter.place_reserved_routing_size;
+    let all_ports = number_inputs + number_outputs;
+
+    Ok((
+        instance.width,
+        instance.height,
+        if number_outputs != 0 { 2 } else { 0 }, // transporter and output buffer
+        if number_inputs != 0 { 1 } else { 0 },  // input buffer 
+        ((all_ports + 4) / 4) * routing_reserved_size, // left space   
+        ((all_ports + 4) / 4) * routing_reserved_size, // right space
+        ((number_outputs / 2) + 1) * routing_reserved_size, // top space
+        ((number_inputs / 2) + 1) * routing_reserved_size  // bottom space
+    ))
+}
+
+
 
 fn create_floor_plan(
     db: &mut DataBase,
@@ -29,25 +77,11 @@ fn create_floor_plan(
 
     // add node information from alimp bindings
     for node in &db.app_graph.nodes {
-        let instance = db.synthesized_information.alimp_bindings
-                        .iter()
-                        .find(|b| b.app_node_id == node.id)
-                        .map(|b| &b.alimp_instance)
-                        .ok_or_else(|| {
-                            Box::from(format!("Cannot find the alimp instance {}", node.id))
-                            as Box<dyn std::error::Error>
-                        })?;
+        let (width, height, ob, ib, left, right, top, bottom) = dimension(db, &node.id)?;
         
-        // The height is inflated: 1 for input buffer, 
-        // 1 for output buffer, 
-        // 1 for the transporters attached to output buffer, 
-        // and 1 on each side for routing space.
-        //
-        // The width is inflated: 1 on each side for routing space.
-        let routing_reserved_size = &db.hyper_parameter.place_reserved_routing_size;
         let shape = RectangleShape {
-            width: instance.width + 2 * routing_reserved_size,
-            height: instance.height + 3 + 2 * routing_reserved_size,
+            width: width + left + right,
+            height: height + ob + ib + top + bottom,
         };
         
         // dummy positions
@@ -449,11 +483,13 @@ pub fn generate_placement(
         let r = RGBColor((x * 255.0) as u8, (y * 255.0) as u8, (z * 255.0) as u8);
         let black = RGBColor(0, 0, 0);
 
-        let offset = db.hyper_parameter.place_reserved_routing_size;
-        let x0 = start.x + offset;
-        let y0 = start.y + 1 + offset;
-        let w = size.width - 2 * offset;
-        let h = size.height - 3 - 2 * offset;
+        let (width, height, ob, ib, left, right, top, bottom) = dimension(db, &fp.app_node_ids[i])?;
+        let x0 = start.x + left;
+        let y0 = start.y + ib + bottom;
+        let w = size.width - left - right;
+        let h = size.height - ob - ib - top - bottom;
+        assert_eq!(w, width, "placement dimension error");
+        assert_eq!(h, height, "placement dimension error");
 
         chart.draw_series(std::iter::once(Rectangle::new(
             [(x0, y0), (x0 + w, y0 + h)],
@@ -476,13 +512,14 @@ pub fn generate_placement(
 fn update_placement(
     db: &mut DataBase,
     fp: &FloorPlan,
-) -> () {
+) -> Result<(), Box<dyn std::error::Error>> {
     // nodes and their coordinates
     for (index, node_id) in fp.app_node_ids.iter().enumerate() {
+        let (_, _, _, ib, left, _, _, bottom) = dimension(&db, &node_id)?;
         let placement = Placement {
             app_node_id: node_id.clone(),
-            x: fp.pos[index].x + 1,
-            y: fp.pos[index].y + 2,
+            x: fp.pos[index].x + left,
+            y: fp.pos[index].y + ib + bottom,
         };
         db.synthesized_information.placements.push(placement);
     }
@@ -490,6 +527,7 @@ fn update_placement(
     // area information
     db.synthesized_information.max_width = fp.max_width;
     db.synthesized_information.max_height = fp.max_height;
+    Ok(())
 }
 
 
@@ -541,7 +579,7 @@ pub fn run(
     info!("Stege 3: generating placement results and updating synthesized information");
     debug!("Floorplan: \n {:?}", fp);
     generate_placement(db, &fp, &module_dir)?;
-    update_placement(db, &mut fp);
+    update_placement(db, &mut fp)?;
 
     info!("Finish: placement");
     Ok(())

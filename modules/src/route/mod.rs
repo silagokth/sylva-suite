@@ -202,10 +202,13 @@ fn create_routing_graph(
     let mut node_maps: HashMap<String, (i32, i32, i32, i32)> = HashMap::new();
 
     for node in &db.app_graph.nodes {
+        let input_space = if node.input_ports.len() > 0 { 1 } else { 0 };
+        let output_space = if node.output_ports.len() > 0 { 2 } else { 0 };
+        
         // get x, y coordinates of the node placement
         let (x, y) = db.synthesized_information.placements.iter()
             .find(|place| place.app_node_id == node.id)
-            .map(|place| (place.x, place.y - 1))
+            .map(|place| (place.x, place.y - input_space))
             .ok_or_else(|| {
                 Box::<dyn std::error::Error>::from("Cannot find placement")
             })?;
@@ -213,10 +216,11 @@ fn create_routing_graph(
         // get width and height of the alimp
         let (width, height) = db.synthesized_information.alimp_bindings.iter()
             .find(|b| b.app_node_id == node.id)
-            .map(|b| (b.alimp_instance.width, b.alimp_instance.height + 3))
+            .map(|b| (b.alimp_instance.width, b.alimp_instance.height + input_space + output_space))
             .ok_or_else(|| {
                 Box::<dyn std::error::Error>::from("Cannot find binding")
             })?;
+
     
         // add these in the maps
         node_maps.insert(
@@ -543,24 +547,28 @@ fn plot_routing_graph(
             [(x - 0.5, y - 0.5), (x - 0.5 + width, y - 0.5 + height)],
             RGBColor(255, 165, 0).filled(), // Orange
         )))?;
+ 
+        if node.input_ports.len() > 0 {
+            // Purple: Input buffer (south of node)
+            chart.draw_series(std::iter::once(Rectangle::new(
+                [(x - 0.5, y - 1.5), (x - 0.5 + width, y - 0.5)],
+                RGBColor(160, 32, 240).filled(), // Purple
+            )))?;
+        }
+       
+        if node.output_ports.len() > 0 {
+            // Red: Output buffer (north of node)
+            chart.draw_series(std::iter::once(Rectangle::new(
+                [(x - 0.5, y + height - 0.5), (x - 0.5 + width, y + height + 0.5)],
+                RED.filled(),
+            )))?;
 
-        // Red: Output buffer (north of node)
-        chart.draw_series(std::iter::once(Rectangle::new(
-            [(x - 0.5, y + height - 0.5), (x - 0.5 + width, y + height + 0.5)],
-            RED.filled(),
-        )))?;
-
-        // Purple: Input buffer (south of node)
-        chart.draw_series(std::iter::once(Rectangle::new(
-            [(x - 0.5, y - 1.5), (x - 0.5 + width, y - 0.5)],
-            RGBColor(160, 32, 240).filled(), // Purple
-        )))?;
-
-        // Green: Data transporter (north+1)
-        chart.draw_series(std::iter::once(Rectangle::new(
-            [(x - 0.5, y + height + 0.5), (x - 0.5 + width, y + height + 1.5)],
-            GREEN.filled(),
-        )))?;
+            // Green: Data transporter (north+1)
+            chart.draw_series(std::iter::once(Rectangle::new(
+                [(x - 0.5, y + height + 0.5), (x - 0.5 + width, y + height + 1.5)],
+                GREEN.filled(),
+            )))?;
+        }
     }
 
 
