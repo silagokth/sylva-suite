@@ -12,7 +12,7 @@ Tool suite for Application Level Synthesis.
 1. Build Sylva
 
    ```bash
-   ./run.sh
+   ./setup.sh
    ```
 
 3. Create test example (minimum, copy, sobel, lenet5)
