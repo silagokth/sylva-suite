@@ -1,2 +1,2 @@
 # sylva-suite
-ALS for Silago
+ALS for Silago (Python version)
