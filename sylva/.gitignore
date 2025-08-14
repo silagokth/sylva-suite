@@ -7,14 +7,19 @@ examples/*
 !examples/copy
 examples/copy/*
 !examples/copy/*.*
+!examples/copy/mem
 !examples/minimum
 examples/minimum/*
 !examples/minimum/*.*
+!examples/minimum/mem
 !examples/sobel
 examples/sobel/_*
 examples/sobel/model/*
 !examples/sobel/model/*.*
-
+!examples/lenet5
+examples/lenet5/_*
+examples/lenet5/model/*
+!examples/lenet5/model/*.*
 
 # bin directory
 bin/*
