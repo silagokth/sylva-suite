@@ -444,16 +444,13 @@ fn solve_node_schedule(
     let mut max_buffer_counts = 0;
     let mut problem_size = 0;
     for edge in &edges {
-        let (_, min_delay) = channels.get(&edge.id).ok_or("Node is not found in channels")?;
-        
         let input_addr_time_patterns = translate_addr_time(db, &edge.target_node, &edge.target_port, "in")?;
         let input_same_times = most_frequent_value_count(&input_addr_time_patterns); 
         let input_min_counts = input_same_times;
 
         let output_addr_time_patterns = translate_addr_time(db, &edge.source_node, &edge.source_port, "out")?;
         let output_same_times = most_frequent_value_count(&output_addr_time_patterns); 
-        let output_less_than_min_delay = output_addr_time_patterns.values().filter(|&&v| v < *min_delay).count();
-        let output_min_counts = std::cmp::max(output_same_times, output_less_than_min_delay as i32);
+        let output_min_counts = output_same_times;
 
         let input_max_counts = edge.token_size;
         let output_max_counts = edge.token_size; 
@@ -477,7 +474,13 @@ fn solve_node_schedule(
         let mut input_key_patterns: Vec<_> = input_addr_time_patterns.keys().cloned().collect();
         output_key_patterns.sort();
         input_key_patterns.sort();
-        
+      
+        let sorted_input_pattern_indices: Vec<usize> = {
+            let mut idx: Vec<_> = (0..input_key_patterns.len()).collect();
+            idx.sort_by_key(|&i| input_addr_time_patterns[&input_key_patterns[i]]);
+            idx.into_iter().map(|i| i + 1).collect()  // shift indices to 1..N
+        };
+
         let route_delay = db.synthesized_information.routing_paths
             .iter()
             .find(|r| r.app_edge_id == edge.id)
@@ -503,6 +506,7 @@ fn solve_node_schedule(
         
         solver.add(format!("array [1..{}] of int: source_addr_time_{} = {:?};", size, edge.id, output_key_patterns.iter().map(|k| output_addr_time_patterns[k]).collect::<Vec<_>>()));  
         solver.add(format!("array [1..{}] of int: target_addr_time_{} = {:?};", size, edge.id, input_key_patterns.iter().map(|k| input_addr_time_patterns[k]).collect::<Vec<_>>()));  
+        solver.add(format!("array [1..{}] of int: sorted_target_time_{} = {:?};", size, edge.id, sorted_input_pattern_indices));  
         solver.add(format!("array [1..{}] of var 0..MAX_DELAY: T0_{};", size, edge.id));  
         solver.add(format!("array [1..{}] of var 0..MAX_DELAY: T1_{};", size, edge.id));  
         solver.add(format!("array [1..{}] of var 0..MAX_DELAY: T2_{};", size, edge.id));  
@@ -519,6 +523,10 @@ fn solve_node_schedule(
         solver.add(format!("    T3_{}[i] = fire_time + target_addr_time_{}[i] /\\", edge.id, edge.id));
         solver.add(format!("    D01_{}[i] = T1_{}[i] - T0_{}[i] /\\", edge.id, edge.id, edge.id));
         solver.add(format!("    D23_{}[i] = T3_{}[i] - T2_{}[i]", edge.id, edge.id, edge.id));
+        solver.add(format!(");"));
+        solver.add(format!("% breaking the symmetry by posting this NDF method on T1"));
+        solver.add(format!("constraint forall(k in 1..{}-1)(", size));
+        solver.add(format!("    T1_{}[sorted_target_time_{}[k]] <= T1_{}[sorted_target_time_{}[k+1]]", edge.id, edge.id, edge.id, edge.id));
         solver.add(format!(");"));
         solver.add(format!("% at any memory, buffers should not be overused"));
         solver.add(format!("constraint cumulative("));
@@ -551,9 +559,7 @@ fn solve_node_schedule(
         edges.iter().map(|e| format!("OB_{}", _rename(&e.source_port))).into_iter().collect::<Vec<_>>().join(", "),
         edges.iter().map(|e| format!("IB_{}", _rename(&e.target_port))).into_iter().collect::<Vec<_>>().join(", ")
     ));
-    let all_t1s = edges.iter().map(|e| format!("T1_{}", e.id)).collect::<Vec<String>>().join(" ++ ");
-    solver.add(format!("solve :: int_search([fire_time] ++ {}, first_fail, indomain_min, complete)", all_t1s)); 
-    solver.add(format!("    minimize BUFFER_SIZE;")); 
+    solver.add(format!("solve minimize BUFFER_SIZE;")); 
     solver.new_line();
     solver.new_line();
      
