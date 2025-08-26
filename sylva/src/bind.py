@@ -174,9 +174,10 @@ def bind_solve_optimal (db: ds.DataBase) -> int:
 
 def bind_solve_approx_optimal(db: ds.DataBase, obj_optimal) -> list:
     ''' This function create the same model as bind_solve_optimal, but it relax the obj function and uses the cp_model.SearchForAllSolutions() to find all feasible solutions. It returns a list of feasible solutions.'''
+    print("obj_optimal =", obj_optimal)
     relaxted_obj = int(obj_optimal * db.hyper_parameter.bind_relaxation_factor)
-    if relaxted_obj == obj_optimal:
-        relaxted_obj = 2 * obj_optimal
+    if relaxted_obj == int(obj_optimal):
+        relaxted_obj = 2 * int(obj_optimal)
     
     # Create the model
     model = cp_model.CpModel()

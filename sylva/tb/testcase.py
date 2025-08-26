@@ -11,11 +11,14 @@ import argparse
 # need to find another way to represent the value
 
 
-def create_test_db(testcase_name:str):
+def create_test_db(testcase_name:str, parameter:str):
     this_module = sys.modules[__name__]
     func = getattr(this_module, testcase_name)
 
-    db = func()
+    if parameter:
+        db = func(int(parameter))
+    else:
+        db = func()
     # write db.app_graph to json file
     app_graph_json = MessageToJson(db.app_graph)
     with open(os.path.join('const/app_graph.json'), 'w') as f:
@@ -61,6 +64,135 @@ def add_entry_instance(db, name, func, prefix, width, height, energy) -> list:
     print(f"Add entry {name} with {input_token} input tokens and {output_token} output tokens (latency={latency})")
     return (input_token, output_token)
 
+# fix number of nodes to 8, vary patterns 
+def exp1(number_of_patterns)-> ds.DataBase:
+    db = ds.DataBase()
+    db.global_constraint.max_energy = 100
+    db.global_constraint.max_width = 100
+    db.global_constraint.max_height = 100
+    db.global_constraint.max_latency = 5000
+    db.global_constraint.max_period = 2000
+
+    db.hyper_parameter.bind_w_area = 1
+    db.hyper_parameter.bind_w_energy = 1
+    db.hyper_parameter.bind_w_latency = 1
+    db.hyper_parameter.bind_relaxation_factor = 1.1
+    db.hyper_parameter.place_relaxation_factor = 1.5
+    db.hyper_parameter.place_reserved_routing_size = 1
+
+    node_names = ["A", "B", "C", "D", "E", "F", "G", "H"]
+    in_port_names = ["", "B:ab", "C:bc", "D:cd", "E:de", "F:ef", "G:fg", "H:gh"]
+    out_port_names = ["A:ab", "B:bc", "C:cd", "D:de", "E:ef", "F:fg", "G:gh", ""]
+
+    for node in node_names:
+        entry = ds.AlimpEntry()
+        entry.func = "F" + node
+
+        in_patterns = []
+        out_patterns = []
+        offset = random.randint(5, 10)
+        for i in range (0, number_of_patterns):
+            if node != "A":
+                in_patterns.append(ds.pair_int_int(key=i, value=random.randint(0, number_of_patterns-1)))
+            if node != "H":
+                out_patterns.append(ds.pair_int_int(key=i, value=offset + random.randint(0, number_of_patterns-1)))
+        
+        all_values = [p.value for p in in_patterns] + [p.value for p in out_patterns]
+        node_latency = max(all_values) + 1 if all_values else 0
+
+        entry.instances.append(ds.AlimpInstance(width=1, height=1, energy=1, latency=node_latency, input_addr_time_patterns=in_patterns, output_addr_time_patterns=out_patterns))
+        db.alimp_lib.entries.append(entry)
+
+    for (node, in_port, out_port) in zip(node_names, in_port_names, out_port_names):
+        in_ports = []
+        if node != "A":                
+            in_ports = [ds.AppNodePort(id=in_port, rate=1, token_size=number_of_patterns)] 
+
+        out_ports = []
+        if node != "H":
+            out_ports = [ds.AppNodePort(id=out_port, rate=1, token_size=number_of_patterns)] 
+
+        if node == "A":
+            executable="examples/copy/A --token " + str(number_of_patterns)
+        elif node == "H":
+            executable="examples/copy/C --token " + str(number_of_patterns)
+        else:
+            executable="examples/copy/B --token " + str(number_of_patterns)
+
+        db.app_graph.nodes.append(ds.AppNode(id=node, func="F"+node, executable=executable, input_ports=in_ports, output_ports=out_ports))
+
+    for i in range (0, len(node_names)-1):
+        edge_name = node_names[i] + "_" + node_names[i+1]
+        db.app_graph.edges.append(ds.AppEdge(id=edge_name, source_node=node_names[i], target_node=node_names[i+1], source_port=out_port_names[i], target_port=in_port_names[i+1], token_size=number_of_patterns))
+
+    db.app_graph.global_mem_image = "examples/copy/mem/global_mem_image.json"
+    db.app_graph.global_mem_reference = "examples/copy/mem/global_mem_reference.json"
+
+    return db
+
+# fix pattern size, vary number of nodes 
+def exp2(number_of_nodes)-> ds.DataBase:
+    db = ds.DataBase()
+    db.global_constraint.max_energy = 100
+    db.global_constraint.max_width = 100
+    db.global_constraint.max_height = 100
+    db.global_constraint.max_latency = 2000
+    db.global_constraint.max_period = 1000
+
+    db.hyper_parameter.bind_w_area = 1
+    db.hyper_parameter.bind_w_energy = 1
+    db.hyper_parameter.bind_w_latency = 1
+    db.hyper_parameter.bind_relaxation_factor = 1.1
+    db.hyper_parameter.place_relaxation_factor = 1.5
+    db.hyper_parameter.place_reserved_routing_size = 1
+
+    for i in range (number_of_nodes):
+        entry = ds.AlimpEntry()
+        entry.func = "FA" + str(i)
+
+        in_patterns = []
+        out_patterns = []
+        offset = random.randint(5, 10)
+        for j in range (0, 32):
+            if i != 0:
+                in_patterns.append(ds.pair_int_int(key=j, value=random.randint(0, 31)))
+            if i != number_of_nodes - 1:
+                out_patterns.append(ds.pair_int_int(key=j, value=offset + random.randint(0, 31)))
+        
+        all_values = [p.value for p in in_patterns] + [p.value for p in out_patterns]
+        node_latency = max(all_values) + 1 if all_values else 0
+
+        entry.instances.append(ds.AlimpInstance(width=1, height=1, energy=1, latency=node_latency, input_addr_time_patterns=in_patterns, output_addr_time_patterns=out_patterns))
+        db.alimp_lib.entries.append(entry)
+
+    for i in range (number_of_nodes):
+        in_ports = []
+        if i != 0:                
+            in_ports = [ds.AppNodePort(id="A"+str(i)+":"+"a"+str(i-1)+"a"+str(i), rate=1, token_size=32)] 
+
+        out_ports = []
+        if i != number_of_nodes - 1:
+            out_ports = [ds.AppNodePort(id="A"+str(i)+":"+"a"+str(i)+"a"+str(i+1), rate=1, token_size=32)] 
+
+        if i == 0:
+            executable="examples/copy/A --token " + str(32)
+        elif i == number_of_nodes - 1:
+            executable="examples/copy/C --token " + str(32)
+        else:
+            executable="examples/copy/B --token " + str(32)
+
+        db.app_graph.nodes.append(ds.AppNode(id="A"+str(i), func="FA"+str(i), executable=executable, input_ports=in_ports, output_ports=out_ports))
+
+    for i in range (0, number_of_nodes-1):
+        db.app_graph.edges.append(ds.AppEdge(id="A"+str(i)+"_"+"A"+str(i+1), source_node="A"+str(i), target_node="A"+str(i+1), source_port="A"+str(i)+":"+"a"+str(i)+"a"+str(i+1), target_port="A"+str(i+1)+":"+"a"+str(i)+"a"+str(i+1), token_size=32))
+
+    db.app_graph.global_mem_image = "examples/copy/mem/global_mem_image.json"
+    db.app_graph.global_mem_reference = "examples/copy/mem/global_mem_reference.json"
+
+    return db
+
+
+
 
 def copy()-> ds.DataBase:
     db = ds.DataBase()
@@ -90,9 +222,9 @@ def copy()-> ds.DataBase:
     C_entry.instances.append(ds.AlimpInstance(width=4, height=4, energy=10, latency=16, input_addr_time_patterns=[ds.pair_int_int(key=0, value=0), ds.pair_int_int(key=1, value=1), ds.pair_int_int(key=2, value=2), ds.pair_int_int(key=3, value=3), ds.pair_int_int(key=4, value=4), ds.pair_int_int(key=5, value=5), ds.pair_int_int(key=6, value=6), ds.pair_int_int(key=7, value=7), ds.pair_int_int(key=8, value=8), ds.pair_int_int(key=9, value=9), ds.pair_int_int(key=10, value=10), ds.pair_int_int(key=11, value=11), ds.pair_int_int(key=12, value=12), ds.pair_int_int(key=13, value=13), ds.pair_int_int(key=14, value=14), ds.pair_int_int(key=15, value=15)]))
     db.alimp_lib.entries.append(C_entry)
 
-    db.app_graph.nodes.append(ds.AppNode(id="A", func="FA", executable="examples/copy/A", output_ports=[ds.AppNodePort(id="A:ab", rate=1, token_size=16)]))
-    db.app_graph.nodes.append(ds.AppNode(id="B", func="FB", executable="examples/copy/B", input_ports=[ds.AppNodePort(id="B:ab", rate=1, token_size=16)], output_ports=[ds.AppNodePort(id="B:bc", rate=1, token_size=16)]))
-    db.app_graph.nodes.append(ds.AppNode(id="C", func="FC", executable="examples/copy/C", input_ports=[ds.AppNodePort(id="C:bc", rate=1, token_size=16)]))
+    db.app_graph.nodes.append(ds.AppNode(id="A", func="FA", executable="examples/copy/A --token 16", output_ports=[ds.AppNodePort(id="A:ab", rate=1, token_size=16)]))
+    db.app_graph.nodes.append(ds.AppNode(id="B", func="FB", executable="examples/copy/B --token 16", input_ports=[ds.AppNodePort(id="B:ab", rate=1, token_size=16)], output_ports=[ds.AppNodePort(id="B:bc", rate=1, token_size=16)]))
+    db.app_graph.nodes.append(ds.AppNode(id="C", func="FC", executable="examples/copy/C --token 16", input_ports=[ds.AppNodePort(id="C:bc", rate=1, token_size=16)]))
 
     db.app_graph.edges.append(ds.AppEdge(id="A_B", source_node="A", target_node="B", source_port="A:ab", target_port="B:ab", token_size=16))
     db.app_graph.edges.append(ds.AppEdge(id="B_C", source_node="B", target_node="C", source_port="B:bc", target_port="C:bc", token_size=16))
@@ -579,7 +711,8 @@ def lenet5() -> ds.DataBase:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--name", help="example name")
+    parser.add_argument("-p", "--parameter", help="parameter setting")
     args = parser.parse_args()
 
     # create test database
-    create_test_db(args.name)
+    create_test_db(args.name, args.parameter)

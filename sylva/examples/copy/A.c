@@ -7,10 +7,11 @@ typedef struct {
     char *global_image;
     char *in_mem;
     char *out_mem;
+    int token;
 } Arguments;
 
 void print_usage(const char *prog_name) {
-    printf("Usage: %s --global-image <path> [--in-mem <path>] --out-mem <path>\n", prog_name);
+    printf("Usage: %s --global-image <path> [--in-mem <path>] --out-mem <path> --token <number-of-tokens>\n", prog_name);
 }
 
 int parse_arguments(int argc, char *argv[], Arguments *args) {
@@ -26,6 +27,12 @@ int parse_arguments(int argc, char *argv[], Arguments *args) {
             args->in_mem = argv[++i];
         } else if (strcmp(argv[i], "--out-mem") == 0 && i + 1 < argc) {
             args->out_mem = argv[++i];
+        } else if (strcmp(argv[i], "--token") == 0 && i + 1 < argc) {
+            args->token = atoi(argv[++i]);
+            if (args->token > 255) {
+                printf("token size is more than 255");
+                return -1;
+            }
         } else {
             printf("Unknown or incomplete argument: %s\n", argv[i]);
             print_usage(argv[0]);
@@ -105,7 +112,7 @@ int main(int argc, char *argv[]) {
                     (val_item && cJSON_IsNumber(val_item)) ? val_item->valueint : 0;
         address = base_address + address;
          
-        if (address >= 0 && address <= 15) {
+        if (address >= 0 && address < args.token) {
             cJSON *copy = cJSON_Duplicate(item, 1);
             cJSON_AddItemToArray(out_line, copy);
         }

@@ -190,13 +190,17 @@ def optimize_channel_width(db: ds.DataBase):
     # create int variable for the fire time of each node
     F = {}
     END_TIME = {}
+    print(f"graph = {db.app_graph.nodes}")
     for node in db.app_graph.nodes:
+        print(f"{node.id}, {node.repetition}")
         F[node.id] = [model.NewIntVar(0, db.global_constraint.max_latency, f"{node.id}_{i}")
                       for i in range(node.repetition)]
         END_TIME[node.id] = model.NewIntVar(0, db.global_constraint.max_latency, f"{END_TIME}_{node.id}")
         model.Add(END_TIME[node.id] == F[node.id][node.repetition-1]+node.execution_time)
+    print(f"min eqau")
     model.AddMinEquality(0, [F[node.id][0] for node in db.app_graph.nodes]) 
-    
+   
+    print(f"for each edge")
     K_VARS = {}
     K_VECS = {}
     MIN_DELAY = {}
@@ -212,6 +216,7 @@ def optimize_channel_width(db: ds.DataBase):
         max_channel_width = max(find_parallelization_degree(output_addr_time_patterns), 
                                 find_parallelization_degree(input_addr_time_patterns))
        
+        print(f"now")
         # get letencies of the two nodes and calculate maximum latency for the two 
         source_latency = -1
         target_latency = -1
@@ -229,6 +234,7 @@ def optimize_channel_width(db: ds.DataBase):
         K_VARS[edge.id] = model.NewIntVar(1, max_channel_width, "K_VARS_"+edge.id)
         K_VECS[edge.id] = []
         MIN_DELAY[edge.id] = []
+        print(f"stats")
         min_cycles, max_cycles, mean_address, std_address = stats_addr_patterns(
             output_addr_time_patterns, 
             input_addr_time_patterns
@@ -276,7 +282,7 @@ def optimize_channel_width(db: ds.DataBase):
         weighted_terms.append(delay_var + 2*K_VARS[edge_id])
 
     # objective: minimize the weighted channel width k*delay
-    obj = model.NewIntVar(0, 100000, "obj")
+    obj = model.NewIntVar(0, 10000000, "obj")
     model.Add(obj == sum(weighted_terms))
     model.Minimize(obj)
 
@@ -426,7 +432,12 @@ def optimize_node_schedule(db: ds.DataBase, node_id: str, fire_times: dict, chan
             else:
                 logging.error("Cannot find an edge in the routing paths")
                 sys.exit(1)
-               
+           
+            sort_input_pattern_index = sorted(
+                range(len(input_addr_time_patterns)),
+                key=lambda i: input_addr_time_patterns[i]
+            )
+
             # add constraints for channel width size and fire time
             K[edge.id] = channel_bandwidth_and_delay[edge.id][0]
             total_delay = channel_bandwidth_and_delay[edge.id][1] + wire_delay
@@ -462,6 +473,9 @@ def optimize_node_schedule(db: ds.DataBase, node_id: str, fire_times: dict, chan
                 model.Add(T3_ALL[edge.id][i] == fire_time + target_addr_time)
                 model.Add(D01[i] == T1_ALL[edge.id][i] - T0_ALL[edge.id][i])
                 model.Add(D23[i] == T3_ALL[edge.id][i] - T2_ALL[edge.id][i])   
+            
+            for i in range(edge.token_size-1):
+                model.Add(T1_ALL[edge.id][sort_input_pattern_index[i]] <= T1_ALL[edge.id][sort_input_pattern_index[i+1]]) 
 
             # add buffer constraints
             INTERVAL0 = [model.NewIntervalVar(T0_ALL[edge.id][i], D01[i], T1_ALL[edge.id][i], f"interval0[{i}]") for i in range(edge.token_size)]

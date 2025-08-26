@@ -32,7 +32,7 @@ sudo apt-get install libcjson-dev
 echo "Completed"
 echo "Compiling copy example..."
 nullify pushd examples/copy 
-nullify bash ./run.sh 
+nullify bash ./run.sh 16 
 nullify popd
 
 echo "Compiling minimum example..."

@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import random
 import json
 import shutil
+import time 
 
 import lib.glic_sim.proto.mem_image_pb2 as memImg
 import lib.glic_sim.common as common_sim 
@@ -143,9 +144,15 @@ def run_simulation(sim_dir: str):
     timetable_dir = os.path.join(sim_dir, 'time_table.json')
     use_json = True
     globalCycle = 0
+    
+    start = time.perf_counter()
     top_inst = sim.top(verbo, config_dir, timetable_dir, sim_dir, use_json)
     top_inst.initialise()
     top_inst.doYourThing(globalCycle)
+    end = time.perf_counter()
+
+    print(f"Elapsed time: {end - start:.6f} seconds")
+
     return None
 
 def verify_simulation(sim_dir: str) -> bool:
