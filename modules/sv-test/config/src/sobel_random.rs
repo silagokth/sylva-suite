@@ -21,7 +21,7 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
     db.hyper_parameter.place_relaxation_factor = 1.0;
     db.hyper_parameter.place_reserved_routing_size = 1;
 
-    let mut rng = StdRng::seed_from_u64(123);
+    let mut rng = StdRng::seed_from_u64(100);
 
     let mut input_patterns: Vec<PairIntInt> = vec![];
     let mut output_patterns: Vec<_> = (0..3200)

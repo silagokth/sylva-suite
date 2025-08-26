@@ -3,7 +3,6 @@ use crate::solver::Solver;
 use log::{debug};
 use serde_json;
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, atomic::AtomicBool};
 use itertools::Itertools;
 
 
@@ -12,7 +11,6 @@ pub fn solve_min_delay(
     dst_addr_pattern: &HashMap<i32, i32>,
     channel_width: i32,
     max_delay: i32,
-    interrupt: &Arc<AtomicBool>,
     module_dir: String,
 ) -> Result<i32, Box<dyn std::error::Error>> {
     
@@ -69,7 +67,7 @@ pub fn solve_min_delay(
     }\"];")); 
 
     /* solving the model */
-    let (status, solutions) = solver.solve("-p 8", 30, interrupt)?;
+    let (status, solutions) = solver.solve("cp-sat", 60, "-p 16")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
         "UNSATISFIABLE" => return Ok(-1),
@@ -221,7 +219,6 @@ fn stats_address_patterns(
 
 pub fn solve_channel_width(
     db: &mut DataBase,
-    interrupt: &Arc<AtomicBool>,
     module_dir: String,
 ) -> Result<HashMap<String, (i32, i32)>, Box<dyn std::error::Error>> {
  
@@ -289,7 +286,6 @@ pub fn solve_channel_width(
                 &input_addr_time_patterns,
                 k,
                 max_latency_of_two_nodes,
-                interrupt,
                 module_dir.clone(),
             )?;
             
@@ -350,7 +346,7 @@ pub fn solve_channel_width(
 
 
     /* solving the model */
-    let (status, solutions) = solver.solve("-p 16", 120, interrupt)?;
+    let (status, solutions) = solver.solve("cp-sat", 120, "-p 16")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" => {}
         _ => return Err(format!("MiniZinc status: {}", status).into()),
@@ -410,7 +406,6 @@ fn solve_node_schedule(
     node_id: &str,
     fire_times: HashMap<String, i32>,
     channels: HashMap<String, (i32, i32)>,
-    interrupt: &Arc<AtomicBool>,
     module_dir: String,
 ) -> Result<ScheduleStruct, Box<dyn std::error::Error>> {
 
@@ -578,21 +573,14 @@ fn solve_node_schedule(
 
     /* solving the model */
     let time_limit = match problem_size {
-        a if a > 20000 => 10 * 60,
-        a if a > 10000 => 6 * 60,
-        a if a > 1000 => 4 * 60,
-        _ => 3 * 60,
+        a if a > 20000 => 20 * 60,
+        a if a > 10000 => 10 * 60,
+        a if a > 1000 => 6 * 60,
+        _ => 4 * 60,
     };
-    let (status, solutions) = solver.solve("-p 16", time_limit, interrupt)?;
+    let (status, solutions) = solver.solve("cp-sat", time_limit, "-p 16")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
-        "UNKNOWN" => {
-            if solutions.is_empty() {
-                return Err(format!("MiniZinc status: {}", status).into());
-            }
-            // Minizinc UNKNOWN status. This happens with CP-SAT when trying to find the optimal solution
-            debug!("Use a feasible solution because Minizinc cannot find the optimal solution");
-        }
         _ => return Err(format!("MiniZinc status: {}", status).into()),
     };
     let parsed_json_value: serde_json::Value = serde_json::from_str(&solutions[0])?;
@@ -682,7 +670,6 @@ fn solve_node_schedule(
 pub fn solve_scheduling(
     db: &DataBase,
     channels: HashMap<String, (i32, i32)>,
-    interrupt: &Arc<AtomicBool>,
     module_dir: String,
 ) -> Result<ScheduleStruct, Box<dyn std::error::Error>> {
 
@@ -730,7 +717,6 @@ pub fn solve_scheduling(
                         &node.id,
                         schedule.fire_time.clone(),
                         channels.clone(),
-                        interrupt,
                         module_dir.clone()
                     )?;
 

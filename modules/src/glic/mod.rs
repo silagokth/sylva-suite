@@ -2,7 +2,6 @@ use sv_lib::model::{DataBase, ChunkAddressAssignment, TransportTable, TransportT
 use log::{info, debug, error};
 use itertools::Itertools;
 use std::collections::{HashMap};
-use std::sync::{Arc, atomic::AtomicBool};
 
 mod optimiser;
 
@@ -396,7 +395,6 @@ fn update_synthesized_information(
 #[allow(unused_variables)]
 pub fn run(
     db: &mut DataBase,
-    interrupt: &Arc<AtomicBool>,
     dir: &String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     info!("Start: glic");
@@ -411,11 +409,11 @@ pub fn run(
 
     info!("Stage 1: optimise channel width and delay");
     select_alimp(db)?;
-    let channels = optimiser::solve_channel_width(db, interrupt, module_dir.clone())?;
+    let channels = optimiser::solve_channel_width(db, module_dir.clone())?;
     debug!("Solved channel width: \n{:?}", channels);
 
     info!("Stage 2: optimise scheduling");
-    let schedules: optimiser::ScheduleStruct = optimiser::solve_scheduling(db, channels, interrupt, module_dir.clone())?;
+    let schedules: optimiser::ScheduleStruct = optimiser::solve_scheduling(db, channels, module_dir.clone())?;
 
     info!("Stage 3: post optimisation");
     loop {
