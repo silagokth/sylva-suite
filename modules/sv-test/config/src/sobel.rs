@@ -26,9 +26,10 @@ pub fn sobel(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
                 latency: 810,
                 input_addr_time_patterns: vec![],
                 output_addr_time_patterns: (0..3200)
-                    .map(|i| PairIntInt {
-                        key: i,
-                        value: 10 + i / 4,
+                    .map(|i| AddressPatterns {
+                        address: i,
+                        channel: i % 4,
+                        time: 10 + i / 4,
                     })
                     .collect(), 
                 ..Default::default()
@@ -40,20 +41,22 @@ pub fn sobel(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
         func: "func_copy".to_string(),
         instances: vec![
             AlimpInstance { 
-                width: 2, 
+                width: 4, 
                 height: 1, 
                 energy: 2, 
                 latency: 820,
                 input_addr_time_patterns:  (0..3200)
-                    .map(|i| PairIntInt {
-                        key: i,
-                        value: i / 4,
+                    .map(|i| AddressPatterns {
+                        address: i,
+                        channel: i % 4,
+                        time: i / 4,
                     })
                     .collect(), 
                 output_addr_time_patterns: (0..6400)
-                    .map(|i| PairIntInt {
-                        key: i,
-                        value: 20 + (i % 3200) / 4,
+                    .map(|i| AddressPatterns {
+                        address: i,
+                        channel: (i + 3) % 4,
+                        time: 20 + (i % 3200) / 4,
                     })
                     .collect(), 
                 ..Default::default()
@@ -65,20 +68,22 @@ pub fn sobel(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
         func: "func_gx".to_string(),
         instances: vec![
             AlimpInstance { 
-                width: 4, 
+                width: 16, 
                 height: 4, 
-                energy: 10, 
+                energy: 24, 
                 latency: 900,
                 input_addr_time_patterns:  (0..3200)
-                    .map(|i| PairIntInt {
-                        key: i,
-                        value: i / 4,
+                    .map(|i| AddressPatterns {
+                        address: i,
+                        channel: (i + 2) % 4,
+                        time: i / 4,
                     })
                     .collect(), 
                 output_addr_time_patterns: (0..12800)
-                    .map(|i| PairIntInt {
-                        key: i,
-                        value: 100 + i / 16,
+                    .map(|i| AddressPatterns {
+                        address: i,
+                        channel: i % 16,
+                        time: 100 + i / 16,
                     })
                     .collect(), 
                 ..Default::default()
@@ -90,20 +95,22 @@ pub fn sobel(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
         func: "func_gy".to_string(),
         instances: vec![
             AlimpInstance { 
-                width: 4, 
+                width: 16, 
                 height: 4, 
-                energy: 10, 
+                energy: 23, 
                 latency: 900,
                 input_addr_time_patterns:  (0..3200)
-                    .map(|i| PairIntInt {
-                        key: i,
-                        value: i / 4,
+                    .map(|i| AddressPatterns {
+                        address: i,
+                        channel: (i + 2) % 4,
+                        time: i / 4,
                     })
                     .collect(), 
                 output_addr_time_patterns: (0..12800)
-                    .map(|i| PairIntInt {
-                        key: i,
-                        value: 100 + i / 16,
+                    .map(|i| AddressPatterns {
+                        address: i,
+                        channel: i % 16,
+                        time: 100 + i / 16,
                     })
                     .collect(), 
                 ..Default::default()
@@ -115,20 +122,22 @@ pub fn sobel(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
         func: "func_combine".to_string(),
         instances: vec![
             AlimpInstance { 
-                width: 2, 
-                height: 2, 
-                energy: 2, 
+                width: 16, 
+                height: 6, 
+                energy: 10, 
                 latency: 900,
                 input_addr_time_patterns:  (0..25600)
-                    .map(|i| PairIntInt {
-                        key: i,
-                        value: (i % 12800) / 16,
+                    .map(|i| AddressPatterns {
+                        address: i,
+                        channel: (i + 8) % 16,
+                        time: (i % 12800) / 16,
                     })
                     .collect(), 
                 output_addr_time_patterns: (0..3200)
-                    .map(|i| PairIntInt {
-                        key: i,
-                        value: 100 + i / 4,
+                    .map(|i| AddressPatterns {
+                        address: i,
+                        channel: i % 8,
+                        time: 100 + i / 4,
                     })
                     .collect(), 
                 ..Default::default()
@@ -141,13 +150,14 @@ pub fn sobel(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
         instances: vec![
             AlimpInstance { 
                 width: 4, 
-                height: 2, 
-                energy: 1, 
+                height: 3, 
+                energy: 3, 
                 latency: 800,
                 input_addr_time_patterns:  (0..3200)
-                    .map(|i| PairIntInt {
-                        key: i,
-                        value: i / 4,
+                    .map(|i| AddressPatterns {
+                        address: i,
+                        channel: i % 4,
+                        time: i / 4,
                     })
                     .collect(), 
                 output_addr_time_patterns: vec![],

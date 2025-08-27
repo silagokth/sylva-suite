@@ -2,6 +2,51 @@ use sv_lib::model::*;
 use rand::Rng;
 use rand::rngs::StdRng;
 use rand::SeedableRng;
+use rand::prelude::SliceRandom;
+
+fn assign_address_patterns<FMin, FMax, R>(
+    rng: &mut R,
+    number_addresses: i32, 
+    number_channels: usize,
+    min_time_fn: FMin,
+    max_time_fn: FMax,
+) -> Result<Vec<AddressPatterns>, Box <dyn std::error::Error>> 
+where 
+    FMin: Fn(i32) -> i32,
+    FMax: Fn(i32) -> i32,
+    R: Rng,
+{
+    let mut patterns: Vec<AddressPatterns> = vec![];
+    
+    for i in 0..number_addresses {
+        let min_time = min_time_fn(i);
+        let max_time = max_time_fn(i);
+        
+        let (time, channel) = loop {
+            let t = rng.gen_range(min_time..=max_time);
+
+            let mut used = vec![false; number_channels as usize];
+            for p in patterns.iter().filter(|p| p.time == t) {
+                used[p.channel as usize] = true;
+            }
+            
+            let free: Vec<usize> = (0..number_channels).filter(|&c| !used[c as usize]).collect();
+            if let Some(&ch) = free.choose(rng) {
+                break (t, ch);
+            } else {            
+                return Err("Cannot assign address, time, and channel due to collision".into());
+            }
+        };
+
+        patterns.push(AddressPatterns {
+            address: i,
+            channel: channel as i32,
+            time: time,
+        });
+    }
+    
+    Ok(patterns)
+}
 
 
 pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
@@ -9,7 +54,7 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
     println!("This example creates a very large problem size and is not yet tested");
 
     db.global_constraint.max_energy = 100;
-    db.global_constraint.max_width = 100;
+    db.global_constraint.max_width = 150;
     db.global_constraint.max_height = 100;
     db.global_constraint.max_latency = 4000;
     db.global_constraint.max_period = 2000;
@@ -23,30 +68,25 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
 
     let mut rng = StdRng::seed_from_u64(100);
 
-    let mut input_patterns: Vec<PairIntInt> = vec![];
-    let mut output_patterns: Vec<_> = (0..3200)
-        .map(|i| {
-            let min_value = 10 + i / 20 * 5;
-            let max_value = 14 + i / 20 * 5;
-            let random_value = rng.gen_range(min_value..=max_value);
-
-            PairIntInt {
-                key: i,
-                value: random_value,
-            }
-        })
-        .collect();
-
+    let mut input_patterns: Vec<AddressPatterns> = vec![];
+    let mut output_patterns: Vec<AddressPatterns> = assign_address_patterns(
+        &mut rng,
+        3200,
+        10,
+        |i| 10 + i / 20 * 5, 
+        |i| 14 + i / 20 * 5, 
+    )?;
+    
     db.alimp_lib.entries.push(AlimpEntry {
         func: "func_load".to_string(),
         instances: vec![
             AlimpInstance { 
-                width: 4, 
+                width: 10, 
                 height: 4, 
                 energy: 2, 
                 latency: std::cmp::max(
-                    input_patterns.iter().map(|p| p.value).max().unwrap_or(0), 
-                    output_patterns.iter().map(|p| p.value).max().unwrap_or(0)
+                    input_patterns.iter().map(|p| p.time).max().unwrap_or(0), 
+                    output_patterns.iter().map(|p| p.time).max().unwrap_or(0)
                     ) + 1,
                 input_addr_time_patterns: input_patterns.clone(),
                 output_addr_time_patterns: output_patterns.clone(),
@@ -55,50 +95,31 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
         ],
     });
 
-    input_patterns = (0..3200)
-        .map(|i| {
-            let min_value = i / 20 * 5;
-            let max_value = 4 + i / 20 * 5;
-            let random_value = rng.gen_range(min_value..=max_value);
-
-            PairIntInt {
-                key: i,
-                value: random_value,
-            }
-        })
-        .collect();
-
-    output_patterns = (0..6400)
-        .map(|i| {
-            let min_value = if i < 3200 {
-                20 + i / 20 * 5
-            } else {
-                20 + (i - 3200) / 20 * 5
-            };
-            let max_value = if i < 3200 {
-                24 + i / 20 * 5
-            } else {
-                24 + (i - 3200) / 20 * 5
-            }; 
-            let random_value = rng.gen_range(min_value..=max_value);
-
-            PairIntInt {
-                key: i,
-                value: random_value,
-            }
-        })
-        .collect();
+    input_patterns = assign_address_patterns(
+        &mut rng,
+        3200,
+        10,
+        |i| i / 20 * 5, 
+        |i| 4 + i / 20 * 5, 
+    )?;
+    output_patterns = assign_address_patterns(
+        &mut rng,
+        3200,
+        10,
+        |i| if i < 3200 { 20 + i / 20 * 5 } else { 20 + (i - 3200) / 20 * 5 }, 
+        |i| if i < 3200 { 24 + i / 20 * 5 } else { 24 + (i - 3200) / 20 * 5 }, 
+    )?;
 
     db.alimp_lib.entries.push(AlimpEntry {
         func: "func_copy".to_string(),
         instances: vec![
             AlimpInstance { 
-                width: 2, 
-                height: 1, 
-                energy: 2, 
+                width: 10, 
+                height: 5, 
+                energy: 8, 
                 latency: std::cmp::max(
-                    input_patterns.iter().map(|p| p.value).max().unwrap_or(0), 
-                    output_patterns.iter().map(|p| p.value).max().unwrap_or(0)
+                    input_patterns.iter().map(|p| p.time).max().unwrap_or(0), 
+                    output_patterns.iter().map(|p| p.time).max().unwrap_or(0)
                     ) + 1,
                 input_addr_time_patterns: input_patterns.clone(),
                 output_addr_time_patterns: output_patterns.clone(),
@@ -107,42 +128,32 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
         ],
     });
 
-    input_patterns = (0..3200)
-        .map(|i| {
-            let min_value = i / 20 * 5;
-            let max_value = 4 + i / 20 * 5;
-            let random_value = rng.gen_range(min_value..=max_value);
+    input_patterns = assign_address_patterns(
+        &mut rng,
+        3200,
+        40,
+        |i| i / 20 * 5, 
+        |i| 4 + i / 20 * 5, 
+    )?;
 
-            PairIntInt {
-                key: i,
-                value: random_value,
-            }
-        })
-        .collect();
-
-    output_patterns = (0..12800)
-        .map(|i| {
-            let min_value = 100 + i / 160 * 10;
-            let max_value = 109 + i / 160 * 10;
-            let random_value = rng.gen_range(min_value..=max_value);
-
-            PairIntInt {
-                key: i,
-                value: random_value,
-            }
-        })
-        .collect();
+    output_patterns = assign_address_patterns(
+        &mut rng,
+        12800,
+        50,
+        |i| 100 + i / 160 * 10, 
+        |i| 109 + i / 160 * 10, 
+    )?;
 
     db.alimp_lib.entries.push(AlimpEntry {
         func: "func_gx".to_string(),
         instances: vec![
             AlimpInstance { 
-                width: 4, 
-                height: 4, 
-                energy: 10, 
+                width: 40, 
+                height: 8, 
+                energy: 15, 
                 latency: std::cmp::max(
-                    input_patterns.iter().map(|p| p.value).max().unwrap_or(0), 
-                    output_patterns.iter().map(|p| p.value).max().unwrap_or(0)
+                    input_patterns.iter().map(|p| p.time).max().unwrap_or(0), 
+                    output_patterns.iter().map(|p| p.time).max().unwrap_or(0)
                     ) + 1,
                 input_addr_time_patterns: input_patterns.clone(),
                 output_addr_time_patterns: output_patterns.clone(),
@@ -151,42 +162,32 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
         ],
     });
 
-    input_patterns = (0..3200)
-        .map(|i| {
-            let min_value = i / 20 * 5;
-            let max_value = 4 + i / 20 * 5;
-            let random_value = rng.gen_range(min_value..=max_value);
+    input_patterns = assign_address_patterns(
+        &mut rng,
+        3200,
+        20,
+        |i| i / 20 * 5, 
+        |i| 4 + i / 20 * 5, 
+    )?;
 
-            PairIntInt {
-                key: i,
-                value: random_value,
-            }
-        })
-        .collect();
-
-    output_patterns = (0..12800)
-        .map(|i| {
-            let min_value = 100 + i / 160 * 10;
-            let max_value = 109 + i / 160 * 10;
-            let random_value = rng.gen_range(min_value..=max_value);
-
-            PairIntInt {
-                key: i,
-                value: random_value,
-            }
-        })
-        .collect();
+    output_patterns = assign_address_patterns(
+        &mut rng,
+        12800,
+        20,
+        |i| 100 + i / 160 * 10, 
+        |i| 109 + i / 160 * 10, 
+    )?;
 
     db.alimp_lib.entries.push(AlimpEntry {
         func: "func_gy".to_string(),
         instances: vec![
             AlimpInstance { 
-                width: 4, 
-                height: 4, 
-                energy: 10, 
+                width: 20, 
+                height: 8, 
+                energy: 15, 
                 latency: std::cmp::max(
-                    input_patterns.iter().map(|p| p.value).max().unwrap_or(0), 
-                    output_patterns.iter().map(|p| p.value).max().unwrap_or(0)
+                    input_patterns.iter().map(|p| p.time).max().unwrap_or(0), 
+                    output_patterns.iter().map(|p| p.time).max().unwrap_or(0)
                     ) + 1,
                 input_addr_time_patterns: input_patterns.clone(),
                 output_addr_time_patterns: output_patterns.clone(),
@@ -195,42 +196,32 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
         ],
     });
 
-    input_patterns = (0..25600)
-        .map(|i| {
-            let min_value = (i % 12800) / 160 * 10;
-            let max_value = 9 + (i % 12800) / 160 * 10;
-            let random_value = rng.gen_range(min_value..=max_value);
+    input_patterns = assign_address_patterns(
+        &mut rng,
+        25600,
+        25,
+        |i| (i % 12800) / 160 * 10, 
+        |i| 9 + (i % 12800) / 160 * 10, 
+    )?;
 
-            PairIntInt {
-                key: i,
-                value: random_value,
-            }
-        })
-        .collect();
-
-    output_patterns = (0..3200)
-        .map(|i| {
-            let min_value = 100 + i / 20 * 5;
-            let max_value = 104 + i / 20 * 5;
-            let random_value = rng.gen_range(min_value..=max_value);
-
-            PairIntInt {
-                key: i,
-                value: random_value,
-            }
-        })
-        .collect();
+    output_patterns = assign_address_patterns(
+        &mut rng,
+        3200,
+        25,
+        |i| 100 + i / 20 * 5, 
+        |i| 104 + i / 20 * 5, 
+    )?;
 
     db.alimp_lib.entries.push(AlimpEntry {
         func: "func_combine".to_string(),
         instances: vec![
             AlimpInstance { 
-                width: 2, 
-                height: 2, 
-                energy: 2, 
+                width: 25, 
+                height: 10, 
+                energy: 12, 
                 latency: std::cmp::max(
-                    input_patterns.iter().map(|p| p.value).max().unwrap_or(0), 
-                    output_patterns.iter().map(|p| p.value).max().unwrap_or(0)
+                    input_patterns.iter().map(|p| p.time).max().unwrap_or(0), 
+                    output_patterns.iter().map(|p| p.time).max().unwrap_or(0)
                     ) + 1,
                 input_addr_time_patterns: input_patterns.clone(),
                 output_addr_time_patterns: output_patterns.clone(),
@@ -239,31 +230,25 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
         ],
     });
 
-    input_patterns = (0..3200)
-        .map(|i| {
-            let min_value = i / 20 * 5;
-            let max_value = 4 + i / 20 * 5;
-            let random_value = rng.gen_range(min_value..=max_value);
-
-            PairIntInt {
-                key: i,
-                value: random_value,
-            }
-        })
-        .collect();
-
+    input_patterns = assign_address_patterns(
+        &mut rng,
+        3200,
+        10,
+        |i| i / 20 * 5, 
+        |i| 4 + i / 20 * 5, 
+    )?;
     output_patterns = vec![];
 
     db.alimp_lib.entries.push(AlimpEntry {
         func: "func_store".to_string(),
         instances: vec![
             AlimpInstance { 
-                width: 4, 
-                height: 2, 
-                energy: 1, 
+                width: 10, 
+                height: 4, 
+                energy: 6, 
                 latency: std::cmp::max(
-                    input_patterns.iter().map(|p| p.value).max().unwrap_or(0), 
-                    output_patterns.iter().map(|p| p.value).max().unwrap_or(0)
+                    input_patterns.iter().map(|p| p.time).max().unwrap_or(0), 
+                    output_patterns.iter().map(|p| p.time).max().unwrap_or(0)
                     ) + 1,
                 input_addr_time_patterns: input_patterns.clone(),
                 output_addr_time_patterns: output_patterns.clone(),
