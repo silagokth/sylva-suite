@@ -48,7 +48,7 @@ pub fn copy(db: &mut DataBase) -> Result<(), Box<dyn std::error::Error>> {
                 latency: 17,
                 input_addr_time_patterns: vec![
                     AddressPatterns { address: 0, channel: 0, time: 0 }, AddressPatterns { address: 1, channel: 2, time: 1 }, AddressPatterns { address: 2, channel: 1, time: 4 },
-                    AddressPatterns { address: 3, channel: 1, time: 2 }, AddressPatterns { address: 4, channel: 1, time: 5 }, AddressPatterns { address: 2, channel: 1, time: 0 },
+                    AddressPatterns { address: 3, channel: 1, time: 2 }, AddressPatterns { address: 4, channel: 1, time: 5 }, AddressPatterns { address: 5, channel: 1, time: 0 },
                     AddressPatterns { address: 6, channel: 1, time: 3 }, AddressPatterns { address: 7, channel: 1, time: 1 }, AddressPatterns { address: 8, channel: 0, time: 5 },
                     AddressPatterns { address: 9, channel: 0, time: 2 }, AddressPatterns { address: 10, channel: 3, time: 1 }, AddressPatterns { address: 11, channel: 2, time: 2 },
                     AddressPatterns { address: 12, channel: 2, time: 3 }, AddressPatterns { address: 13, channel: 0, time: 3 }, AddressPatterns { address: 14, channel: 0, time: 1 },

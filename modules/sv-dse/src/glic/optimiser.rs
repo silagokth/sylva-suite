@@ -1,4 +1,4 @@
-use sv_lib::model::{DataBase, PairIntInt};
+use sv_lib::model::{DataBase, AddressPatterns};
 use crate::solver::Solver;
 use log::{debug};
 use serde_json;
@@ -88,8 +88,8 @@ pub fn solve_min_delay(
 } 
 
 
-fn pair_to_hashmap(list: &Vec<PairIntInt>) -> HashMap<i32, i32> {
-    list.iter().map(|e| (e.key, e.value)).collect()
+fn address_pattern_to_hashmap(list: &Vec<AddressPatterns>) -> HashMap<i32, i32> {
+    list.iter().map(|e| (e.address, e.time)).collect()
 }
 
 
@@ -116,8 +116,8 @@ fn translate_addr_time(
         .ok_or("Cannot find the address time patterns in Alimp")?;
 
     let patterns = match dir {
-        "in" => pair_to_hashmap(&binding.alimp_instance.input_addr_time_patterns),
-        _ => pair_to_hashmap(&binding.alimp_instance.output_addr_time_patterns),
+        "in" => address_pattern_to_hashmap(&binding.alimp_instance.input_addr_time_patterns),
+        _ => address_pattern_to_hashmap(&binding.alimp_instance.output_addr_time_patterns),
     };
 
     // get patterns for the port

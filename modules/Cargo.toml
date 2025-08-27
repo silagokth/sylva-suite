@@ -9,3 +9,5 @@ members = [
     "sv-test/sobel",
     "sv-test/lenet5"
 ]
+
+resolver = "3"

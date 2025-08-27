@@ -1,4 +1,4 @@
-use sv_lib::model::{DataBase, PairIntInt};
+use sv_lib::model::{DataBase, AddressPatterns};
 use sv_lib::sim::{
     MemoryList, NodeConfigMap, NodeConfig, 
     TimeTable, TTNode, AddressPatternList, AddressPattern, 
@@ -111,11 +111,11 @@ fn generate_files(
 
         if inst.input_addr_time_patterns.len() > 0 {
             let mut j = AddressPatternList { addr_ptrn: Vec::new() }; 
-            for PairIntInt { key, value } in &inst.input_addr_time_patterns {
+            for AddressPatterns { address, time, .. } in &inst.input_addr_time_patterns {
                 j.addr_ptrn.push(
                     AddressPattern {
-                        address: *key as i64,
-                        cycle: *value as i64,
+                        address: *address as i64,
+                        cycle: *time as i64,
                     }
                 );
             }
@@ -124,11 +124,11 @@ fn generate_files(
 
         if inst.output_addr_time_patterns.len() > 0 {
             let mut j = AddressPatternList { addr_ptrn: Vec::new() }; 
-            for PairIntInt { key, value } in &inst.output_addr_time_patterns {
+            for AddressPatterns { address, time, .. } in &inst.output_addr_time_patterns {
                 j.addr_ptrn.push(
                     AddressPattern {
-                        address: *key as i64,
-                        cycle: *value as i64,
+                        address: *address as i64,
+                        cycle: *time as i64,
                     }
                 );
             }

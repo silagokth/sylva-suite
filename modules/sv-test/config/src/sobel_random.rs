@@ -53,9 +53,9 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
  
     println!("This example creates a very large problem size and is not yet tested");
 
-    db.global_constraint.max_energy = 100;
-    db.global_constraint.max_width = 150;
-    db.global_constraint.max_height = 100;
+    db.global_constraint.max_energy = 1000;
+    db.global_constraint.max_width = 500;
+    db.global_constraint.max_height = 500;
     db.global_constraint.max_latency = 4000;
     db.global_constraint.max_period = 2000;
 
@@ -72,7 +72,7 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
     let mut output_patterns: Vec<AddressPatterns> = assign_address_patterns(
         &mut rng,
         3200,
-        10,
+        20,
         |i| 10 + i / 20 * 5, 
         |i| 14 + i / 20 * 5, 
     )?;
@@ -81,9 +81,9 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
         func: "func_load".to_string(),
         instances: vec![
             AlimpInstance { 
-                width: 10, 
-                height: 4, 
-                energy: 2, 
+                width: 20, 
+                height: 15, 
+                energy: 20, 
                 latency: std::cmp::max(
                     input_patterns.iter().map(|p| p.time).max().unwrap_or(0), 
                     output_patterns.iter().map(|p| p.time).max().unwrap_or(0)
@@ -98,14 +98,14 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
     input_patterns = assign_address_patterns(
         &mut rng,
         3200,
-        10,
+        30,
         |i| i / 20 * 5, 
         |i| 4 + i / 20 * 5, 
     )?;
     output_patterns = assign_address_patterns(
         &mut rng,
         3200,
-        10,
+        30,
         |i| if i < 3200 { 20 + i / 20 * 5 } else { 20 + (i - 3200) / 20 * 5 }, 
         |i| if i < 3200 { 24 + i / 20 * 5 } else { 24 + (i - 3200) / 20 * 5 }, 
     )?;
@@ -114,9 +114,9 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
         func: "func_copy".to_string(),
         instances: vec![
             AlimpInstance { 
-                width: 10, 
-                height: 5, 
-                energy: 8, 
+                width: 30, 
+                height: 20, 
+                energy: 30, 
                 latency: std::cmp::max(
                     input_patterns.iter().map(|p| p.time).max().unwrap_or(0), 
                     output_patterns.iter().map(|p| p.time).max().unwrap_or(0)
@@ -131,7 +131,7 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
     input_patterns = assign_address_patterns(
         &mut rng,
         3200,
-        40,
+        80,
         |i| i / 20 * 5, 
         |i| 4 + i / 20 * 5, 
     )?;
@@ -139,7 +139,7 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
     output_patterns = assign_address_patterns(
         &mut rng,
         12800,
-        50,
+        80,
         |i| 100 + i / 160 * 10, 
         |i| 109 + i / 160 * 10, 
     )?;
@@ -148,9 +148,9 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
         func: "func_gx".to_string(),
         instances: vec![
             AlimpInstance { 
-                width: 40, 
-                height: 8, 
-                energy: 15, 
+                width: 80, 
+                height: 60, 
+                energy: 100, 
                 latency: std::cmp::max(
                     input_patterns.iter().map(|p| p.time).max().unwrap_or(0), 
                     output_patterns.iter().map(|p| p.time).max().unwrap_or(0)
@@ -165,7 +165,7 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
     input_patterns = assign_address_patterns(
         &mut rng,
         3200,
-        20,
+        80,
         |i| i / 20 * 5, 
         |i| 4 + i / 20 * 5, 
     )?;
@@ -173,7 +173,7 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
     output_patterns = assign_address_patterns(
         &mut rng,
         12800,
-        20,
+        80,
         |i| 100 + i / 160 * 10, 
         |i| 109 + i / 160 * 10, 
     )?;
@@ -182,9 +182,9 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
         func: "func_gy".to_string(),
         instances: vec![
             AlimpInstance { 
-                width: 20, 
-                height: 8, 
-                energy: 15, 
+                width: 80, 
+                height: 60, 
+                energy: 100, 
                 latency: std::cmp::max(
                     input_patterns.iter().map(|p| p.time).max().unwrap_or(0), 
                     output_patterns.iter().map(|p| p.time).max().unwrap_or(0)
@@ -199,7 +199,7 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
     input_patterns = assign_address_patterns(
         &mut rng,
         25600,
-        25,
+        120,
         |i| (i % 12800) / 160 * 10, 
         |i| 9 + (i % 12800) / 160 * 10, 
     )?;
@@ -207,7 +207,7 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
     output_patterns = assign_address_patterns(
         &mut rng,
         3200,
-        25,
+        120,
         |i| 100 + i / 20 * 5, 
         |i| 104 + i / 20 * 5, 
     )?;
@@ -216,9 +216,9 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
         func: "func_combine".to_string(),
         instances: vec![
             AlimpInstance { 
-                width: 25, 
-                height: 10, 
-                energy: 12, 
+                width: 120, 
+                height: 60, 
+                energy: 80, 
                 latency: std::cmp::max(
                     input_patterns.iter().map(|p| p.time).max().unwrap_or(0), 
                     output_patterns.iter().map(|p| p.time).max().unwrap_or(0)
@@ -244,8 +244,8 @@ pub fn sobel_random(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>
         instances: vec![
             AlimpInstance { 
                 width: 10, 
-                height: 4, 
-                energy: 6, 
+                height: 20, 
+                energy: 30, 
                 latency: std::cmp::max(
                     input_patterns.iter().map(|p| p.time).max().unwrap_or(0), 
                     output_patterns.iter().map(|p| p.time).max().unwrap_or(0)
