@@ -1,9 +1,8 @@
-use sv_lib::model::{DataBase, PairIntInt};
+use sv_lib::model::{DataBase, AddressPatterns};
 use crate::solver::Solver;
 use log::{debug};
 use serde_json;
-use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, atomic::AtomicBool};
+use std::collections::{HashMap};
 use itertools::Itertools;
 
 
@@ -12,28 +11,34 @@ pub fn solve_min_delay(
     dst_addr_pattern: &HashMap<i32, i32>,
     channel_width: i32,
     max_delay: i32,
-    interrupt: &Arc<AtomicBool>,
     module_dir: String,
 ) -> Result<i32, Box<dyn std::error::Error>> {
-    
-    let src_keys: HashSet<i32> = src_addr_pattern.keys().cloned().collect();
-    let dst_keys: HashSet<i32> = dst_addr_pattern.keys().cloned().collect();
-    let mut common_addr: Vec<i32> = src_keys
-        .intersection(&dst_keys)
-        .cloned()
-        .collect();
+   
+    if src_addr_pattern.len() != dst_addr_pattern.len() {
+        return Err(format!("lenths of source and destination address patterns do not match").into());
+    }
 
-    common_addr.sort();
+    let mut src_key_pattern: Vec<_> = src_addr_pattern.keys().cloned().collect();
+    let mut dst_key_pattern: Vec<_> = dst_addr_pattern.keys().cloned().collect();
+    dst_key_pattern.sort();
+    src_key_pattern.sort();
+
+    let sorted_dst_indices: Vec<usize> = {
+        let mut idx: Vec<_> = (0..dst_key_pattern.len()).collect();
+        idx.sort_by_key(|&i| dst_addr_pattern[&dst_key_pattern[i]]);
+        idx.into_iter().map(|i| i + 1).collect()  // shift indices to 1..N
+    };
 
     let mut solver = Solver::new(String::from("solve_min_delay"), module_dir);
 
     /* formulating the model */
     solver.add(format!("include \"cumulative.mzn\";"));
-    solver.add(format!("int: N = {};", common_addr.len()));
+    solver.add(format!("int: N = {};", src_addr_pattern.len()));
     solver.add(format!("int: WIDTH = {};", channel_width));
     solver.add(format!("int: MAX_DELAY = {};", max_delay));
-    solver.add(format!("array [1..N] of int: src_patterns = [{}];", common_addr.iter().map(|k| format!("{}", src_addr_pattern[k])).join(", ")));
-    solver.add(format!("array [1..N] of int: dst_patterns = [{}];", common_addr.iter().map(|k| format!("{}", dst_addr_pattern[k])).join(", ")));
+    solver.add(format!("array [1..N] of int: src_patterns = [{}];", src_key_pattern.iter().map(|k| format!("{}", src_addr_pattern[k])).join(", ")));
+    solver.add(format!("array [1..N] of int: dst_patterns = [{}];", dst_key_pattern.iter().map(|k| format!("{}", dst_addr_pattern[k])).join(", ")));
+    solver.add(format!("array [1..N] of int: sorted_dst_indices = {:?};", sorted_dst_indices));  
     solver.new_line();
 
     solver.add(format!("var 2..MAX_DELAY: delay;"));
@@ -55,6 +60,10 @@ pub fn solve_min_delay(
         \n  [1 | i in 1..N],\
         \n  WIDTH\
     \n);"));
+    solver.add(format!("% breaking the symmetry by posting this NDF method on tr_read"));
+    solver.add(format!("constraint forall(k in 1..N-1)("));
+    solver.add(format!("    tr_read[sorted_dst_indices[k]] <= tr_read[sorted_dst_indices[k+1]]"));
+    solver.add(format!(");"));
     solver.new_line();
     solver.new_line();
 
@@ -69,11 +78,10 @@ pub fn solve_min_delay(
     }\"];")); 
 
     /* solving the model */
-    let (status, solutions) = solver.solve("-p 8", 30, interrupt)?;
+    let (status, solutions) = solver.solve("cp-sat", 30, "-p 16")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
-        "UNSATISFIABLE" => return Ok(-1),
-        _ => return Err(format!("MiniZinc status: {}", status).into()),
+        _ => return Ok(-1),
     };
     let parsed_json_value: serde_json::Value = serde_json::from_str(&solutions[0])?;
 
@@ -90,8 +98,8 @@ pub fn solve_min_delay(
 } 
 
 
-fn pair_to_hashmap(list: &Vec<PairIntInt>) -> HashMap<i32, i32> {
-    list.iter().map(|e| (e.key, e.value)).collect()
+fn address_pattern_to_hashmap(list: &Vec<AddressPatterns>) -> HashMap<i32, i32> {
+    list.iter().map(|e| (e.address, e.time)).collect()
 }
 
 
@@ -118,8 +126,8 @@ fn translate_addr_time(
         .ok_or("Cannot find the address time patterns in Alimp")?;
 
     let patterns = match dir {
-        "in" => pair_to_hashmap(&binding.alimp_instance.input_addr_time_patterns),
-        _ => pair_to_hashmap(&binding.alimp_instance.output_addr_time_patterns),
+        "in" => address_pattern_to_hashmap(&binding.alimp_instance.input_addr_time_patterns),
+        _ => address_pattern_to_hashmap(&binding.alimp_instance.output_addr_time_patterns),
     };
 
     // get patterns for the port
@@ -221,7 +229,6 @@ fn stats_address_patterns(
 
 pub fn solve_channel_width(
     db: &mut DataBase,
-    interrupt: &Arc<AtomicBool>,
     module_dir: String,
 ) -> Result<HashMap<String, (i32, i32)>, Box<dyn std::error::Error>> {
  
@@ -289,7 +296,6 @@ pub fn solve_channel_width(
                 &input_addr_time_patterns,
                 k,
                 max_latency_of_two_nodes,
-                interrupt,
                 module_dir.clone(),
             )?;
             
@@ -350,7 +356,7 @@ pub fn solve_channel_width(
 
 
     /* solving the model */
-    let (status, solutions) = solver.solve("-p 16", 120, interrupt)?;
+    let (status, solutions) = solver.solve("cp-sat", 120, "-p 16")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" => {}
         _ => return Err(format!("MiniZinc status: {}", status).into()),
@@ -410,7 +416,6 @@ fn solve_node_schedule(
     node_id: &str,
     fire_times: HashMap<String, i32>,
     channels: HashMap<String, (i32, i32)>,
-    interrupt: &Arc<AtomicBool>,
     module_dir: String,
 ) -> Result<ScheduleStruct, Box<dyn std::error::Error>> {
 
@@ -444,16 +449,13 @@ fn solve_node_schedule(
     let mut max_buffer_counts = 0;
     let mut problem_size = 0;
     for edge in &edges {
-        let (_, min_delay) = channels.get(&edge.id).ok_or("Node is not found in channels")?;
-        
         let input_addr_time_patterns = translate_addr_time(db, &edge.target_node, &edge.target_port, "in")?;
         let input_same_times = most_frequent_value_count(&input_addr_time_patterns); 
         let input_min_counts = input_same_times;
 
         let output_addr_time_patterns = translate_addr_time(db, &edge.source_node, &edge.source_port, "out")?;
         let output_same_times = most_frequent_value_count(&output_addr_time_patterns); 
-        let output_less_than_min_delay = output_addr_time_patterns.values().filter(|&&v| v < *min_delay).count();
-        let output_min_counts = std::cmp::max(output_same_times, output_less_than_min_delay as i32);
+        let output_min_counts = output_same_times;
 
         let input_max_counts = edge.token_size;
         let output_max_counts = edge.token_size; 
@@ -477,7 +479,13 @@ fn solve_node_schedule(
         let mut input_key_patterns: Vec<_> = input_addr_time_patterns.keys().cloned().collect();
         output_key_patterns.sort();
         input_key_patterns.sort();
-        
+      
+        let sorted_input_pattern_indices: Vec<usize> = {
+            let mut idx: Vec<_> = (0..input_key_patterns.len()).collect();
+            idx.sort_by_key(|&i| input_addr_time_patterns[&input_key_patterns[i]]);
+            idx.into_iter().map(|i| i + 1).collect()  // shift indices to 1..N
+        };
+
         let route_delay = db.synthesized_information.routing_paths
             .iter()
             .find(|r| r.app_edge_id == edge.id)
@@ -503,6 +511,7 @@ fn solve_node_schedule(
         
         solver.add(format!("array [1..{}] of int: source_addr_time_{} = {:?};", size, edge.id, output_key_patterns.iter().map(|k| output_addr_time_patterns[k]).collect::<Vec<_>>()));  
         solver.add(format!("array [1..{}] of int: target_addr_time_{} = {:?};", size, edge.id, input_key_patterns.iter().map(|k| input_addr_time_patterns[k]).collect::<Vec<_>>()));  
+        solver.add(format!("array [1..{}] of int: sorted_target_time_{} = {:?};", size, edge.id, sorted_input_pattern_indices));  
         solver.add(format!("array [1..{}] of var 0..MAX_DELAY: T0_{};", size, edge.id));  
         solver.add(format!("array [1..{}] of var 0..MAX_DELAY: T1_{};", size, edge.id));  
         solver.add(format!("array [1..{}] of var 0..MAX_DELAY: T2_{};", size, edge.id));  
@@ -519,6 +528,10 @@ fn solve_node_schedule(
         solver.add(format!("    T3_{}[i] = fire_time + target_addr_time_{}[i] /\\", edge.id, edge.id));
         solver.add(format!("    D01_{}[i] = T1_{}[i] - T0_{}[i] /\\", edge.id, edge.id, edge.id));
         solver.add(format!("    D23_{}[i] = T3_{}[i] - T2_{}[i]", edge.id, edge.id, edge.id));
+        solver.add(format!(");"));
+        solver.add(format!("% breaking the symmetry by posting this NDF method on T1"));
+        solver.add(format!("constraint forall(k in 1..{}-1)(", size));
+        solver.add(format!("    T1_{}[sorted_target_time_{}[k]] <= T1_{}[sorted_target_time_{}[k+1]]", edge.id, edge.id, edge.id, edge.id));
         solver.add(format!(");"));
         solver.add(format!("% at any memory, buffers should not be overused"));
         solver.add(format!("constraint cumulative("));
@@ -551,9 +564,7 @@ fn solve_node_schedule(
         edges.iter().map(|e| format!("OB_{}", _rename(&e.source_port))).into_iter().collect::<Vec<_>>().join(", "),
         edges.iter().map(|e| format!("IB_{}", _rename(&e.target_port))).into_iter().collect::<Vec<_>>().join(", ")
     ));
-    let all_t1s = edges.iter().map(|e| format!("T1_{}", e.id)).collect::<Vec<String>>().join(" ++ ");
-    solver.add(format!("solve :: int_search([fire_time] ++ {}, first_fail, indomain_min, complete)", all_t1s)); 
-    solver.add(format!("    minimize BUFFER_SIZE;")); 
+    solver.add(format!("solve minimize BUFFER_SIZE;")); 
     solver.new_line();
     solver.new_line();
      
@@ -572,21 +583,14 @@ fn solve_node_schedule(
 
     /* solving the model */
     let time_limit = match problem_size {
-        a if a > 20000 => 10 * 60,
-        a if a > 10000 => 6 * 60,
-        a if a > 1000 => 4 * 60,
-        _ => 3 * 60,
+        a if a > 20000 => 20 * 60,
+        a if a > 10000 => 10 * 60,
+        a if a > 1000 => 6 * 60,
+        _ => 4 * 60,
     };
-    let (status, solutions) = solver.solve("-p 16", time_limit, interrupt)?;
+    let (status, solutions) = solver.solve("cp-sat", time_limit, "-p 16")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
-        "UNKNOWN" => {
-            if solutions.is_empty() {
-                return Err(format!("MiniZinc status: {}", status).into());
-            }
-            // Minizinc UNKNOWN status. This happens with CP-SAT when trying to find the optimal solution
-            debug!("Use a feasible solution because Minizinc cannot find the optimal solution");
-        }
         _ => return Err(format!("MiniZinc status: {}", status).into()),
     };
     let parsed_json_value: serde_json::Value = serde_json::from_str(&solutions[0])?;
@@ -676,7 +680,6 @@ fn solve_node_schedule(
 pub fn solve_scheduling(
     db: &DataBase,
     channels: HashMap<String, (i32, i32)>,
-    interrupt: &Arc<AtomicBool>,
     module_dir: String,
 ) -> Result<ScheduleStruct, Box<dyn std::error::Error>> {
 
@@ -724,7 +727,6 @@ pub fn solve_scheduling(
                         &node.id,
                         schedule.fire_time.clone(),
                         channels.clone(),
-                        interrupt,
                         module_dir.clone()
                     )?;
 

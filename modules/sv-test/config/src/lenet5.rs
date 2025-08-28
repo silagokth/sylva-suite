@@ -1,4 +1,9 @@
 use sv_lib::model::*;
+use std::collections::HashMap;
+use rand::Rng;
+use rand::rngs::StdRng;
+use rand::SeedableRng;
+use rand::prelude::SliceRandom;
 
 
 pub fn lenet5(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
@@ -58,14 +63,35 @@ pub fn lenet5(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
     let fc2_output_token = fc2_output_pattern.len() as i32;
     let store_output_input_token = store_output_input_pattern.len() as i32;
 
+    let mut rng = StdRng::seed_from_u64(100);
 
-    fn to_pair_list(data: Vec<i32>) -> Vec<PairIntInt> {
-        data.into_iter().enumerate()
-            .map(|(i, val)| PairIntInt {
-                key: i as i32,
-                value: val,
-            })
-            .collect()
+    fn to_addr_patterns<R>(rng: &mut R,data: Vec<i32>, num_channels: usize) -> Result<Vec<AddressPatterns>, Box <dyn std::error::Error>> where R: Rng {
+        let mut used: HashMap<i32, Vec<usize>> = HashMap::new();
+        let mut patterns = Vec::with_capacity(data.len());
+
+        for (i, t) in data.into_iter().enumerate() {
+            let used_channels = used.entry(t).or_default();
+            
+            // all possible channels
+            let free: Vec<usize> = (0..num_channels)
+                .filter(|c| !used_channels.contains(c))
+                .collect();
+            
+            if free.is_empty() {
+                return Err("Cannot assign address, time, and channel due to collision".into());
+            }
+            
+            let ch = *free.choose(rng).unwrap();
+            used_channels.push(ch);
+        
+            patterns.push(AddressPatterns {
+                address: i as i32,
+                channel: ch as i32,
+                time: t,
+            });
+        }
+
+        Ok(patterns)
     }
 
 
@@ -85,7 +111,7 @@ pub fn lenet5(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
                 energy: 10, 
                 latency: cal_max(&load_input_output_pattern, &vec![]),
                 input_addr_time_patterns: vec![],
-                output_addr_time_patterns: to_pair_list(load_input_output_pattern), 
+                output_addr_time_patterns: to_addr_patterns(&mut rng, load_input_output_pattern, 5)?, 
                 ..Default::default()
             },
         ],
@@ -95,12 +121,12 @@ pub fn lenet5(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
         func: "conv_32x32_5x5".to_string(),
         instances: vec![
             AlimpInstance { 
-                width: 2, 
+                width: 4, 
                 height: 2, 
                 energy: 10, 
                 latency: cal_max(&conv1_input_pattern, &conv1_output_pattern),
-                input_addr_time_patterns: to_pair_list(conv1_input_pattern),
-                output_addr_time_patterns: to_pair_list(conv1_output_pattern), 
+                input_addr_time_patterns: to_addr_patterns(&mut rng, conv1_input_pattern, 4)?,
+                output_addr_time_patterns: to_addr_patterns(&mut rng, conv1_output_pattern, 4)?, 
                 ..Default::default()
             },
         ],
@@ -114,8 +140,8 @@ pub fn lenet5(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
                 height: 10, 
                 energy: 10, 
                 latency: cal_max(&pooling1_input_pattern, &pooling1_output_pattern),
-                input_addr_time_patterns: to_pair_list(pooling1_input_pattern),
-                output_addr_time_patterns: to_pair_list(pooling1_output_pattern), 
+                input_addr_time_patterns: to_addr_patterns(&mut rng, pooling1_input_pattern, 10)?,
+                output_addr_time_patterns: to_addr_patterns(&mut rng, pooling1_output_pattern, 10)?, 
                 ..Default::default()
             },
         ],
@@ -129,8 +155,8 @@ pub fn lenet5(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
                 height: 10, 
                 energy: 10, 
                 latency: cal_max(&conv2_input_pattern, &conv2_output_pattern),
-                input_addr_time_patterns: to_pair_list(conv2_input_pattern),
-                output_addr_time_patterns: to_pair_list(conv2_output_pattern), 
+                input_addr_time_patterns: to_addr_patterns(&mut rng, conv2_input_pattern, 10)?,
+                output_addr_time_patterns: to_addr_patterns(&mut rng, conv2_output_pattern, 10)?, 
                 ..Default::default()
             },
         ],
@@ -144,8 +170,8 @@ pub fn lenet5(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
                 height: 10, 
                 energy: 10, 
                 latency: cal_max(&pooling2_input_pattern, &pooling2_output_pattern),
-                input_addr_time_patterns: to_pair_list(pooling2_input_pattern),
-                output_addr_time_patterns: to_pair_list(pooling2_output_pattern), 
+                input_addr_time_patterns: to_addr_patterns(&mut rng, pooling2_input_pattern, 10)?,
+                output_addr_time_patterns: to_addr_patterns(&mut rng, pooling2_output_pattern, 10)?, 
                 ..Default::default()
             },
         ],
@@ -159,8 +185,8 @@ pub fn lenet5(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
                 height: 5, 
                 energy: 10, 
                 latency: cal_max(&conv3_input_pattern, &conv3_output_pattern),
-                input_addr_time_patterns: to_pair_list(conv3_input_pattern),
-                output_addr_time_patterns: to_pair_list(conv3_output_pattern), 
+                input_addr_time_patterns: to_addr_patterns(&mut rng, conv3_input_pattern, 5)?,
+                output_addr_time_patterns: to_addr_patterns(&mut rng, conv3_output_pattern, 5)?, 
                 ..Default::default()
             },
         ],
@@ -174,8 +200,8 @@ pub fn lenet5(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
                 height: 5, 
                 energy: 10, 
                 latency: cal_max(&reshape_input_pattern, &reshape_output_pattern),
-                input_addr_time_patterns: to_pair_list(reshape_input_pattern),
-                output_addr_time_patterns: to_pair_list(reshape_output_pattern), 
+                input_addr_time_patterns: to_addr_patterns(&mut rng, reshape_input_pattern, 5)?,
+                output_addr_time_patterns: to_addr_patterns(&mut rng, reshape_output_pattern, 5)?, 
                 ..Default::default()
             },
         ],
@@ -189,8 +215,8 @@ pub fn lenet5(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
                 height: 1, 
                 energy: 10, 
                 latency: cal_max(&fc1_input_pattern, &fc1_output_pattern),
-                input_addr_time_patterns: to_pair_list(fc1_input_pattern),
-                output_addr_time_patterns: to_pair_list(fc1_output_pattern), 
+                input_addr_time_patterns: to_addr_patterns(&mut rng, fc1_input_pattern, 5)?,
+                output_addr_time_patterns: to_addr_patterns(&mut rng, fc1_output_pattern, 5)?, 
                 ..Default::default()
             },
         ],
@@ -204,8 +230,8 @@ pub fn lenet5(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
                 height: 1, 
                 energy: 10, 
                 latency: cal_max(&fc2_input_pattern, &fc2_output_pattern),
-                input_addr_time_patterns: to_pair_list(fc2_input_pattern),
-                output_addr_time_patterns: to_pair_list(fc2_output_pattern), 
+                input_addr_time_patterns: to_addr_patterns(&mut rng, fc2_input_pattern, 5)?,
+                output_addr_time_patterns: to_addr_patterns(&mut rng, fc2_output_pattern, 5)?, 
                 ..Default::default()
             },
         ],
@@ -219,7 +245,7 @@ pub fn lenet5(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
                 height: 1, 
                 energy: 10, 
                 latency: cal_max(&store_output_input_pattern, &vec![]),
-                input_addr_time_patterns: to_pair_list(store_output_input_pattern),
+                input_addr_time_patterns: to_addr_patterns(&mut rng, store_output_input_pattern, 5)?,
                 output_addr_time_patterns: vec![], 
                 ..Default::default()
             },

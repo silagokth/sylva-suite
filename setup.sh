@@ -43,7 +43,7 @@ cp modules/target/debug/lenet5-store-output examples/lenet5/store-output
 # move binaries to bin
 rm -rf bin/
 mkdir bin/
-cp modules/target/debug/sylva bin/sylva
+cp modules/target/debug/sv-dse bin/sv-dse
 cp modules/target/debug/sv-sim bin/sv-sim
 cp modules/target/debug/config bin/config
 

@@ -1,5 +1,5 @@
 use sv_lib::model::{DataBase};
-use sv_lib::{file_handler, setup};
+use sv_lib::{file_handler};
 use log::{info, error};
 use clap::Parser;
 
@@ -39,7 +39,6 @@ struct Args {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     env_logger::init();
-    let interrupted = setup::interrupt()?;
     
     // create empty data structure 
     let mut db = DataBase::new();
@@ -63,18 +62,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     /* run the compilation */
     info!("Sylva starts compilation!");
 
-    bind::run(&mut db, &interrupted, &args.output)?;
-    place::run(&mut db, &interrupted, &args.output)?;
-    route::run(&mut db, &interrupted, &args.output)?;
-    noc::run(&mut db, &interrupted, &args.output)?;
-    glic::run(&mut db, &interrupted, &args.output)?;
+    bind::run(&mut db, &args.output)?;
+    place::run(&mut db, &args.output)?;
+    route::run(&mut db, &args.output)?;
+    noc::run(&mut db, &args.output)?;
+    glic::run(&mut db, &args.output)?;
   
     /* save synthesized information */
     let bin_file = format!("{}/db.bin", args.output);
     file_handler::write_json_file(&bin_file, &db)?;
     //db = file_handler::load_json_file(&bin_file)?;
     
-    let sim = sim::run(&mut db, &interrupted, &args.output)?;
+    let sim = sim::run(&mut db, &args.output)?;
     if !sim {
         error!("Failed to verify the simulation");
         std::process::exit(1);

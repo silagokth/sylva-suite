@@ -1,8 +1,7 @@
-use sv_lib::model::{DataBase, ChunkAddressAssignment, TransportTable, TransportTableEntry};
+use sv_lib::model::{DataBase, ChunkAddressAssignment, TransportTable, TransportTableEntry, AddressPatterns};
 use log::{info, debug, error};
 use itertools::Itertools;
-use std::collections::{HashMap};
-use std::sync::{Arc, atomic::AtomicBool};
+use std::collections::{HashMap, HashSet};
 
 mod optimiser;
 
@@ -23,6 +22,60 @@ fn select_alimp(
     Ok(())
 }
 
+
+fn verify_alimp_patterns(
+    db: &DataBase,
+) -> (bool, String) {
+    let mut is_verified = true;
+    let mut node_id = String::new();
+
+    fn all_address_unique(patterns: &Vec<AddressPatterns>) -> bool {
+        let mut seen = HashSet::new();
+        patterns.iter().all(|p| seen.insert(p.address))
+    }
+
+    fn channels_in_bound(patterns: &Vec<AddressPatterns>, limit: i32) -> bool {
+        // set: (time, channel) 
+        let mut seen: HashSet<(i32, i32)> = HashSet::new();
+        
+        for p in patterns {
+            if p.channel >= limit {
+                return false
+            } 
+        }
+
+        patterns.iter().all(|p| seen.insert((p.time, p.channel)))
+    }
+
+    for binding in &db.synthesized_information.alimp_bindings {
+        node_id = binding.app_node_id.clone();
+        let max_channels = binding.alimp_instance.width;
+        let in_patterns = &binding.alimp_instance.input_addr_time_patterns;
+        let out_patterns = &binding.alimp_instance.output_addr_time_patterns;
+        
+        if is_verified {
+            is_verified = all_address_unique(&in_patterns);
+        }
+
+        if is_verified {
+            is_verified = all_address_unique(&out_patterns);
+        }
+
+        if is_verified {
+            is_verified = channels_in_bound(&in_patterns, max_channels);
+        }
+
+        if is_verified {
+            is_verified = channels_in_bound(&out_patterns, max_channels);
+        }
+
+        if !is_verified {
+            break;
+        }
+    }
+
+    (is_verified, node_id)
+}
 
 
 fn verify_global_timing(
@@ -396,7 +449,6 @@ fn update_synthesized_information(
 #[allow(unused_variables)]
 pub fn run(
     db: &mut DataBase,
-    interrupt: &Arc<AtomicBool>,
     dir: &String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     info!("Start: glic");
@@ -411,11 +463,15 @@ pub fn run(
 
     info!("Stage 1: optimise channel width and delay");
     select_alimp(db)?;
-    let channels = optimiser::solve_channel_width(db, interrupt, module_dir.clone())?;
+    let (status, node_id) = verify_alimp_patterns(db);
+    if !status {
+        return Err(format!("{} alimp fails to verify the patterns", node_id).into());
+    }
+    let channels = optimiser::solve_channel_width(db, module_dir.clone())?;
     debug!("Solved channel width: \n{:?}", channels);
 
     info!("Stage 2: optimise scheduling");
-    let schedules: optimiser::ScheduleStruct = optimiser::solve_scheduling(db, channels, interrupt, module_dir.clone())?;
+    let schedules: optimiser::ScheduleStruct = optimiser::solve_scheduling(db, channels, module_dir.clone())?;
 
     info!("Stage 3: post optimisation");
     loop {

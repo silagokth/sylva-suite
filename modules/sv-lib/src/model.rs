@@ -53,7 +53,7 @@ pub struct AppNodePort {
     #[serde(default)]
     pub token_size: i32,
     #[serde(default)]
-    pub addr_time_patterns: Vec<PairIntInt>,
+    pub addr_time_patterns: Vec<AddressPatterns>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -117,9 +117,9 @@ pub struct AlimpInstance {
     #[serde(default)]
     pub energy: i32,
     #[serde(default)]
-    pub input_addr_time_patterns: Vec<PairIntInt>,
+    pub input_addr_time_patterns: Vec<AddressPatterns>,
     #[serde(default)]
-    pub output_addr_time_patterns: Vec<PairIntInt>,
+    pub output_addr_time_patterns: Vec<AddressPatterns>,
 }
 
 
@@ -313,11 +313,13 @@ pub struct TransportTableEntry {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct PairIntInt {
+pub struct AddressPatterns {
     #[serde(default)]
-    pub key: i32,
+    pub address: i32,
     #[serde(default)]
-    pub value: i32,
+    pub channel: i32,
+    #[serde(default)]
+    pub time: i32,
 }
 
 

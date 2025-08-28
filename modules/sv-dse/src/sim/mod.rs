@@ -1,4 +1,4 @@
-use sv_lib::model::{DataBase, PairIntInt};
+use sv_lib::model::{DataBase, AddressPatterns};
 use sv_lib::sim::{
     MemoryList, NodeConfigMap, NodeConfig, 
     TimeTable, TTNode, AddressPatternList, AddressPattern, 
@@ -9,7 +9,6 @@ use crate::file_handler;
 use log::{info, error};
 use std::collections::HashMap;
 use std::io::BufRead;
-use std::sync::{Arc, atomic::AtomicBool};
 
 
 
@@ -112,11 +111,11 @@ fn generate_files(
 
         if inst.input_addr_time_patterns.len() > 0 {
             let mut j = AddressPatternList { addr_ptrn: Vec::new() }; 
-            for PairIntInt { key, value } in &inst.input_addr_time_patterns {
+            for AddressPatterns { address, time, .. } in &inst.input_addr_time_patterns {
                 j.addr_ptrn.push(
                     AddressPattern {
-                        address: *key as i64,
-                        cycle: *value as i64,
+                        address: *address as i64,
+                        cycle: *time as i64,
                     }
                 );
             }
@@ -125,11 +124,11 @@ fn generate_files(
 
         if inst.output_addr_time_patterns.len() > 0 {
             let mut j = AddressPatternList { addr_ptrn: Vec::new() }; 
-            for PairIntInt { key, value } in &inst.output_addr_time_patterns {
+            for AddressPatterns { address, time, .. } in &inst.output_addr_time_patterns {
                 j.addr_ptrn.push(
                     AddressPattern {
-                        address: *key as i64,
-                        cycle: *value as i64,
+                        address: *address as i64,
+                        cycle: *time as i64,
                     }
                 );
             }
@@ -315,7 +314,6 @@ fn verify_simulation(
 #[allow(unused_variables)]
 pub fn run(
     db: &mut DataBase, 
-    interrupt: &Arc<AtomicBool>,
     dir: &String,
 ) -> Result<bool, Box<dyn std::error::Error>> {
     info!("Start: simulation");

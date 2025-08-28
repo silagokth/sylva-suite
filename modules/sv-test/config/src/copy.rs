@@ -20,18 +20,18 @@ pub fn copy(db: &mut DataBase) -> Result<(), Box<dyn std::error::Error>> {
         func: "FA".to_string(),
         instances: vec![
             AlimpInstance {
-                width: 3,
+                width: 6,
                 height: 3,
                 energy: 1,
                 latency: 11,
                 input_addr_time_patterns: vec![], 
                 output_addr_time_patterns: vec![
-                    PairIntInt { key: 0, value: 2 }, PairIntInt { key: 1, value: 2 }, PairIntInt { key: 2, value: 2 },
-                    PairIntInt { key: 3, value: 2 }, PairIntInt { key: 4, value: 2 }, PairIntInt { key: 5, value: 2 },
-                    PairIntInt { key: 6, value: 4 }, PairIntInt { key: 7, value: 7 }, PairIntInt { key: 8, value: 3 },
-                    PairIntInt { key: 9, value: 10 }, PairIntInt { key: 10, value: 8 }, PairIntInt { key: 11, value: 6 },
-                    PairIntInt { key: 12, value: 5 }, PairIntInt { key: 13, value: 9 }, PairIntInt { key: 14, value: 7 },
-                    PairIntInt { key: 15, value: 10 }
+                    AddressPatterns { address: 0, channel: 5, time: 2 }, AddressPatterns { address: 1, channel: 4, time: 2 }, AddressPatterns { address: 2, channel: 3, time: 2 },
+                    AddressPatterns { address: 3, channel: 0, time: 2 }, AddressPatterns { address: 4, channel: 1, time: 2 }, AddressPatterns { address: 5, channel: 2, time: 2 },
+                    AddressPatterns { address: 6, channel: 0, time: 4 }, AddressPatterns { address: 7, channel: 5, time: 7 }, AddressPatterns { address: 8, channel: 1, time: 3 },
+                    AddressPatterns { address: 9, channel: 3, time: 10 }, AddressPatterns { address: 10, channel: 4, time: 8 }, AddressPatterns { address: 11, channel: 0, time: 6 },
+                    AddressPatterns { address: 12, channel: 2, time: 5 }, AddressPatterns { address: 13, channel: 5, time: 9 }, AddressPatterns { address: 14, channel: 1, time: 7 },
+                    AddressPatterns { address: 15, channel: 0, time: 10 }
                 ],
                 ..Default::default()
             },
@@ -42,25 +42,25 @@ pub fn copy(db: &mut DataBase) -> Result<(), Box<dyn std::error::Error>> {
         func: "FB".to_string(),
         instances: vec![
             AlimpInstance {
-                width: 2,
+                width: 4,
                 height: 2,
                 energy: 1,
                 latency: 17,
                 input_addr_time_patterns: vec![
-                    PairIntInt { key: 0, value: 0 }, PairIntInt { key: 1, value: 1 }, PairIntInt { key: 2, value: 4 },
-                    PairIntInt { key: 3, value: 2 }, PairIntInt { key: 4, value: 5 }, PairIntInt { key: 5, value: 0 },
-                    PairIntInt { key: 6, value: 3 }, PairIntInt { key: 7, value: 1 }, PairIntInt { key: 8, value: 5 },
-                    PairIntInt { key: 9, value: 2 }, PairIntInt { key: 10, value: 1 }, PairIntInt { key: 11, value: 2 },
-                    PairIntInt { key: 12, value: 3 }, PairIntInt { key: 13, value: 3 }, PairIntInt { key: 14, value: 1 },
-                    PairIntInt { key: 15, value: 5 }
+                    AddressPatterns { address: 0, channel: 0, time: 0 }, AddressPatterns { address: 1, channel: 2, time: 1 }, AddressPatterns { address: 2, channel: 1, time: 4 },
+                    AddressPatterns { address: 3, channel: 1, time: 2 }, AddressPatterns { address: 4, channel: 1, time: 5 }, AddressPatterns { address: 5, channel: 1, time: 0 },
+                    AddressPatterns { address: 6, channel: 1, time: 3 }, AddressPatterns { address: 7, channel: 1, time: 1 }, AddressPatterns { address: 8, channel: 0, time: 5 },
+                    AddressPatterns { address: 9, channel: 0, time: 2 }, AddressPatterns { address: 10, channel: 3, time: 1 }, AddressPatterns { address: 11, channel: 2, time: 2 },
+                    AddressPatterns { address: 12, channel: 2, time: 3 }, AddressPatterns { address: 13, channel: 0, time: 3 }, AddressPatterns { address: 14, channel: 0, time: 1 },
+                    AddressPatterns { address: 15, channel: 3, time: 5 }
                 ],
                 output_addr_time_patterns: vec![
-                    PairIntInt { key: 0, value: 1 }, PairIntInt { key: 1, value: 2 }, PairIntInt { key: 2, value: 3 },
-                    PairIntInt { key: 3, value: 4 }, PairIntInt { key: 4, value: 5 }, PairIntInt { key: 5, value: 6 },
-                    PairIntInt { key: 6, value: 7 }, PairIntInt { key: 7, value: 8 }, PairIntInt { key: 8, value: 9 },
-                    PairIntInt { key: 9, value: 10 }, PairIntInt { key: 10, value: 11 }, PairIntInt { key: 11, value: 12 },
-                    PairIntInt { key: 12, value: 13 }, PairIntInt { key: 13, value: 14 }, PairIntInt { key: 14, value: 15 },
-                    PairIntInt { key: 15, value: 16 }
+                    AddressPatterns { address: 0, channel: 0, time: 5 }, AddressPatterns { address: 1, channel: 3, time: 9 }, AddressPatterns { address: 2, channel: 2, time: 7 },
+                    AddressPatterns { address: 3, channel: 3, time: 7 }, AddressPatterns { address: 4, channel: 2, time: 8 }, AddressPatterns { address: 5, channel: 1, time: 9 },
+                    AddressPatterns { address: 6, channel: 0, time: 7 }, AddressPatterns { address: 7, channel: 0, time: 10 }, AddressPatterns { address: 8, channel: 3, time: 10 },
+                    AddressPatterns { address: 9, channel: 2, time: 10 }, AddressPatterns { address: 10, channel: 1, time: 13 }, AddressPatterns { address: 11, channel: 3, time: 13 },
+                    AddressPatterns { address: 12, channel: 2, time: 13 }, AddressPatterns { address: 13, channel: 0, time: 15 }, AddressPatterns { address: 14, channel: 1, time: 8 },
+                    AddressPatterns { address: 15, channel: 0, time: 16 }
                 ],
                 ..Default::default()
             },
@@ -76,12 +76,12 @@ pub fn copy(db: &mut DataBase) -> Result<(), Box<dyn std::error::Error>> {
                 energy: 10,
                 latency: 16,
                 input_addr_time_patterns: vec![
-                    PairIntInt { key: 0, value: 0 }, PairIntInt { key: 1, value: 1 }, PairIntInt { key: 2, value: 2 },
-                    PairIntInt { key: 3, value: 3 }, PairIntInt { key: 4, value: 4 }, PairIntInt { key: 5, value: 5 },
-                    PairIntInt { key: 6, value: 6 }, PairIntInt { key: 7, value: 7 }, PairIntInt { key: 8, value: 8 },
-                    PairIntInt { key: 9, value: 9 }, PairIntInt { key: 10, value: 10 }, PairIntInt { key: 11, value: 11 },
-                    PairIntInt { key: 12, value: 12 }, PairIntInt { key: 13, value: 13 }, PairIntInt { key: 14, value: 14 },
-                    PairIntInt { key: 15, value: 15 }
+                    AddressPatterns { address: 0, channel: 0, time: 0 }, AddressPatterns { address: 1, channel: 1, time: 3 }, AddressPatterns { address: 2, channel: 0, time: 2 },
+                    AddressPatterns { address: 3, channel: 0, time: 3 }, AddressPatterns { address: 4, channel: 3, time: 2 }, AddressPatterns { address: 5, channel: 3, time: 3 },
+                    AddressPatterns { address: 6, channel: 1, time: 5 }, AddressPatterns { address: 7, channel: 2, time: 9 }, AddressPatterns { address: 8, channel: 0, time: 10 },
+                    AddressPatterns { address: 9, channel: 0, time: 9 }, AddressPatterns { address: 10, channel: 1, time: 9 }, AddressPatterns { address: 11, channel: 1, time: 10 },
+                    AddressPatterns { address: 12, channel: 2, time: 14 }, AddressPatterns { address: 13, channel: 3, time: 13 }, AddressPatterns { address: 14, channel: 0, time: 14 },
+                    AddressPatterns { address: 15, channel: 1, time: 15 }
                 ],
                 output_addr_time_patterns: vec![], 
                 ..Default::default()
