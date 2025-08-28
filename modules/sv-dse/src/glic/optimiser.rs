@@ -2,7 +2,7 @@ use sv_lib::model::{DataBase, AddressPatterns};
 use crate::solver::Solver;
 use log::{debug};
 use serde_json;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 use itertools::Itertools;
 
 
@@ -13,25 +13,32 @@ pub fn solve_min_delay(
     max_delay: i32,
     module_dir: String,
 ) -> Result<i32, Box<dyn std::error::Error>> {
-    
-    let src_keys: HashSet<i32> = src_addr_pattern.keys().cloned().collect();
-    let dst_keys: HashSet<i32> = dst_addr_pattern.keys().cloned().collect();
-    let mut common_addr: Vec<i32> = src_keys
-        .intersection(&dst_keys)
-        .cloned()
-        .collect();
+   
+    if src_addr_pattern.len() != dst_addr_pattern.len() {
+        return Err(format!("lenths of source and destination address patterns do not match").into());
+    }
 
-    common_addr.sort();
+    let mut src_key_pattern: Vec<_> = src_addr_pattern.keys().cloned().collect();
+    let mut dst_key_pattern: Vec<_> = dst_addr_pattern.keys().cloned().collect();
+    dst_key_pattern.sort();
+    src_key_pattern.sort();
+
+    let sorted_dst_indices: Vec<usize> = {
+        let mut idx: Vec<_> = (0..dst_key_pattern.len()).collect();
+        idx.sort_by_key(|&i| dst_addr_pattern[&dst_key_pattern[i]]);
+        idx.into_iter().map(|i| i + 1).collect()  // shift indices to 1..N
+    };
 
     let mut solver = Solver::new(String::from("solve_min_delay"), module_dir);
 
     /* formulating the model */
     solver.add(format!("include \"cumulative.mzn\";"));
-    solver.add(format!("int: N = {};", common_addr.len()));
+    solver.add(format!("int: N = {};", src_addr_pattern.len()));
     solver.add(format!("int: WIDTH = {};", channel_width));
     solver.add(format!("int: MAX_DELAY = {};", max_delay));
-    solver.add(format!("array [1..N] of int: src_patterns = [{}];", common_addr.iter().map(|k| format!("{}", src_addr_pattern[k])).join(", ")));
-    solver.add(format!("array [1..N] of int: dst_patterns = [{}];", common_addr.iter().map(|k| format!("{}", dst_addr_pattern[k])).join(", ")));
+    solver.add(format!("array [1..N] of int: src_patterns = [{}];", src_key_pattern.iter().map(|k| format!("{}", src_addr_pattern[k])).join(", ")));
+    solver.add(format!("array [1..N] of int: dst_patterns = [{}];", dst_key_pattern.iter().map(|k| format!("{}", dst_addr_pattern[k])).join(", ")));
+    solver.add(format!("array [1..N] of int: sorted_dst_indices = {:?};", sorted_dst_indices));  
     solver.new_line();
 
     solver.add(format!("var 2..MAX_DELAY: delay;"));
@@ -53,6 +60,10 @@ pub fn solve_min_delay(
         \n  [1 | i in 1..N],\
         \n  WIDTH\
     \n);"));
+    solver.add(format!("% breaking the symmetry by posting this NDF method on tr_read"));
+    solver.add(format!("constraint forall(k in 1..N-1)("));
+    solver.add(format!("    tr_read[sorted_dst_indices[k]] <= tr_read[sorted_dst_indices[k+1]]"));
+    solver.add(format!(");"));
     solver.new_line();
     solver.new_line();
 
@@ -67,11 +78,10 @@ pub fn solve_min_delay(
     }\"];")); 
 
     /* solving the model */
-    let (status, solutions) = solver.solve("cp-sat", 60, "-p 16")?;
+    let (status, solutions) = solver.solve("cp-sat", 30, "-p 16")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
-        "UNSATISFIABLE" => return Ok(-1),
-        _ => return Err(format!("MiniZinc status: {}", status).into()),
+        _ => return Ok(-1),
     };
     let parsed_json_value: serde_json::Value = serde_json::from_str(&solutions[0])?;
 
