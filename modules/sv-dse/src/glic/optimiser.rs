@@ -1,5 +1,5 @@
 use sv_lib::model::{DataBase, AddressPatterns};
-use crate::solver::Solver;
+use sv_lib::solver::{Solver};
 use log::{debug};
 use serde_json;
 use std::collections::{HashMap};

@@ -1,5 +1,5 @@
 [package]
-name = "sv-dse"
+name = "sv-asm"
 version = "0.1.0"
 edition = "2024"
 
@@ -14,3 +14,6 @@ plotters = "0.3"
 rand = "0.8"
 itertools = "0.12"
 regex = "1"
+nix = "0.30.1"
+libc = "0.2.174"
+ndarray = "0.16.0"

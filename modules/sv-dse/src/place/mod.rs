@@ -1,5 +1,5 @@
 use sv_lib::model::{DataBase, FloorPlan, RectangleShape, RectanglePosition, Placement};
-use crate::solver::Solver;
+use sv_lib::solver::{Solver};
 use log::{info, warn, error, debug};
 use serde_json;
 use plotters::style::{Color, BLACK, FontStyle};

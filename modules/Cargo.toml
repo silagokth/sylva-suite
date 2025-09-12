@@ -2,6 +2,7 @@
 members = [
     "sv-lib",
     "sv-dse",
+    "sv-asm",
     "sv-sim",
     "sv-test/config",
     "sv-test/minimum",

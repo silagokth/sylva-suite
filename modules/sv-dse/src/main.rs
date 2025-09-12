@@ -10,7 +10,6 @@ mod noc;
 mod glic;
 mod sim;
 
-mod solver;
 
 /// Arguments to get the configuration files and output directory 
 #[derive(Parser, Debug)]
@@ -60,7 +59,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };    
 
     /* run the compilation */
-    info!("Sylva starts compilation!");
+    info!("Sylva DSE starts compilation!");
 
     bind::run(&mut db, &args.output)?;
     place::run(&mut db, &args.output)?;
@@ -79,6 +78,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(1);
     }
 
-    info!("Sylva finished successfully!");
+    info!("Sylva DSE finished successfully!");
     Ok(())
 }
