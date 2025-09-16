@@ -87,6 +87,7 @@ pub fn optimise_memory(
     // sorted column indices of consuming matrix 
     let mut sorted_consuming_indices: Vec<_> = (0..output_patterns.len()).map(|i| i as i32).collect();   
     sorted_consuming_indices.sort_by_key(|&i| output_patterns[i as usize].2);
+    sorted_consuming_indices = sorted_consuming_indices.into_iter().map(|i| i + 1).collect(); // new indexing
 
     // maximum number of time in the scope 
     let maximum_delay = std::cmp::max(
@@ -94,9 +95,15 @@ pub fn optimise_memory(
         consuming_matrix.iter().max().unwrap()
     ) + 1;
 
-    let number_of_producers = mapping_output_channels.len();
-    let number_of_consumers = mapping_input_channels.len();
+    let number_of_producers = mapping_output_channels.len() as i32;
+    let number_of_consumers = mapping_input_channels.len() as i32;
+    let maximum_reg_file_port_cap = *vec![
+        number_of_producers,
+        number_of_consumers,
+        *total_communication_channel,
+    ].iter().max().unwrap();
 
+    // work on this statement if sharing a channel to different banks is permitted
     let statements = format!(r#"include "cumulative.mzn";
 % problem to select memory banks and map channels to minimize cost 
 
@@ -109,8 +116,9 @@ int: MAX_OB_SIZE = {MAXIMUM_OUTPUT_BUFFER_SIZE};
 int: MAX_IB_SIZE = {MAXIMUM_INPUT_BUFFER_SIZE};
 int: MAX_DELAY = {MAXIMUM_DELAY};
 
-int: MAX_OB_BANK = max(M,MAX_K);
-int: MAX_IB_BANK = max(N,MAX_K);
+%%%% LIMITING TO FIND A 1-BANK SOLUTION BECAUSE OF CHANNELS CANNOT BE SHARED %%%%
+int: MAX_OB_BANK = 1; % min(M,MAX_K);
+int: MAX_IB_BANK = 1; % min(N,MAX_K);
 
 % addresss patterns 
 array [1..M,1..TOKEN_SIZE] of int: T0 = {PRODUCING_MATRIX}; % including fire time 
@@ -170,8 +178,8 @@ constraint forall(j in 1..MAX_K)(
     sum(i in 1..MAX_OB_BANK)(bool2int(OUT_OB_BANK[i,j] = 1)) <= 1
 );
 constraint forall(j in 1..MAX_K)(
-    sum(i in 1..MAX_OB_BANK)(bool2int(OUT_OB_BANK[i,j] = 1)) = 
-    sum(i in 1..MAX_IB_BANK)(bool2int(IN_IB_BANK[i,j] = 1)) 
+    (sum(i in 1..MAX_OB_BANK)(bool2int(OUT_OB_BANK[i,j] = 1)) = 1) ->
+        sum(i in 1..MAX_IB_BANK)(bool2int(IN_IB_BANK[i,j] = 1)) >= 1
 );
 constraint forall(j in 1..N)(
     sum(i in 1..MAX_IB_BANK)(bool2int(OUT_IB_BANK[i,j] = 1)) = 1
@@ -284,11 +292,7 @@ constraint forall(b in 1..MAX_IB_BANK, j in 1..TOKEN_SIZE)(
 
 
 constraint forall(j in 1..TOKEN_SIZE)(sum(b in 1..MAX_OB_BANK)(bool2int(D01[b,j] != 0)) = 1);
-constraint forall(j in 1..TOKEN_SIZE)(sum(b in 1..MAX_OB_BANK)(bool2int(D01_START[b,j] != 0)) = 1);
-constraint forall(j in 1..TOKEN_SIZE)(sum(b in 1..MAX_OB_BANK)(bool2int(D01_END[b,j] != 0)) = 1);
 constraint forall(j in 1..TOKEN_SIZE)(sum(b in 1..MAX_IB_BANK)(bool2int(D23[b,j] != 0)) = 1);
-constraint forall(j in 1..TOKEN_SIZE)(sum(b in 1..MAX_IB_BANK)(bool2int(D23_START[b,j] != 0)) = 1);
-constraint forall(j in 1..TOKEN_SIZE)(sum(b in 1..MAX_IB_BANK)(bool2int(D23_END[b,j] != 0)) = 1);
 
 % apply NDF ordering for each OB bank to pressure the OB
 constraint forall(b in 1..MAX_OB_BANK)(
@@ -391,7 +395,7 @@ output [
         SORTED_OUTPUT_PATTERN_INDICES = sorted_consuming_indices,
         WIRE_DELAY = routing_delay,
         MEMORY_TYPES = format!("{{ {} }}", vec!["fifo", "reg_file", "sram"].join(", ")),
-        MEMORY_PORT_CAPACITY = vec![1, std::cmp::max(number_of_producers, number_of_consumers), 2],
+        MEMORY_PORT_CAPACITY = vec![1, maximum_reg_file_port_cap, 2],
         MEMORY_MINIMUM_SIZE = vec![1, 1, 1024],
         MEMORY_COST = vec![2, 3, 1],
         COMMUNICATION_COST = 1,
@@ -405,6 +409,12 @@ output [
         "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
         _ => return Ok(()),
     };
+    let parsed_json_value: serde_json::Value = serde_json::from_str(&solutions[0])?;
  
+    // formatting output 
+
+
+
+
     Ok(())
 }
