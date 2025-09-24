@@ -1,9 +1,9 @@
 use sv_lib::model::{DataBase, AddressPatterns};
-use sv_lib::solver::{Solver};
 use log::{info, error, debug};
 use std::collections::{HashMap, HashSet};
 
 mod banking;
+
 
 fn address_pattern_to_hashmap(list: &Vec<AddressPatterns>) -> HashMap<i32, (i32, i32)> {
     list.iter().map(|e| (e.address, (e.channel, e.time))).collect()
@@ -130,12 +130,56 @@ fn group_dependencies(
 
 
 
+
+
 fn memory_synthesis(
     db: &mut DataBase, 
     module_dir: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
 
     for edge in &db.app_graph.edges {
+        debug!("memory optimising on edge {}", edge.id);
+        // preparing some constraints     
+        let src_fire_time = db.synthesized_information.node_fire_times
+            .get(&edge.source_node)
+            .ok_or(format!("cannot find fire time of {} node", &edge.source_node))?;
+        
+        let dst_fire_time = db.synthesized_information.node_fire_times
+            .get(&edge.target_node)
+            .ok_or(format!("cannot find fire time of {} node", &edge.target_node))?;
+        
+        let routing_delay = db.synthesized_information.routing_paths
+            .iter()
+            .find(|r| r.app_edge_id == edge.id)
+            .map(|r| r.delay)
+            .ok_or("Cannot find an edge in the routing paths")?;
+
+        let total_output_buffer = db.synthesized_information.memory_synthesis
+            .iter()
+            .find(|m| m.app_node_id == edge.source_node && m.port_id == edge.source_port)
+            .map(|m| m.memory_structure[0].memory_size)
+            .ok_or(format!("cannot find memory synthesis of {} node at {} port", &edge.source_node, &edge.source_port))?;
+
+        let total_input_buffer = db.synthesized_information.memory_synthesis
+            .iter()
+            .find(|m| m.app_node_id == edge.target_node && m.port_id == edge.target_port)
+            .map(|m| m.memory_structure[0].memory_size)
+            .ok_or(format!("cannot find input buffer size of {} node", &edge.target_node))?;
+        
+        let total_communication_channel = db.synthesized_information.channel_width
+            .get(&format!("transporter_{}", edge.id))
+            .ok_or(format!("cannot find channel width of {} edge", &edge.id))?;
+        
+        let edge_memory_constraints = banking::MemoryConstraint {
+            edge_id: edge.id.clone(),
+            src_fire_time: *src_fire_time,
+            dst_fire_time: *dst_fire_time,
+            routing_delay: routing_delay,
+            output_buffer_size: total_output_buffer,
+            input_buffer_size: total_input_buffer,
+            channel_width_size: *total_communication_channel,
+        };
+
         let dst_dependencies = pattern_dependencies(
             db, 
             &edge.source_node, 
@@ -148,7 +192,10 @@ fn memory_synthesis(
         let output_patterns = translate_addr_pattern(db, &edge.source_node, &edge.source_port, "out")?;
         let input_patterns = translate_addr_pattern(db, &edge.target_node, &edge.target_port, "in")?;
         
-        for ((i, dst_list), src_list) in dst_groups.iter().enumerate().zip(src_groups.iter()) {
+        let mut numbering = 0;
+        let mut memory_collections: Vec<banking::MemoryBankInfo> = vec![];
+
+        for (dst_list, src_list) in dst_groups.iter().zip(src_groups.iter()) {
             let mut working_output_patterns: Vec<_> = output_patterns
                 .iter()
                 .filter(|(_, (c, _))| src_list.contains(c))
@@ -172,17 +219,25 @@ fn memory_synthesis(
                 return Err(format!("cannot extract working address channel patterns").into());
             }
 
-            banking::optimise_memory(
-                i as i32,
-                &db,
-                &edge.id,
-                &working_output_patterns,
-                &working_input_patterns,
-                module_dir.clone(),
+            // solve the constraint programming problem 
+            memory_collections.push(
+                banking::optimise_memory(
+                    &edge_memory_constraints,
+                    &mut numbering,
+                    &working_output_patterns,
+                    &working_input_patterns,
+                    module_dir.clone(),
+                )?
             );
-            //...  
         }
-/*
+    
+        // update each edge's solution
+        debug!("found a solution for edge {}, updating the synthesized information", edge.id);
+        
+
+
+
+        /*
         // constraints verification 
         if sum(output_buffer_size) > total_output_buffer {
             return Err(format!("find an overestimated solution for OB at edge {}", &edge.id).into());
@@ -218,7 +273,6 @@ pub fn run(
         },
     };
 
-    info!("Stage 1: "); 
     memory_synthesis(db, module_dir.clone())?;
 
     info!("Finish: memory synthesis");

@@ -252,16 +252,14 @@ pub struct SynthesizedInformation {
     pub placements: Vec<Placement>,
     pub max_width: i32,
     pub max_height: i32,
-    pub routing_paths: Vec<RoutingPath>,
     pub max_latency: i32,
-    pub node_fire_times: HashMap<String, i32>,
-    pub transporter_fire_times: HashMap<String, i32>,
-    pub channel_width: HashMap<String, i32>,
-    pub input_buffer_size: HashMap<String, i32>,
-    pub output_buffer_size: HashMap<String, i32>,
-    pub chunk_address_assignments: Vec<ChunkAddressAssignment>,
+    pub routing_paths: Vec<RoutingPath>,
     pub wire_assignment: HashMap<String, String>,
-    pub transport_tables: HashMap<String, TransportTable>,
+    pub node_fire_times: HashMap<String, i32>,
+    pub channel_width: HashMap<String, i32>,
+    pub address_translations: Vec<AddressTranslation>,
+    pub memory_synthesis: Vec<MemorySynthesis>,
+    pub transporter_tables: Vec<TransporterTable>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -289,27 +287,57 @@ pub struct Coordinate {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ChunkAddressAssignment {
+pub struct AddressTranslation {
     pub app_node_id: String,
     pub port_id: String,
-    pub address_assignment: HashMap<i32, i32>,
+    pub address_assignment: HashMap<i32, (i32, i32, i32)>, // virtual address -> (from channel, bank index, physical address)
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TransportTable {
-    pub app_edge_id: String,
+pub struct MemorySynthesis {
+    pub app_node_id: String,
+    pub port_id: String,
+    pub memory_direction: String,
+    pub memory_structure: Vec<MemoryStructure>, 
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MemoryStructure {
+    pub memory_type: String,
+    pub memory_size: i32,
+    pub input_channels: Vec<i32>,
+    pub output_channels: Vec<i32>,
+    pub placement: MemoryPlacement, 
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransporterTable {
+    pub transporter_id: String,
+    pub fire_time: i32,
+    pub end_time: i32,
     pub entries: Vec<TransportTableEntry>,
+    pub placement: MemoryPlacement,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TransportTableEntry {
-    pub time: i32,
+    pub relative_time: i32,
     pub source_address: i32,
     pub target_address: i32,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MemoryPlacement {
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -321,7 +349,6 @@ pub struct AddressPatterns {
     #[serde(default)]
     pub time: i32,
 }
-
 
 impl DataBase {
     pub fn new() -> Self {
@@ -390,16 +417,14 @@ impl DataBase {
                 placements: vec![],
                 max_width: 0,
                 max_height: 0,
-                routing_paths: vec![],
                 max_latency: 0,
-                node_fire_times: std::collections::HashMap::new(),
-                transporter_fire_times: std::collections::HashMap::new(),
-                channel_width: std::collections::HashMap::new(),
-                input_buffer_size: std::collections::HashMap::new(),
-                output_buffer_size: std::collections::HashMap::new(),
-                chunk_address_assignments: vec![],
+                routing_paths: vec![],
                 wire_assignment: std::collections::HashMap::new(),
-                transport_tables: std::collections::HashMap::new(),
+                node_fire_times: std::collections::HashMap::new(),
+                channel_width: std::collections::HashMap::new(),
+                address_translations: vec![],
+                memory_synthesis: vec![],
+                transporter_tables: vec![],
             },
         }
     }

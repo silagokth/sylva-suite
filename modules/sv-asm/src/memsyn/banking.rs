@@ -1,8 +1,38 @@
-use sv_lib::model::{DataBase};
 use sv_lib::solver::{Solver};
 use std::collections::{HashMap};
 use ndarray::Array2;
 use std::fmt::Display;
+
+
+#[derive(Debug)]
+pub struct MemoryConstraint {
+    pub edge_id: String,
+    pub src_fire_time: i32,
+    pub dst_fire_time: i32,
+    pub routing_delay: i32,
+    pub output_buffer_size: i32,
+    pub input_buffer_size: i32,
+    pub channel_width_size: i32,
+}
+
+#[derive(Debug)]
+pub struct MemoryBankInfo {
+    // [bank id]
+    pub ob_memory_types: Vec<String>,
+    pub ib_memory_types: Vec<String>,
+    pub ob_size: Vec<i32>,
+    pub ib_size: Vec<i32>,
+    // [bank id, channel]
+    pub input_ob_channels: Array2<i32>, 
+    pub output_ob_channels: Array2<i32>, 
+    pub input_ib_channels: Array2<i32>,
+    pub output_ib_channels: Array2<i32>,
+    // [channel, token]
+    pub t0: Array2<i32>,
+    pub t1: Array2<i32>,
+    pub t2: Array2<i32>,
+    pub t3: Array2<i32>,
+}
 
 
 fn format_matrix<T: Display>(matrix: &Array2<T>) -> String {
@@ -26,26 +56,17 @@ fn format_matrix<T: Display>(matrix: &Array2<T>) -> String {
 }
 
 
+#[allow(unused_assignments)]
 pub fn optimise_memory(
-    id: i32, 
-    db: &DataBase,
-    edge_id: &str,
+    constraints: &MemoryConstraint,
+    number: &mut i32, 
     output_patterns: &Vec<(i32, i32, i32)>,
     input_patterns: &Vec<(i32, i32, i32)>,
     module_dir: String,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<MemoryBankInfo, Box<dyn std::error::Error>> {
 
-    let edge = db.app_graph.edges.iter().find(|e| e.id == edge_id).ok_or("edge not found")?;
     let number_of_tokens = output_patterns.len();
-    let src_fire_time = db.synthesized_information.node_fire_times.get(&edge.source_node).ok_or(format!("cannot find fire time of {} node", &edge.source_node))?;
-    let dst_fire_time = db.synthesized_information.node_fire_times.get(&edge.target_node).ok_or(format!("cannot find fire time of {} node", &edge.target_node))?;
-    let routing_delay = db.synthesized_information.routing_paths.iter().find(|r| r.app_edge_id == edge_id).map(|r| r.delay).ok_or("Cannot find an edge in the routing paths")?;
-
-    // These parameters are upper bound. Good results should acheive less than these
-    let total_output_buffer = db.synthesized_information.output_buffer_size.get(&edge.source_node).ok_or(format!("cannot find output buffer size of {} node", &edge.source_node))?;
-    let total_input_buffer = db.synthesized_information.input_buffer_size.get(&edge.target_node).ok_or(format!("cannot find input buffer size of {} node", &edge.target_node))?;
-    let total_communication_channel = db.synthesized_information.channel_width.get(&format!("transporter_{}", edge.id)).ok_or(format!("cannot find channel width of {} edge", &edge.id))?;
-     
+       
     // creating the producing matrix 
     let mut working_output_channels: Vec<i32> = output_patterns.iter().map(|&(_, c, _)| c).collect();
     working_output_channels.sort();
@@ -62,7 +83,7 @@ pub fn optimise_memory(
 
     for (col, &(_, channel, time)) in output_patterns.iter().enumerate() {   
         let row = mapping_output_channels[&channel];
-        producing_matrix[(row as usize, col)] = time + src_fire_time;
+        producing_matrix[(row as usize, col)] = time + constraints.src_fire_time;
     }
 
     // creating the consuming matrix 
@@ -81,13 +102,13 @@ pub fn optimise_memory(
 
     for (col, &(_, channel, time)) in input_patterns.iter().enumerate() {   
         let row = mapping_input_channels[&channel];
-        consuming_matrix[(row as usize, col)] = time + dst_fire_time;
+        consuming_matrix[(row as usize, col)] = time + constraints.dst_fire_time;
     }
 
     // sorted column indices of consuming matrix 
     let mut sorted_consuming_indices: Vec<_> = (0..output_patterns.len()).map(|i| i as i32).collect();   
     sorted_consuming_indices.sort_by_key(|&i| output_patterns[i as usize].2);
-    sorted_consuming_indices = sorted_consuming_indices.into_iter().map(|i| i + 1).collect(); // new indexing
+    sorted_consuming_indices = sorted_consuming_indices.into_iter().map(|i| i + 1).collect(); 
 
     // maximum number of time in the scope 
     let maximum_delay = std::cmp::max(
@@ -100,8 +121,11 @@ pub fn optimise_memory(
     let maximum_reg_file_port_cap = *vec![
         number_of_producers,
         number_of_consumers,
-        *total_communication_channel,
+        constraints.channel_width_size,
     ].iter().max().unwrap();
+
+    let max_ob_bank = 1; // set to min(M,K)
+    let max_ib_bank = 1; // set to min(N,K)
 
     // work on this statement if sharing a channel to different banks is permitted
     let statements = format!(r#"include "cumulative.mzn";
@@ -117,8 +141,8 @@ int: MAX_IB_SIZE = {MAXIMUM_INPUT_BUFFER_SIZE};
 int: MAX_DELAY = {MAXIMUM_DELAY};
 
 %%%% LIMITING TO FIND A 1-BANK SOLUTION BECAUSE OF CHANNELS CANNOT BE SHARED %%%%
-int: MAX_OB_BANK = 1; % min(M,MAX_K);
-int: MAX_IB_BANK = 1; % min(N,MAX_K);
+int: MAX_OB_BANK = {MAX_OB_BANK}; % min(M,MAX_K);
+int: MAX_IB_BANK = {MAX_IB_BANK}; % min(N,MAX_K);
 
 % addresss patterns 
 array [1..M,1..TOKEN_SIZE] of int: T0 = {PRODUCING_MATRIX}; % including fire time 
@@ -190,6 +214,12 @@ constraint forall(j in 1..N)(
 var 1..MAX_K: comm_cap;
 array [1..MAX_OB_BANK] of var 0..MAX_OB_SIZE: ob_cap;
 array [1..MAX_IB_BANK] of var 0..MAX_IB_SIZE: ib_cap;
+array [1..MAX_OB_BANK] of var 1..16: ob_cap_power;
+array [1..MAX_OB_BANK] of var 1..16: ib_cap_power;
+
+% force the buffer to be 2 ** N size
+constraint forall(b in 1..MAX_OB_BANK)(ob_cap[b] = pow(2, ob_cap_power[b]));
+constraint forall(b in 1..MAX_IB_BANK)(ib_cap[b] = pow(2, ib_cap_power[b]));
 
 array [1..MAX_OB_BANK] of var 0..M: ob_in_ports;
 array [1..MAX_OB_BANK] of var 0..MAX_K: ob_out_ports;
@@ -359,6 +389,14 @@ constraint forall(b in 1..MAX_IB_BANK)(
     ) <-> ib_type[b] = fifo
 );
 
+constraint forall(b in 1..MAX_OB_BANK)(
+    (OB_BANK_USED[b] = 0) -> ob_type[b] = none
+);
+
+constraint forall(b in 1..MAX_IB_BANK)(
+    (IB_BANK_USED[b] = 0) -> ib_type[b] = none
+);
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % objective
 % define costs of memory 
@@ -381,40 +419,115 @@ solve minimize cost_output_buffers + cost_input_buffers + cost_wire;
 
 % output 
 output [
-  "{{D01_START: \(D01_START), D01: \(D01), D23_START: \(D23_START) D23: \(D23), IN_OB_BANK: \(IN_OB_BANK), OUT_OB_BANK: \(OUT_OB_BANK), IN_IB_BANK: \(IN_IB_BANK), OUT_IB_BANK: \(OUT_IB_BANK), ob_type: \(ob_type), ib_type: \(ib_type), comm_cap: \(comm_cap), ob_cap: \(ob_cap), ib_cap: \(ib_cap), T0:\(T0), T1:\(T1), T2:\(T2), T3:\(T3)}}" 
+  "{{IN_OB_BANK:\(IN_OB_BANK), OUT_OB_BANK:\(OUT_OB_BANK), IN_IB_BANK:\(IN_IB_BANK), OUT_IB_BANK:\(OUT_IB_BANK), " ++
+  "ob_type:[" ++ join(", ", [ "\"\(s)\"" | s in ob_type ]) ++ "], " ++ 
+  "ib_type:[" ++ join(", ", [ "\"\(s)\"" | s in ib_type ]) ++ "], " ++ 
+  "comm_cap:\(comm_cap), ob_cap:\(ob_cap), ib_cap:\(ib_cap), T0:\(T0), T1:\(T1), T2:\(T2), T3:\(T3)}}" 
 ];"#,
         TOKEN_SIZE = number_of_tokens,
         PRODUCING_CHANNELS = number_of_producers,
         CONSUMING_CHANNELS = number_of_consumers,
-        MAXIMUM_CHANNEL_WIDTH = total_communication_channel,
-        MAXIMUM_OUTPUT_BUFFER_SIZE = total_output_buffer,
-        MAXIMUM_INPUT_BUFFER_SIZE = total_input_buffer,
+        MAXIMUM_CHANNEL_WIDTH = constraints.channel_width_size,
+        MAXIMUM_OUTPUT_BUFFER_SIZE = constraints.output_buffer_size,
+        MAXIMUM_INPUT_BUFFER_SIZE = constraints.input_buffer_size,
         MAXIMUM_DELAY = maximum_delay,
+        MAX_OB_BANK = max_ob_bank,
+        MAX_IB_BANK = max_ib_bank,
         PRODUCING_MATRIX = format_matrix(&producing_matrix),
         CONSUMING_MATRIX = format_matrix(&consuming_matrix),
         SORTED_OUTPUT_PATTERN_INDICES = sorted_consuming_indices,
-        WIRE_DELAY = routing_delay,
-        MEMORY_TYPES = format!("{{ {} }}", vec!["fifo", "reg_file", "sram"].join(", ")),
-        MEMORY_PORT_CAPACITY = vec![1, maximum_reg_file_port_cap, 2],
-        MEMORY_MINIMUM_SIZE = vec![1, 1, 1024],
-        MEMORY_COST = vec![2, 3, 1],
+        WIRE_DELAY = constraints.routing_delay,
+        MEMORY_TYPES = format!("{{ {} }}", vec!["none", "fifo", "reg_file", "sram"].join(", ")),
+        MEMORY_PORT_CAPACITY = vec![0, 1, maximum_reg_file_port_cap, 2],
+        MEMORY_MINIMUM_SIZE = vec![0, 1, 1, 1024],
+        MEMORY_COST = vec![100, 2, 3, 1],
         COMMUNICATION_COST = 1,
     );
 
     /* solving the model */
-    let mut solver = Solver::new(format!("solve_memory_{}_{}", &edge.id, id), module_dir.clone());
+    let mut solver = Solver::new(format!("solve_memory_{}_{}", constraints.edge_id, number), module_dir.clone());
     solver.add(statements);
+    *number = *number + 1;
     let (status, solutions) = solver.solve("cp-sat", 120, "-p 16")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
-        _ => return Ok(()),
+        _ => return Err(format!("fail to optimize the memory banking under the constraint programming").into()),
     };
     let parsed_json_value: serde_json::Value = serde_json::from_str(&solutions[0])?;
- 
+
+    // define an empty struct to be returned
+    let mut ret = MemoryBankInfo {
+        ob_memory_types: vec![],
+        ib_memory_types: vec![],
+        ob_size: vec![],
+        ib_size: vec![],
+        input_ob_channels: Array2::zeros((0, 0)),
+        output_ob_channels: Array2::zeros((0, 0)),
+        input_ib_channels: Array2::zeros((0, 0)),
+        output_ib_channels: Array2::zeros((0, 0)),
+        t0: Array2::zeros((0, 0)),
+        t1: Array2::zeros((0, 0)),
+        t2: Array2::zeros((0, 0)),
+        t3: Array2::zeros((0, 0)),
+    };
+
     // formatting output 
+    let parse_vec_int_helper = |name: &str| -> Result<Vec<i32>, Box<dyn std::error::Error>> {
+        let json_array = parsed_json_value
+            .get(name)
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| format!("{} not found or not an array", name))?;
+        
+        Ok(json_array
+            .iter()
+            .map(|v| v.as_i64().unwrap_or(0) as i32)
+            .collect()
+        )
+    };
 
+    let parse_vec_str_helper = |name: &str| -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        let json_array = parsed_json_value
+            .get(name)
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| format!("{} not found or not an array", name))?;
+         
+        Ok(json_array
+            .iter()
+            .map(|v| v.as_str().unwrap_or("").to_string())
+            .collect()
+        )
+    };
 
+    ret.ob_memory_types = parse_vec_str_helper("ob_type")?; 
+    ret.ib_memory_types = parse_vec_str_helper("ib_type")?;
+    ret.ob_size = parse_vec_int_helper("ob_cap")?;
+    ret.ib_size = parse_vec_int_helper("ib_cap")?;
 
+    let mut tmp_array: Vec<i32> = vec![];
 
-    Ok(())
+    tmp_array = parse_vec_int_helper("IN_OB_BANK")?;
+    ret.input_ob_channels = Array2::from_shape_vec((max_ob_bank as usize, number_of_producers as usize), tmp_array)?;
+
+    tmp_array = parse_vec_int_helper("OUT_OB_BANK")?;
+    ret.output_ob_channels = Array2::from_shape_vec((max_ob_bank as usize, constraints.channel_width_size as usize), tmp_array)?;
+
+    tmp_array = parse_vec_int_helper("IN_IB_BANK")?;
+    ret.input_ib_channels = Array2::from_shape_vec((max_ib_bank as usize, constraints.channel_width_size as usize), tmp_array)?;
+
+    tmp_array = parse_vec_int_helper("OUT_IB_BANK")?;
+    ret.output_ib_channels = Array2::from_shape_vec((max_ib_bank as usize, number_of_consumers as usize), tmp_array)?;
+
+    tmp_array = parse_vec_int_helper("T0")?;
+    ret.t0 = Array2::from_shape_vec((number_of_producers as usize, number_of_tokens as usize), tmp_array)?;
+
+    tmp_array = parse_vec_int_helper("T1")?;
+    ret.t1 = Array2::from_shape_vec((constraints.channel_width_size as usize, number_of_tokens as usize), tmp_array)?;
+
+    tmp_array = parse_vec_int_helper("T2")?;
+    ret.t2 = Array2::from_shape_vec((constraints.channel_width_size as usize, number_of_tokens as usize), tmp_array)?;
+
+    tmp_array = parse_vec_int_helper("T3")?;
+    ret.t3 = Array2::from_shape_vec((number_of_consumers as usize, number_of_tokens as usize), tmp_array)?;
+
+    Ok(ret)
 }
