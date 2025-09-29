@@ -1,6 +1,7 @@
 use sv_lib::model::{DataBase, AddressPatterns};
 use log::{info, error, debug};
 use std::collections::{HashMap, HashSet};
+use ndarray::Array2;
 
 mod banking;
 
@@ -137,36 +138,47 @@ fn memory_synthesis(
     module_dir: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
 
-    for edge in &db.app_graph.edges {
+    let previous_db = db.clone()
+
+
+    // delete all information about channel_width, 
+    // address translation, memory synthesis, and transporter tables
+    db.synthesized_information.channel_width = HashMap::new(); // never use again
+    db.synthesized_information.address_translation = vec![];
+    db.synthesized_information.memory_synthesis = vec![];
+    db.synthesized_information.transporter_tables = vec![];
+
+
+    for edge in &previous_db.app_graph.edges {
         debug!("memory optimising on edge {}", edge.id);
         // preparing some constraints     
-        let src_fire_time = db.synthesized_information.node_fire_times
+        let src_fire_time = previous_db.synthesized_information.node_fire_times
             .get(&edge.source_node)
             .ok_or(format!("cannot find fire time of {} node", &edge.source_node))?;
         
-        let dst_fire_time = db.synthesized_information.node_fire_times
+        let dst_fire_time = previous_db.synthesized_information.node_fire_times
             .get(&edge.target_node)
             .ok_or(format!("cannot find fire time of {} node", &edge.target_node))?;
         
-        let routing_delay = db.synthesized_information.routing_paths
+        let routing_delay = previous_db.synthesized_information.routing_paths
             .iter()
             .find(|r| r.app_edge_id == edge.id)
             .map(|r| r.delay)
             .ok_or("Cannot find an edge in the routing paths")?;
 
-        let total_output_buffer = db.synthesized_information.memory_synthesis
+        let total_output_buffer = previous_db.synthesized_information.memory_synthesis
             .iter()
             .find(|m| m.app_node_id == edge.source_node && m.port_id == edge.source_port)
             .map(|m| m.memory_structure[0].memory_size)
             .ok_or(format!("cannot find memory synthesis of {} node at {} port", &edge.source_node, &edge.source_port))?;
 
-        let total_input_buffer = db.synthesized_information.memory_synthesis
+        let total_input_buffer = previous_db.synthesized_information.memory_synthesis
             .iter()
             .find(|m| m.app_node_id == edge.target_node && m.port_id == edge.target_port)
             .map(|m| m.memory_structure[0].memory_size)
             .ok_or(format!("cannot find input buffer size of {} node", &edge.target_node))?;
         
-        let total_communication_channel = db.synthesized_information.channel_width
+        let total_communication_channel = previous_db.synthesized_information.channel_width
             .get(&format!("transporter_{}", edge.id))
             .ok_or(format!("cannot find channel width of {} edge", &edge.id))?;
         
@@ -181,7 +193,7 @@ fn memory_synthesis(
         };
 
         let dst_dependencies = pattern_dependencies(
-            db, 
+            &previous_db, 
             &edge.source_node, 
             &edge.source_port, 
             &edge.target_node, 
@@ -189,8 +201,8 @@ fn memory_synthesis(
         )?;
         let (dst_groups, src_groups) = group_dependencies(&dst_dependencies)?;
        
-        let output_patterns = translate_addr_pattern(db, &edge.source_node, &edge.source_port, "out")?;
-        let input_patterns = translate_addr_pattern(db, &edge.target_node, &edge.target_port, "in")?;
+        let output_patterns = translate_addr_pattern(&previous_db, &edge.source_node, &edge.source_port, "out")?;
+        let input_patterns = translate_addr_pattern(&previous_db, &edge.target_node, &edge.target_port, "in")?;
         
         let mut numbering = 0;
         let mut memory_collections: Vec<banking::MemoryBankInfo> = vec![];
@@ -232,10 +244,199 @@ fn memory_synthesis(
         }
     
         // update each edge's solution
-        debug!("found a solution for edge {}, updating the synthesized information", edge.id);
-        
+        debug!("found all solutions for edge {}, updating the synthesized information", edge.id);
+      
+        // ---------------------------------------------------------------
+        // memory synthesis
+        let mut source_memory = MemorySynthesis {
+            app_node_id: edge.source_node,
+            port_id: edge.source_port,
+            memory_direction: "out",
+            memory_structure: vec![],
+        };
+        let mut target_memory = MemorySynthesis {
+            app_node_id: edge.target_node,
+            port_id: edge.target_port,
+            memory_direction: "in",
+            memory_structure: vec![],
+        };
+
+        // getting geometry information 
+        let mut source_x, source_y = previous_db.synthesized_information.placements
+            .iter()
+            .find(|p| p.app_node_id == edge.source_node)
+            .map(|p| (p.x, p.y - 1)) // point to vertical OB level 
+            .collect();
+
+        // need to get the height of the alimp to calculate the positions of input buffers
+        let target_height = previous_db.synthesized_information.alimp_bindings
+            .iter()
+            .find(|b| b.app_node_id == edge.target_node)
+            .map(|b| b.alimp.instance.height)
+            .collect();
+
+        let mut target_x, target_y = previous_db.synthesized_information.placements
+            .iter()
+            .find(|p| p.app_node_id == edge.target_node)
+            .map(|p| (p.x, p.y + target_height)) // point to vertical IB level
+            .collect();
+
+        let mut most_left_x_position = 0;
+        let mut most_right_x_position = 0;
+    
+        // iterate to collect all banking information into the memory synthesis data
+        for ((i, dst_list), src_list)) in dst_groups.iter().enumerate().zip(src_groups.iter()) {
+            
+            // since sharing channels is not supported, we can just do this
+            let memory_info = memory_collections[i];
+            
+            for bank_index in 0..memory_info.ob_memory_types.len() {
+                // output buffer 
+                most_left_x_position = src_list.iter().min();
+                most_right_x_position = src_list.iter().min();
+                           
+                let output_communication_channels = memory_info.output_ob_channels
+                    .index_axis(Axis(0), bank_id)
+                    .iter()
+                    .enumerate()
+                    .filter(|_, i| i == 1)
+                    .map(|idx, _| idx + most_left_x_position)
+                    .collect();
+                    
+                source_memory.memory_structure.push(MemoryStructure {
+                    memory_type: memory_info.ob_memory_types[bank_index],
+                    memory_size: memory_info.ob_size[bank_index]
+                    input_channels: src_list.clone(), 
+                    output_chennels: output_communication_channels.clone(), 
+                    placement: MemoryPlacement {
+                        x: source_x + most_left_x_position, 
+                        y: source_y,
+                        width: most_right_x_position - most_left_x_position + 1,
+                        height: 1, // fixed to 1
+                    }
+                });
+                
+                // input buffer 
+                most_left_x_position = dst_list.iter().min();
+                most_right_x_position = dst_list.iter().min();
+            
+                let input_communication_channels = memory_info.input_ib_channels
+                    .index_axis(Axis(0), bank_id)
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, i)| i == 1)
+                    .map(|idx, _| idx + most_left_x_position)
+                    .collect();
+                    
+                target_memory.memory_structure.push(MemoryStructure {
+                    memory_type: memory_info.ib_memory_types[bank_index],
+                    memory_size: memory_info.ib_size[bank_index]
+                    input_channels: dst_list.clone(), 
+                    output_chennels: input_communication_channels.clone(), 
+                    placement: MemoryPlacement {
+                        x: target_x + most_left_x_position, 
+                        y: target_y,
+                        width: most_right_x_position - most_left_x_position + 1,
+                        height: 1, // fixed to 1
+                    }
+                });
+            }
+        }
 
 
+        // update the memory synthesis
+        db.synthesis_information.memory_synthesis.push(
+            source_memory
+        );
+
+        db.synthesis_information.memory_synthesis.push(
+            target_memory
+        );
+
+        // ---------------------------------------------------------------
+        // Address translation
+        let mut bank_index = 0;
+        for ((i, dst_list), src_list)) in dst_groups.iter().enumerate().zip(src_groups.iter()) {
+            let mut output_patterns: Vec<_> = output_patterns
+                .iter()
+                .filter(|(_, (c, _))| src_list.contains(c))
+                .map(|(a, (c, t))| (*a, *c, *t)) 
+                .collect();
+
+            output_patterns.sort_by_key(|(addr, _, _)| *addr);
+           
+            let memory_info = memory_collections[i];
+
+            let flattened_t0: Vec<_> = memory_info.t0
+                .axis_iter(Axis(1))
+                .map(|col| {
+                    col.iter()
+                        .copied()
+                        .find(|&x| x > 0)
+                        .unwrap_or(0)
+                })
+                .collect();
+            
+            let flattened_t1: Vec<_> = memory_info.t1
+                .axis_iter(Axis(1))
+                .map(|col| {
+                    col.iter()
+                        .copied()
+                        .find(|&x| x > 0)
+                        .unwrap_or(0)
+                })
+                .collect();
+            
+            let number_of_bank = memory_info.ob_memory_types.len(); // should be 1
+            for j in 0..number_of_bank {
+                
+                let channels = memory_info.input_ob_channels
+                    .index_axis(Axis(0), j)
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, i)| i == 1)
+                    .map(|idx, _| src_list[idx]);
+                    .collect();
+ 
+                let valid_indices: Vec<_> = output_patterns
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, (_, c, _))| channels.contains(c))
+                    .map(|(idx, _)| idx)
+                    .collect();
+               
+                let scheduled_t0 = flattened_t0
+                    .iter()
+                    .enumerate()
+                    .filter(|addr, _| valid_indices.contains(addr))
+                    .map(|_, t| t)
+                    .collect();
+               
+                let scheduled_t1 = flattened_t1
+                    .iter()
+                    .enumerate()
+                    .filter(|addr, _| valid_indices.contains(addr))
+                    .map(|_, t| t)
+                    .collect();
+               
+                let mut assigned_address: Vec<i32> = equitable_address_assignment(
+                    scheduled_t0,
+                    scheduled_t1,
+                    memory_info.ob_size[j],
+                )?; 
+ 
+
+
+
+
+
+
+
+                bank_index += 1;
+            } 
+
+
+        }
 
         /*
         // constraints verification 

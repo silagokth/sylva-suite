@@ -118,6 +118,11 @@ pub fn optimise_memory(
 
     let number_of_producers = mapping_output_channels.len() as i32;
     let number_of_consumers = mapping_input_channels.len() as i32;
+    let number_of_communications = *vec![
+        number_of_producers,
+        number_of_consumers,
+        constraints.channel_width_size,
+    ].iter().min().unwrap();
     let maximum_reg_file_port_cap = *vec![
         number_of_producers,
         number_of_consumers,
@@ -427,7 +432,7 @@ output [
         TOKEN_SIZE = number_of_tokens,
         PRODUCING_CHANNELS = number_of_producers,
         CONSUMING_CHANNELS = number_of_consumers,
-        MAXIMUM_CHANNEL_WIDTH = constraints.channel_width_size,
+        MAXIMUM_CHANNEL_WIDTH = number_of_communications,
         MAXIMUM_OUTPUT_BUFFER_SIZE = constraints.output_buffer_size,
         MAXIMUM_INPUT_BUFFER_SIZE = constraints.input_buffer_size,
         MAXIMUM_DELAY = maximum_delay,
@@ -509,10 +514,10 @@ output [
     ret.input_ob_channels = Array2::from_shape_vec((max_ob_bank as usize, number_of_producers as usize), tmp_array)?;
 
     tmp_array = parse_vec_int_helper("OUT_OB_BANK")?;
-    ret.output_ob_channels = Array2::from_shape_vec((max_ob_bank as usize, constraints.channel_width_size as usize), tmp_array)?;
+    ret.output_ob_channels = Array2::from_shape_vec((max_ob_bank as usize, number_of_communications as usize), tmp_array)?;
 
     tmp_array = parse_vec_int_helper("IN_IB_BANK")?;
-    ret.input_ib_channels = Array2::from_shape_vec((max_ib_bank as usize, constraints.channel_width_size as usize), tmp_array)?;
+    ret.input_ib_channels = Array2::from_shape_vec((max_ib_bank as usize, number_of_communications as usize), tmp_array)?;
 
     tmp_array = parse_vec_int_helper("OUT_IB_BANK")?;
     ret.output_ib_channels = Array2::from_shape_vec((max_ib_bank as usize, number_of_consumers as usize), tmp_array)?;
@@ -521,10 +526,10 @@ output [
     ret.t0 = Array2::from_shape_vec((number_of_producers as usize, number_of_tokens as usize), tmp_array)?;
 
     tmp_array = parse_vec_int_helper("T1")?;
-    ret.t1 = Array2::from_shape_vec((constraints.channel_width_size as usize, number_of_tokens as usize), tmp_array)?;
+    ret.t1 = Array2::from_shape_vec((number_of_communications as usize, number_of_tokens as usize), tmp_array)?;
 
     tmp_array = parse_vec_int_helper("T2")?;
-    ret.t2 = Array2::from_shape_vec((constraints.channel_width_size as usize, number_of_tokens as usize), tmp_array)?;
+    ret.t2 = Array2::from_shape_vec((number_of_communications as usize, number_of_tokens as usize), tmp_array)?;
 
     tmp_array = parse_vec_int_helper("T3")?;
     ret.t3 = Array2::from_shape_vec((number_of_consumers as usize, number_of_tokens as usize), tmp_array)?;

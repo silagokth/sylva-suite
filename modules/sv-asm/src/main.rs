@@ -41,7 +41,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Sylva Assembly starts compilation!");
 
     memsyn::run(&mut db, &args.output)?;
-  
+    // precise routing 
+    // Noc synthesis with fixed delay
+    // Transporter instructions:
+
     /* save synthesized information */
     let bin_file = format!("{}/db_asm.bin", args.output);
     file_handler::write_json_file(&bin_file, &db)?;
