@@ -1,4 +1,3 @@
-use sv_lib::model::{DataBase};
 use sv_lib::{file_handler};
 use log::{info, error};
 use clap::Parser;
@@ -21,12 +20,9 @@ struct Args {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     env_logger::init();
-    
-    // create empty data structure 
-    let mut db = DataBase::new();
 
     // read configuration files and store the information in ds 
-    db = file_handler::load_json_file(&args.object)?;
+    let mut db = file_handler::load_json_file(&args.object)?;
     
     // This will create the output directory if it doesn't exist
     match std::fs::create_dir_all(&args.output) {
