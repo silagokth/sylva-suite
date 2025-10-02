@@ -3,6 +3,7 @@ use log::{info, error};
 use clap::Parser;
 
 mod memsyn;
+mod route;
 
 
 /// Arguments to get the configuration files and output directory 
@@ -37,6 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Sylva Assembly starts compilation!");
 
     memsyn::run(&mut db, &args.output)?;
+    route::run(&mut db, &args.output)?;
     // precise routing 
     // Noc synthesis with fixed delay
     // Transporter instructions:

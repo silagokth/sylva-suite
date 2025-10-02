@@ -287,8 +287,8 @@ fn create_routing_graph(
         channels.push(
             Channel {
                 app_edge_id: edge.id.clone(),
-                source: source,
-                target: target,
+                source: vec![source],
+                target: vec![target],
                 traffic: edge.token_size as f64,
                 path: Vec::new(),
             }
@@ -382,7 +382,7 @@ fn route(
     }
 
     fn _share_paths(c1: &Channel, c2: &Channel) -> bool {
-        c1.source == c2.source || c1.target == c2.target
+        c1.source[0] == c2.source[0] || c1.target[0] == c2.target[0]
     }
 
 
@@ -402,8 +402,8 @@ fn route(
         // find a path 
         let path = graph::a_star(
             &routing_graph, 
-            graph.channels[index].source.clone(), 
-            graph.channels[index].target.clone()
+            graph.channels[index].source[0].clone(), 
+            graph.channels[index].target[0].clone()
         )?;
 
         // update the actual channel's path

@@ -182,8 +182,8 @@ pub struct Edge {
 #[serde(rename_all = "camelCase")]
 pub struct Channel {
     pub app_edge_id: String,
-    pub source: String,
-    pub target: String,
+    pub source: Vec<String>,
+    pub target: Vec<String>,
     pub traffic: f64,
     pub path: Vec<String>,
 }
