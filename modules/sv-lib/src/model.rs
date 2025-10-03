@@ -283,6 +283,7 @@ pub struct RoutingPath {
 pub struct Coordinate {
     pub x: i32,
     pub y: i32,
+    pub port: i32, // 0: normal, 1: output, 2: input
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

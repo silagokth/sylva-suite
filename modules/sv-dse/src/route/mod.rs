@@ -429,29 +429,29 @@ fn update_synthesized_info(
     
         match (x0, y0, d0, x1, y1, d1) {
             // west to east
-            (x0, y0, 0, x1, y1, 0) if x0 == x1 - 1 && y0 == y1 => Ok(Coordinate { x: x1, y: y1 }),
+            (x0, y0, 0, x1, y1, 0) if x0 == x1 - 1 && y0 == y1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
             // east to west
-            (x0, y0, 0, x1, y1, 0) if x0 == x1 + 1 && y0 == y1 => Ok(Coordinate { x: x0, y: y0 }),
+            (x0, y0, 0, x1, y1, 0) if x0 == x1 + 1 && y0 == y1 => Ok(Coordinate { x: x0, y: y0, port: 0 }),
             // south to north
-            (x0, y0, 1, x1, y1, 1) if x0 == x1 && y0 == y1 - 1 => Ok(Coordinate { x: x1, y: y1 }),
+            (x0, y0, 1, x1, y1, 1) if x0 == x1 && y0 == y1 - 1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
             // north to south
-            (x0, y0, 1, x1, y1, 1) if x0 == x1 && y0 == y1 + 1 => Ok(Coordinate { x: x0, y: y0 }),
+            (x0, y0, 1, x1, y1, 1) if x0 == x1 && y0 == y1 + 1 => Ok(Coordinate { x: x0, y: y0, port: 0 }),
             // east to north
-            (x0, y0, 0, x1, y1, 1) if x0 == x1 && y0 == y1 => Ok(Coordinate { x: x1, y: y1 }),
+            (x0, y0, 0, x1, y1, 1) if x0 == x1 && y0 == y1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
             // north to east
-            (x0, y0, 1, x1, y1, 0) if x0 == x1 && y0 == y1 => Ok(Coordinate { x: x0, y: y0 }),
+            (x0, y0, 1, x1, y1, 0) if x0 == x1 && y0 == y1 => Ok(Coordinate { x: x0, y: y0, port: 0 }),
             // west to north
-            (x0, y0, 0, x1, y1, 1) if x0 == x1 - 1 && y0 == y1 => Ok(Coordinate { x: x1, y: y1 }),
+            (x0, y0, 0, x1, y1, 1) if x0 == x1 - 1 && y0 == y1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
             // north to west
-            (x0, y0, 1, x1, y1, 0) if x0 == x1 + 1 && y0 == y1 => Ok(Coordinate { x: x0, y: y0 }),
+            (x0, y0, 1, x1, y1, 0) if x0 == x1 + 1 && y0 == y1 => Ok(Coordinate { x: x0, y: y0, port: 0 }),
             // east to south
-            (x0, y0, 0, x1, y1, 1) if x0 == x1 && y0 == y1 + 1 => Ok(Coordinate { x: x0, y: y0 }),
+            (x0, y0, 0, x1, y1, 1) if x0 == x1 && y0 == y1 + 1 => Ok(Coordinate { x: x0, y: y0, port: 0 }),
             // south to east
-            (x0, y0, 1, x1, y1, 0) if x0 == x1 && y0 == y1 - 1 => Ok(Coordinate { x: x1, y: y1 }),
+            (x0, y0, 1, x1, y1, 0) if x0 == x1 && y0 == y1 - 1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
             // west to south
-            (x0, y0, 0, x1, y1, 1) if x0 == x1 - 1 && y0 == y1 + 1 => Ok(Coordinate { x: x0 + 1, y: y0 }),
+            (x0, y0, 0, x1, y1, 1) if x0 == x1 - 1 && y0 == y1 + 1 => Ok(Coordinate { x: x0 + 1, y: y0, port: 0 }),
             // south to west
-            (x0, y0, 1, x1, y1, 0) if x0 == x1 + 1 && y0 == y1 - 1 => Ok(Coordinate { x: x0, y: y0 + 1 }),
+            (x0, y0, 1, x1, y1, 0) if x0 == x1 + 1 && y0 == y1 - 1 => Ok(Coordinate { x: x0, y: y0 + 1, port: 0 }),
             _ => Err(format!("Invalid path segment: {} -> {}", n0, n1).into()),
         }
     }
@@ -465,10 +465,17 @@ fn update_synthesized_info(
 
         let mut path: Vec<Coordinate> = Vec::new();
         for i in 0..(channel.path.len() - 1) {
-            let coord = _path_segment_to_coordinate(
+            let mut coord = _path_segment_to_coordinate(
                 channel.path[i].clone(),
                 channel.path[i + 1].clone(),
             )?;
+            
+            if i == 0 {
+                coord.port = 1;
+            } else if i == channel.path.len() - 2 {
+                coord.port = 2;
+            }
+
             path.push(coord);
         }
 

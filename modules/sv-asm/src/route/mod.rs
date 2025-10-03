@@ -5,6 +5,9 @@ use std::collections::{HashMap, HashSet};
 use plotters::prelude::*;
 
 
+mod graph;
+
+
 #[allow(unused_variables)]
 fn _port_id_to_node_id(
     x: i32,
@@ -491,6 +494,318 @@ fn create_routing_graph(
 
 
 
+fn reroute(
+    db: &DataBase,
+    graph: &mut RoutingGraph,
+) -> Result<(), Box<dyn std::error::Error>> {
+
+    // helper functions
+    fn _remove_nodes(graph: &mut RoutingGraph, nodes: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+        for id in nodes {
+            // check if node exists
+            if !graph.nodes.iter().any(|n| n.id == *id) {
+                return Err(format!("Node {} does not exist in the graph", id).into());
+            }
+            // remove the node in graph
+            graph.nodes.retain(|n| n.id != *id);
+            // remove all edges connected to the node
+            graph.edges.retain(|e| e.source != *id && e.target != *id);
+        }
+        Ok(())
+    }
+
+    // sort channels by traffic (high to low)
+    graph.channels.sort_by(|a, b| b.traffic.partial_cmp(&a.traffic).unwrap_or(std::cmp::Ordering::Equal));
+    
+    // allocate paths
+    for index in 0..graph.channels.len() {
+        let mut routing_graph = graph.clone();
+        let target_length = db.synthesized_information.routing_paths
+            .iter()
+            .find(|r| r.app_edge_id == graph.channels[index].app_edge_id)
+            .map(|r| r.path.len())
+            .ok_or_else(|| {
+                Box::<dyn std::error::Error>::from(format!("No routing path found for edge {}", graph.channels[index].app_edge_id))
+            })?;
+
+        // update routing graph from previous routes
+        for i in 0..index {
+            _remove_nodes(&mut routing_graph, &graph.channels[i].path)?;    
+        }
+
+        // find all possible paths
+        let mut path: Vec<_> = vec![];
+        for i in 0..graph.channels[index].source.len() { 
+            for j in 0..graph.channels[index].target.len() {
+                path.push(
+                    graph::modified_a_star(
+                        &routing_graph, 
+                        graph.channels[index].source[i].clone(), 
+                        graph.channels[index].target[j].clone(),
+                        0.5,
+                        target_length as i32,
+                    )?
+                );
+            }
+        }
+        if path.iter().all(|p| p.is_empty()) {
+            return Err("None of the paths can reach the target in the graph".into())
+        }
+
+        // select one to update the actual channel's path
+        let selected_path = path
+            .iter()
+            .min_by_key(|p| p.len().abs_diff(target_length))
+            .ok_or_else(|| {
+                Box::<dyn std::error::Error>::from("Cannot select path in reroute")
+            })?;
+
+        graph.channels[index].path = selected_path.clone(); 
+    }
+
+    Ok(())
+}
+
+
+
+fn update_synthesized_info(
+    db: &mut DataBase,
+    graph: &RoutingGraph,
+) -> Result<(), Box<dyn std::error::Error>> {
+  
+    // helper function
+    fn _path_segment_to_coordinate(
+        n0: String, 
+        n1: String,
+    ) -> Result<Coordinate, Box<dyn std::error::Error>> {
+        let (x0, y0, d0) = _node_id_to_coordinates(n0.clone())?;
+        let (x1, y1, d1) = _node_id_to_coordinates(n1.clone())?;
+    
+        match (x0, y0, d0, x1, y1, d1) {
+            // west to east
+            (x0, y0, 0, x1, y1, 0) if x0 == x1 - 1 && y0 == y1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
+            // east to west
+            (x0, y0, 0, x1, y1, 0) if x0 == x1 + 1 && y0 == y1 => Ok(Coordinate { x: x0, y: y0, port: 0 }),
+            // south to north
+            (x0, y0, 1, x1, y1, 1) if x0 == x1 && y0 == y1 - 1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
+            // north to south
+            (x0, y0, 1, x1, y1, 1) if x0 == x1 && y0 == y1 + 1 => Ok(Coordinate { x: x0, y: y0, port: 0 }),
+            // east to north
+            (x0, y0, 0, x1, y1, 1) if x0 == x1 && y0 == y1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
+            // north to east
+            (x0, y0, 1, x1, y1, 0) if x0 == x1 && y0 == y1 => Ok(Coordinate { x: x0, y: y0, port: 0 }),
+            // west to north
+            (x0, y0, 0, x1, y1, 1) if x0 == x1 - 1 && y0 == y1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
+            // north to west
+            (x0, y0, 1, x1, y1, 0) if x0 == x1 + 1 && y0 == y1 => Ok(Coordinate { x: x0, y: y0, port: 0 }),
+            // east to south
+            (x0, y0, 0, x1, y1, 1) if x0 == x1 && y0 == y1 + 1 => Ok(Coordinate { x: x0, y: y0, port: 0 }),
+            // south to east
+            (x0, y0, 1, x1, y1, 0) if x0 == x1 && y0 == y1 - 1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
+            // west to south
+            (x0, y0, 0, x1, y1, 1) if x0 == x1 - 1 && y0 == y1 + 1 => Ok(Coordinate { x: x0 + 1, y: y0, port: 0 }),
+            // south to west
+            (x0, y0, 1, x1, y1, 0) if x0 == x1 + 1 && y0 == y1 - 1 => Ok(Coordinate { x: x0, y: y0 + 1, port: 0 }),
+            _ => Err(format!("Invalid path segment: {} -> {}", n0, n1).into()),
+        }
+    }
+
+  
+    for channel in graph.channels.iter() {
+        let mut path: Vec<Coordinate> = Vec::new();
+        for i in 0..(channel.path.len() - 1) {
+            let mut coord = _path_segment_to_coordinate(
+                channel.path[i].clone(),
+                channel.path[i + 1].clone(),
+            )?;
+            
+            if i == 0 {
+                coord.port = 1;
+            } else if i == channel.path.len() - 2 {
+                coord.port = 2;
+            }
+
+            path.push(coord);
+        }
+
+        // Adding more paths if more than one port is used
+        // get edge information
+        let edge = &db.app_graph.edges
+            .iter()
+            .find(|e| e.id == channel.app_edge_id)
+            .ok_or_else(|| {
+                Box::<dyn std::error::Error>::from("Cannot find an edge using routing graph information")
+            })?;
+        
+        // --------------------------------------------------
+        // source paths
+        let (source_x, source_y) = db.synthesized_information.placements
+            .iter()
+            .find(|p| p.app_node_id == edge.source_node)
+            .map(|p| (p.x, p.y))
+            .ok_or_else(|| {
+                Box::<dyn std::error::Error>::from("Cannot find source node using routing graph information")
+            })?;
+       
+        let source_height = db.synthesized_information.alimp_bindings
+            .iter()
+            .find(|a| a.app_node_id == edge.source_node)
+            .map(|a| a.alimp_instance.height)
+            .ok_or_else(|| {
+                Box::<dyn std::error::Error>::from("Cannot find source height using routing graph information")
+            })?;
+
+        let source_memories: Vec<_> = db.synthesized_information.memory_synthesis
+            .iter()
+            .find(|m| 
+                m.app_node_id == edge.source_node && 
+                m.port_id == edge.source_port && 
+                m.memory_direction == "out")
+            .ok_or_else(|| "Cannot find the source memory")?
+            .memory_structure
+            .clone();
+
+        let source_x_positions: Vec<i32> = source_memories
+            .iter()
+            .flat_map(|m| m.output_channels.iter().map(|v| v + source_x))
+            .collect();
+
+        let source_min_x = *source_x_positions.iter().min().ok_or("No source x positions")?;
+        let source_max_x = *source_x_positions.iter().max().ok_or("No source x positions")?;
+
+        // sanity checks
+        let (_source_x, _source_y, _source_z) = _node_id_to_coordinates(channel.path[0].clone())?; 
+        assert_eq!(_source_z, 1);
+        assert_eq!(_source_y, source_y + source_height + 1); 
+        assert!(_source_x == source_min_x || _source_x == source_max_x); 
+   
+        // extending source paths 
+        if _source_x == source_min_x {
+            for i in source_min_x..=source_max_x {
+                if i != source_min_x {
+                    let port = if source_x_positions.contains(&i) {
+                        1 
+                    } else {
+                        0
+                    };
+
+                    path.insert(0,
+                        Coordinate {
+                            x: i,
+                            y: source_y + source_height + 2,
+                            port: port,
+                        }    
+                    );
+                } 
+            }
+        }
+        else {
+            for i in (source_min_x..=source_max_x).rev() {
+                if i != source_max_x {
+                    let port = if source_x_positions.contains(&i) {
+                        1 
+                    } else {
+                        0
+                    };
+
+                    path.insert(0,
+                        Coordinate {
+                            x: i,
+                            y: source_y + source_height + 2,
+                            port: port,
+                        }    
+                    );
+                } 
+            }
+        }
+ 
+        // --------------------------------------------------
+        // target paths
+        let (target_x, target_y) = db.synthesized_information.placements
+            .iter()
+            .find(|p| p.app_node_id == edge.target_node)
+            .map(|p| (p.x, p.y))
+            .ok_or_else(|| {
+                Box::<dyn std::error::Error>::from("Cannot find source node using routing graph information")
+            })?;
+
+        let target_memories: Vec<_> = db.synthesized_information.memory_synthesis
+            .iter()
+            .find(|m| 
+                m.app_node_id == edge.target_node && 
+                m.port_id == edge.target_port && 
+                m.memory_direction == "in")
+            .ok_or_else(|| "Cannot find the target memory")?
+            .memory_structure
+            .clone();
+            
+        let target_x_positions: Vec<i32> = target_memories
+            .iter()
+            .flat_map(|m| m.input_channels.iter().map(|v| v + target_x))
+            .collect();
+            
+        let target_min_x = *target_x_positions.iter().min().ok_or("No target x positions")?;
+        let target_max_x = *target_x_positions.iter().max().ok_or("No target x positions")?;
+
+        // sanity checks
+        let (_target_x, _target_y, _target_z) = _node_id_to_coordinates(channel.path[channel.path.len() - 1].clone())?; 
+        assert_eq!(_target_z, 1);
+        assert_eq!(_target_y, target_y - 2);
+        assert!(_target_x == target_min_x || _target_x == target_max_x); 
+   
+        // extending target paths 
+        if _target_x == target_min_x {
+            for i in target_min_x..=target_max_x {
+                if i != target_min_x {
+                    let port = if target_x_positions.contains(&i) {
+                        2
+                    } else {
+                        0
+                    };
+
+                    path.push(
+                        Coordinate {
+                            x: i,
+                            y: target_y - 2,
+                            port: port,
+                        }    
+                    );
+                } 
+            }
+        }
+        else {
+            for i in (target_min_x..=target_max_x).rev() {
+                if i != target_max_x {
+                    let port = if target_x_positions.contains(&i) {
+                        2 
+                    } else {
+                        0
+                    };
+
+                    path.push(
+                        Coordinate {
+                            x: i,
+                            y: target_y - 2,
+                            port: port,
+                        }    
+                    );
+                } 
+            }
+        }
+
+        // update the final routing path 
+        db.synthesized_information.routing_paths
+            .iter_mut()
+            .find(|r| r.app_edge_id == channel.app_edge_id)
+            .ok_or_else(|| "Cannot find routing path for the given app_edge_id")?
+            .path = path;
+    }
+
+    Ok(())
+}
+
+
+
 fn plot_available_routing_graph(
     db: &DataBase,
     graph: &RoutingGraph,
@@ -553,6 +868,125 @@ fn plot_available_routing_graph(
 
 
 
+fn plot_routing_graph(
+    db: &DataBase,
+    module_dir: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let output_file = format!("{}/routing_graph.png", module_dir);
+    let root = BitMapBackend::new(&output_file, (800, 800)).into_drawing_area();
+    root.fill(&WHITE)?;
+
+    let max_x = db.synthesized_information.max_width.clone();
+    let max_y = db.synthesized_information.max_height.clone();
+
+    let mut chart = ChartBuilder::on(&root)
+        .caption("Routing Graph", ("sans-serif", 30))
+        .margin(10)
+        .set_label_area_size(LabelAreaPosition::Left, 40)
+        .set_label_area_size(LabelAreaPosition::Bottom, 40)
+        .build_cartesian_2d(-0.5f64..(max_x as f64 - 0.5), -0.5f64..(max_y as f64 - 0.5))?;
+
+    chart.configure_mesh()
+        .disable_x_mesh()
+        .disable_y_mesh()
+        .x_labels((max_x + 1) as usize)
+        .y_labels((max_y + 1) as usize)
+        .draw()?;
+    
+
+    // plot nodes
+    for node in &db.app_graph.nodes {
+        let (mut x, mut y, mut width, mut height) = (-1, -1, -1, -1);
+
+        for placement in &db.synthesized_information.placements {
+            if placement.app_node_id == node.id {
+                x = placement.x;
+                y = placement.y;
+                break;
+            }
+        }
+
+        for binding in &db.synthesized_information.alimp_bindings {
+            if binding.app_node_id == node.id {
+                width = binding.alimp_instance.width;
+                height = binding.alimp_instance.height;
+                break;
+            }
+        }
+
+        if x == -1 || y == -1 || width == -1 || height == -1 {
+            return Err(format!("Placement or binding missing for node {}", node.id).into());
+        }
+
+        let x = x as f64;
+        let y = y as f64;
+        let width = width as f64;
+        let height = height as f64;
+
+        // Orange: Main node
+        chart.draw_series(std::iter::once(Rectangle::new(
+            [(x - 0.5, y - 0.5), (x - 0.5 + width, y - 0.5 + height)],
+            RGBColor(255, 165, 0).filled(), // Orange
+        )))?;
+ 
+        if node.input_ports.len() > 0 {
+            // Purple: Input buffer (south of node)
+            chart.draw_series(std::iter::once(Rectangle::new(
+                [(x - 0.5, y - 1.5), (x - 0.5 + width, y - 0.5)],
+                RGBColor(160, 32, 240).filled(), // Purple
+            )))?;
+        }
+       
+        if node.output_ports.len() > 0 {
+            // Red: Output buffer (north of node)
+            chart.draw_series(std::iter::once(Rectangle::new(
+                [(x - 0.5, y + height - 0.5), (x - 0.5 + width, y + height + 0.5)],
+                RED.filled(),
+            )))?;
+
+            // Green: Data transporter (north+1)
+            chart.draw_series(std::iter::once(Rectangle::new(
+                [(x - 0.5, y + height + 0.5), (x - 0.5 + width, y + height + 1.5)],
+                GREEN.filled(),
+            )))?;
+        }
+    }
+
+
+    // Plot routing paths (blue blocks)
+    for routing_path in &db.synthesized_information.routing_paths {
+        for coord in &routing_path.path {
+            let x = coord.x as f64;
+            let y = coord.y as f64;
+
+            let rect = Rectangle::new(
+                [(x - 0.5, y - 0.5), (x + 0.5, y + 0.5)],
+                BLUE.filled(),
+            );
+
+            chart.draw_series(std::iter::once(rect))?;
+        }
+    }
+
+    // draw grid
+    for i in 0..max_x {
+        chart.draw_series(LineSeries::new(
+            vec![(i as f64 - 0.5, -0.5), (i as f64 - 0.5, max_y as f64 - 0.5)],
+            ShapeStyle::from(&RGBColor(200, 200, 200)).stroke_width(2),
+        ))?;
+    }
+    for i in 0..max_y {
+        chart.draw_series(LineSeries::new(
+            vec![(-0.5, i as f64 - 0.5), (max_x as f64 - 0.5, i as f64 - 0.5)],
+            ShapeStyle::from(&RGBColor(200, 200, 200)).stroke_width(2),
+        ))?;
+    }
+
+    root.present()?;
+    info!("Saved routing graph to: {}", output_file);
+    Ok(())
+}
+
 
 
 #[allow(unused_variables)]
@@ -576,9 +1010,11 @@ pub fn run(
     // 2. Re-route the rest of the routing paths given their approximated lengths
     let mut graph: RoutingGraph = create_routing_graph(db)?;
     plot_available_routing_graph(&db, &graph, &module_dir)?;
-    
-    // 3. Add routing paths for all output channels
+    reroute(&db, &mut graph)?;
 
+    // 3. Add routing paths for all output channels and update information
+    update_synthesized_info(db, &graph)?;
+    plot_routing_graph(db, &module_dir)?;
 
     info!("Finish: precise routing");
     Ok(())

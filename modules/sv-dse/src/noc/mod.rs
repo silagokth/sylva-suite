@@ -98,12 +98,12 @@ fn noc_identification(
        for i in 0..routing_path.path.len() {
             let coord = &routing_path.path[i];
             let coord_prev = if i == 0 {
-                &Coordinate {x: coord.x, y: coord.y - 1}
+                &Coordinate {x: coord.x, y: coord.y - 1, port: 1}
             } else {
                 &routing_path.path[i - 1]
             };
             let coord_next = if i == routing_path.path.len() - 1 {
-                &Coordinate {x: coord.x, y: coord.y + 1}
+                &Coordinate {x: coord.x, y: coord.y + 1, port: 2}
             } else {
                 &routing_path.path[i + 1]
             };
