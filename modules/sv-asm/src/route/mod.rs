@@ -928,30 +928,42 @@ fn plot_routing_graph(
             [(x - 0.5, y - 0.5), (x - 0.5 + width, y - 0.5 + height)],
             RGBColor(255, 165, 0).filled(), // Orange
         )))?;
- 
-        if node.input_ports.len() > 0 {
-            // Purple: Input buffer (south of node)
-            chart.draw_series(std::iter::once(Rectangle::new(
-                [(x - 0.5, y - 1.5), (x - 0.5 + width, y - 0.5)],
-                RGBColor(160, 32, 240).filled(), // Purple
-            )))?;
-        }
-       
-        if node.output_ports.len() > 0 {
-            // Red: Output buffer (north of node)
-            chart.draw_series(std::iter::once(Rectangle::new(
-                [(x - 0.5, y + height - 0.5), (x - 0.5 + width, y + height + 0.5)],
-                RED.filled(),
-            )))?;
-
-            // Green: Data transporter (north+1)
-            chart.draw_series(std::iter::once(Rectangle::new(
-                [(x - 0.5, y + height + 0.5), (x - 0.5 + width, y + height + 1.5)],
-                GREEN.filled(),
-            )))?;
-        }
     }
+    
+    // Plot memories 
+    // Purple for IB
+    // Red for OB
+    for memory in &db.synthesized_information.memory_synthesis {
+        for bank in &memory.memory_structure {
+            let place = &bank.placement;
+            let colour = if memory.memory_direction == "out" {
+                RED.filled()
+            } else {
+                RGBColor(160, 32, 240).filled() // purple
+            };
 
+            chart.draw_series(std::iter::once(Rectangle::new(
+                [
+                    (place.x as f64 - 0.5, place.y as f64 - 0.5), 
+                    (place.x as f64 - 0.5 + place.width as f64, place.y as f64 - 0.5 + place.height as f64)
+                ],
+                colour,
+            )))?;
+        }  
+    }
+    
+    // Plot Data transporter (Green)
+    for transporter in &db.synthesized_information.transporter_tables {
+        let place = &transporter.placement; 
+
+        chart.draw_series(std::iter::once(Rectangle::new(
+            [
+                (place.x as f64 - 0.5, place.y as f64 - 0.5), 
+                (place.x as f64 - 0.5 + place.width as f64, place.y as f64 - 0.5 + place.height as f64)
+            ],
+            GREEN.filled(),
+        )))?;
+    }
 
     // Plot routing paths (blue blocks)
     for routing_path in &db.synthesized_information.routing_paths {
