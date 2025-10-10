@@ -4,6 +4,7 @@ use clap::Parser;
 
 mod memsyn;
 mod route;
+mod noc;
 
 
 /// Arguments to get the configuration files and output directory 
@@ -39,9 +40,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     memsyn::run(&mut db, &args.output)?;
     route::run(&mut db, &args.output)?;
-    // precise routing 
-    // Noc synthesis with fixed delay
+    noc::run(&mut db, &args.output)?;
     // Transporter instructions:
+    // Simulation
+    // Assembler
 
     /* save synthesized information */
     let bin_file = format!("{}/db_asm.bin", args.output);
