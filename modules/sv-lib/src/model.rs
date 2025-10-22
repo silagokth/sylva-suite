@@ -138,7 +138,13 @@ pub struct HyperParameter {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TechConstraint {
-    pub required_period: f64,
+    pub width_grid: f64, // um^2
+    pub height_grid: f64, // um^2
+    pub width_drra: f64, // um^2
+    pub height_drra: f64, // um^2
+    pub width_ratio: i32, 
+    pub height_ratio: i32, 
+    pub clock_frequency: f64, // Hz
     pub required_slew: f64,
     pub initial_slew: f64,
     pub buffer_slew_declined_factor: f64,
@@ -201,6 +207,10 @@ pub struct FloorPlan {
     pub target_node: Vec<i32>,
     pub source_port: Vec<i32>,
     pub target_port: Vec<i32>,
+    pub top_space: Vec<i32>,
+    pub bottom_space: Vec<i32>,
+    pub left_space: Vec<i32>,
+    pub right_space: Vec<i32>,
     pub conn: Vec<i32>,
 }
 
@@ -349,7 +359,13 @@ impl DataBase {
                 place_reserved_routing_size: 0,
             },
             technology_constraint: TechConstraint {
-                required_period: 0.0,
+                width_grid: 0.0,
+                height_grid: 0.0,
+                width_drra: 0.0,
+                height_drra: 0.0,
+                width_ratio: 0,
+                height_ratio: 0,
+                clock_frequency: 0.0,
                 required_slew: 0.0,
                 initial_slew: 0.0,
                 buffer_slew_declined_factor: 0.0,
@@ -374,6 +390,10 @@ impl DataBase {
                 target_node: vec![],
                 source_port: vec![],
                 target_port: vec![],
+                top_space: vec![],
+                bottom_space: vec![],
+                left_space: vec![],
+                right_space: vec![],
                 conn: vec![],
             },
             cost_metric: CostMetric {
