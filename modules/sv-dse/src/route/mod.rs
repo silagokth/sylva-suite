@@ -189,8 +189,9 @@ fn create_full_graph(
 }
 
 
-fn find_port_position(
+fn find_port_index(
     db: &DataBase,
+    used_channels: &Vec<i32>,
     node_id: &str,
     port_id: &str,
     dir: &str,
@@ -241,7 +242,7 @@ fn find_port_position(
             as Box<dyn std::error::Error>
         })?;
 
-    let channels: Vec<_> = patterns
+    let mut channels: Vec<_> = patterns
         .iter()
         .filter(|p| p.address >= start_address && p.address < start_address + token_size)
         .map(|p| p.channel)
@@ -250,10 +251,11 @@ fn find_port_position(
     if channels.is_empty() {
         return Err(format!("Cannot map patterns in alimp {}", node_id).into());
     }
+    channels.retain(|x| !used_channels.contains(x));
     
     // assume that the input/output goes to/from the most left side
     // of each DRRA cell w.r.t. grid cell
-    Ok(channels.iter().min().unwrap_or(&0) * db.technology_constraint.width_ratio)
+    Ok(*channels.iter().min().unwrap_or(&0))
 }
 
 
@@ -266,7 +268,7 @@ fn create_routing_graph(
         db.synthesized_information.max_width,
         db.synthesized_information.max_height,
     );
-    let mut node_maps: HashMap<String, (i32, i32, i32, i32)> = HashMap::new();
+    let mut node_maps: HashMap<String, (i32, i32, i32, i32, HashMap<String, i32>, HashMap<String, i32>)> = HashMap::new();
 
     for node in &db.app_graph.nodes {
         let input_space = if node.input_ports.len() > 0 { 1 * db.technology_constraint.height_ratio } else { 0 };
@@ -290,8 +292,45 @@ fn create_routing_graph(
             .ok_or_else(|| {
                 Box::<dyn std::error::Error>::from("Cannot find binding")
             })?;
+        
+        // get port positions and
+        // remove the nodes covered by the placement from the graph
+        let mut exclude_lists: Vec<String> = Vec::new();
+        let mut input_ports: HashMap<String, i32> = HashMap::new();
+        let mut output_ports: HashMap<String, i32> = HashMap::new();
+        
+        let mut used_ports: Vec<i32> = vec![];
+        for input_port in node.input_ports.iter() {
+            let index = find_port_index(
+                &db,
+                &used_ports,
+                &node.id,
+                &input_port.id,
+                "in",
+            )?;
+            let position = index * db.technology_constraint.width_ratio;
+            
+            used_ports.push(index);
+            input_ports.insert(input_port.id.clone(), position);
+            exclude_lists.push(format!("s_{}", position));
+        }
 
-    
+        used_ports = vec![];
+        for output_port in node.output_ports.iter() {
+            let index = find_port_index(
+                &db,
+                &used_ports,
+                &node.id,
+                &output_port.id,
+                "out",
+            )?;
+            let position = index * db.technology_constraint.width_ratio;
+
+            used_ports.push(index);
+            output_ports.insert(output_port.id.clone(), position);
+            exclude_lists.push(format!("n_{}", position));
+        }
+
         // add these in the maps
         node_maps.insert(
             node.id.clone(), 
@@ -300,29 +339,12 @@ fn create_routing_graph(
                 y.clone(), 
                 width.clone(), 
                 height.clone(),
+                input_ports,
+                output_ports,
             )
         );
-            
-        // remove the nodes covered by the placement from the graph
-        let mut exclude_lists: Vec<String> = Vec::new();
-        for input_port in node.input_ports.iter() {
-            let position = find_port_position(
-                &db,
-                &node.id,
-                &input_port.id,
-                "in",
-            )?;
-            exclude_lists.push(format!("s_{}", position));
-        }
-        for output_port in node.output_ports.iter() {
-            let position = find_port_position(
-                &db,
-                &node.id,
-                &output_port.id,
-                "out",
-            )?;
-            exclude_lists.push(format!("n_{}", position));
-        }
+        
+        // remove obstacle nodes from the graph
         _add_obstacle(&mut graph, x, y, width, height, exclude_lists)?;
     }
 
@@ -330,28 +352,22 @@ fn create_routing_graph(
     let mut channels: Vec<Channel> = Vec::new(); 
 
     for edge in &db.app_graph.edges {
-        let &(source_x, source_y, source_width, source_height) = node_maps
+        let &(source_x, source_y, source_width, source_height, _, ref source_output_ports) = node_maps
             .get(&edge.source_node)
             .clone()
             .ok_or(format!("Missing source_node {} in node_maps", edge.source_node))?;
-        let &(target_x, target_y, target_width, target_height) = node_maps
+        let &(target_x, target_y, target_width, target_height, ref target_input_ports, _) = node_maps
             .get(&edge.target_node)
             .ok_or(format!("Missing target_node {} in node_maps", edge.target_node))?;
         
         // get source/target port index
-        let source_position = find_port_position(
-            &db,
-            &edge.source_node,
-            &edge.source_port,
-            "out",
-        )?;
+        let source_position = source_output_ports
+            .get(&edge.source_port)
+            .ok_or(format!("Missing source_port {} of {}", edge.source_port, edge.source_node))?;
 
-        let target_position = find_port_position(
-            &db,
-            &edge.target_node,
-            &edge.target_port,
-            "in",
-        )?;
+        let target_position = target_input_ports
+            .get(&edge.target_port)
+            .ok_or(format!("Missing target_port {} of {}", edge.target_port, edge.target_node))?;
         
         // get the node coordinates
         let source_port = format!("n_{}", source_position);
@@ -461,7 +477,7 @@ fn plot_available_routing_graph(
 fn route(
     graph: &mut RoutingGraph,
 ) -> Result<(), Box<dyn std::error::Error>> {
-
+    
     // helper functions
     fn _remove_nodes(graph: &mut RoutingGraph, nodes: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         for id in nodes {
@@ -477,10 +493,11 @@ fn route(
         Ok(())
     }
 
+    /* Remove the concept of sharing path 
     fn _share_paths(c1: &Channel, c2: &Channel) -> bool {
         c1.source == c2.source || c1.target == c2.target
     }
-
+    */
 
     // sort channels by traffic (high to low)
     graph.channels.sort_by(|a, b| b.traffic.partial_cmp(&a.traffic).unwrap_or(std::cmp::Ordering::Equal));
@@ -490,9 +507,7 @@ fn route(
         let mut routing_graph = graph.clone();
 
         for i in 0..index {
-            if !_share_paths(&graph.channels[index], &graph.channels[i]) {
-                _remove_nodes(&mut routing_graph, &graph.channels[i].path)?;    
-            }
+            _remove_nodes(&mut routing_graph, &graph.channels[i].path)?;    
         }
 
         // find a path 
@@ -679,11 +694,9 @@ fn plot_routing_graph(
             return Err(format!("Placement or binding missing for node {}", node.id).into());
         }
 
-        let (x_float, y_float) = (x as f64, y as f64);
         let step_x = db.technology_constraint.width_ratio;
         let step_y = db.technology_constraint.height_ratio;
         let (step_x_float, step_y_float) = (step_x as f64, step_y as f64);
-        let (width_float, height_float) = (width as f64, height as f64);
 
         // Orange: Main node
         for i in (x..(x + width)).step_by(step_x as usize) {

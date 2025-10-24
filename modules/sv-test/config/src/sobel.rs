@@ -4,8 +4,8 @@ use sv_lib::model::*;
 pub fn sobel(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
  
     db.global_constraint.max_energy = 100;
-    db.global_constraint.max_width = 100;
-    db.global_constraint.max_height = 100;
+    db.global_constraint.max_width = 150;
+    db.global_constraint.max_height = 150;
     db.global_constraint.max_latency = 5000;
     db.global_constraint.max_period = 2000;
 

@@ -118,8 +118,8 @@ fn dimension(
         if number_outputs != 0 { 2 * db.technology_constraint.height_ratio } else { 0 }, // transporter and output buffer
         if number_inputs != 0 { 1 * db.technology_constraint.height_ratio } else { 0 },  // input buffer 
         // ----------------------------------------------------------------------------
-        ((all_ports + 4) / 4) * routing_reserved_size, // left space   
-        ((all_ports + 4) / 4) * routing_reserved_size, // right space
+        ((all_ports / 3) + 1) * routing_reserved_size, // left space   
+        ((all_ports / 3) + 1) * routing_reserved_size, // right space
         ((number_outputs / 2) + 1) * routing_reserved_size, // top space
         ((number_inputs / 2) + 1) * routing_reserved_size  // bottom space
     ))
