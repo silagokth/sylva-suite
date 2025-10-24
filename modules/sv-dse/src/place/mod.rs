@@ -228,8 +228,6 @@ fn create_floor_plan(
 
         let source_port_position = source_port_index.unwrap_or(0) * db.technology_constraint.width_ratio + 
             ((db.technology_constraint.width_ratio - 1) / 2);
-
-        print!("source port of {} is {}", edge.source_node, source_port_index.unwrap_or(0));
         
         // finding index position of target port 
         let mut target_start_address = 0;
@@ -261,8 +259,6 @@ fn create_floor_plan(
         if target_port_index.is_none() {
             return Err(format!("Cannot find the target port {} in {}", edge.target_port, edge.target_node).into());
         }
-
-        print!("target port of {} is {}", edge.target_node, target_port_index.unwrap_or(0));
 
         let target_port_position = target_port_index.unwrap_or(0) * db.technology_constraint.width_ratio + 
             ((db.technology_constraint.width_ratio - 1) / 2);
@@ -576,9 +572,27 @@ pub fn generate_placement(
 
     let max_x = fp.max_width;
     let max_y = fp.max_height;
+    let step_x_label = (max_x / 20) + 1;
+    let step_y_label = (max_y / 20) + 1;
+    let resolution = match max_x * max_y {
+        a if a > 1_000_000 => 10001,
+        a if a > 500_000 => 8000,
+        a if a > 200_000 => 6000,
+        a if a > 100_000 => 4000,
+        a if a > 50_000 => 2500,
+        a if a > 10_000 => 2000,
+        a if a > 5_000 => 1000,
+        _ => 800,
+    } as u32;
+
+    if resolution > 10000 {
+        warn!("the floorplan is too large to be presented in the graph!");
+        return Ok(())
+    }
+
     let output_path = format!("{}/placement.png", module_dir);
   
-    let root = BitMapBackend::new(&output_path, (1000, 1000)).into_drawing_area();
+    let root = BitMapBackend::new(&output_path, (resolution, resolution)).into_drawing_area();
     root.fill(&WHITE)?;
 
     let margin = 10;
@@ -592,8 +606,8 @@ pub fn generate_placement(
     chart.configure_mesh()
         .x_desc("X")
         .y_desc("Y")
-        .x_labels((max_x - 0) as usize) // number of x labels (1 per unit)
-        .y_labels((max_y - 0) as usize) // number of y labels (1 per unit)
+        .x_labels(((max_x / step_x_label) + 1) as usize)
+        .y_labels(((max_y / step_y_label) + 1) as usize)
         .x_label_formatter(&|x| format!("{}", *x as i32)) // force integer labels
         .y_label_formatter(&|y| format!("{}", *y as i32))
         .x_label_style(("sans-serif", 18))
