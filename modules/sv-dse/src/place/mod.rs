@@ -165,10 +165,10 @@ fn create_floor_plan(
         };
 
         fp.shape.push(shape);
-        fp.top_space.push(top);
-        fp.bottom_space.push(bottom);
-        fp.left_space.push(left);
-        fp.right_space.push(right);
+        fp.top_space.push(top as u32);
+        fp.bottom_space.push(bottom as u32);
+        fp.left_space.push(left as u32);
+        fp.right_space.push(right as u32);
         fp.pos.push(position);
         fp.app_node_ids.push(node.id.clone());
     }
@@ -179,7 +179,7 @@ fn create_floor_plan(
                                                 .iter()
                                                 .enumerate()
                                                 .find(|&(_, ref entry)| entry.id == edge.source_node)
-                                                .map(|(i, entry)| (i as i32, entry)) 
+                                                .map(|(i, entry)| (i as u32, entry)) 
                                                 .ok_or_else(|| {
                                                     Box::from(format!("Cannot find the source node {}", edge.source_node))
                                                     as Box<dyn std::error::Error>
@@ -189,7 +189,7 @@ fn create_floor_plan(
                                                 .iter()
                                                 .enumerate()
                                                 .find(|&(_, ref entry)| entry.id == edge.target_node)
-                                                .map(|(i, entry)| (i as i32, entry)) 
+                                                .map(|(i, entry)| (i as u32, entry)) 
                                                 .ok_or_else(|| {
                                                     Box::from(format!("Cannot find the target node {}", edge.target_node))
                                                     as Box<dyn std::error::Error>
@@ -266,9 +266,9 @@ fn create_floor_plan(
 
         fp.source_node.push(source_node_index);
         fp.target_node.push(target_node_index);
-        fp.source_port.push(source_port_position);
-        fp.target_port.push(target_port_position);
-        fp.conn.push(edge.token_size.clone());
+        fp.source_port.push(source_port_position as u32);
+        fp.target_port.push(target_port_position as u32);
+        fp.conn.push(edge.token_size.clone() as u32);
         fp.app_edge_ids.push(edge.id.clone());
     }
 
@@ -575,17 +575,14 @@ pub fn generate_placement(
     let step_x_label = (max_x / 20) + 1;
     let step_y_label = (max_y / 20) + 1;
     let resolution = match max_x * max_y {
-        a if a > 1_000_000 => 10001,
-        a if a > 500_000 => 8000,
-        a if a > 200_000 => 6000,
-        a if a > 100_000 => 4000,
-        a if a > 50_000 => 2500,
+        a if a > 100_000 => 10000,
+        a if a > 50_000 => 4000,
         a if a > 10_000 => 2000,
         a if a > 5_000 => 1000,
         _ => 800,
     } as u32;
 
-    if resolution > 10000 {
+    if resolution >= 10000 {
         warn!("the floorplan is too large to be presented in the graph!");
         return Ok(())
     }

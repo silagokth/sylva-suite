@@ -138,12 +138,12 @@ pub struct HyperParameter {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TechConstraint {
-    pub width_grid: f64, // um^2
-    pub height_grid: f64, // um^2
-    pub width_drra: f64, // um^2
-    pub height_drra: f64, // um^2
-    pub width_ratio: i32, 
-    pub height_ratio: i32, 
+    pub width_grid: f64, // um
+    pub height_grid: f64, // um
+    pub width_drra: f64, // um
+    pub height_drra: f64, // um
+    pub width_ratio: i32, // number of grid blocks for one DRRA cell's width 
+    pub height_ratio: i32, // number of grid blocks for one DRRA cell's height
     pub clock_frequency: f64, // Hz
     pub required_slew: f64,
     pub initial_slew: f64,
@@ -203,15 +203,15 @@ pub struct FloorPlan {
     pub max_height: i32,
     pub pos: Vec<RectanglePosition>,
     pub shape: Vec<RectangleShape>,
-    pub source_node: Vec<i32>,
-    pub target_node: Vec<i32>,
-    pub source_port: Vec<i32>,
-    pub target_port: Vec<i32>,
-    pub top_space: Vec<i32>,
-    pub bottom_space: Vec<i32>,
-    pub left_space: Vec<i32>,
-    pub right_space: Vec<i32>,
-    pub conn: Vec<i32>,
+    pub source_node: Vec<u32>,
+    pub target_node: Vec<u32>,
+    pub source_port: Vec<u32>,
+    pub target_port: Vec<u32>,
+    pub top_space: Vec<u32>,
+    pub bottom_space: Vec<u32>,
+    pub left_space: Vec<u32>,
+    pub right_space: Vec<u32>,
+    pub conn: Vec<u32>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

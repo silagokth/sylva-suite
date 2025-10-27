@@ -404,17 +404,14 @@ fn plot_available_routing_graph(
     let step_x_label = (max_x / 20) + 1;
     let step_y_label = (max_y / 20) + 1;
     let resolution = match max_x * max_y {
-        a if a > 1_000_000 => 10001,
-        a if a > 500_000 => 8000,
-        a if a > 200_000 => 6000,
-        a if a > 100_000 => 4000,
-        a if a > 50_000 => 2500,
+        a if a > 100_000 => 10000,
+        a if a > 50_000 => 4000,
         a if a > 10_000 => 2000,
         a if a > 5_000 => 1000,
         _ => 800,
     } as u32;
 
-    if resolution > 10000 {
+    if resolution >= 10000 {
         warn!("the floorplan is too large to be presented in the graph!");
         return Ok(())
     }
@@ -607,17 +604,14 @@ fn plot_routing_graph(
     let step_x_label = (max_x / 20) + 1;
     let step_y_label = (max_y / 20) + 1;
     let resolution = match max_x * max_y {
-        a if a > 1_000_000 => 10001,
-        a if a > 500_000 => 8000,
-        a if a > 200_000 => 6000,
-        a if a > 100_000 => 4000,
-        a if a > 50_000 => 2500,
+        a if a > 100_000 => 10000,
+        a if a > 50_000 => 4000,
         a if a > 10_000 => 2000,
         a if a > 5_000 => 1000,
         _ => 800,
     } as u32;
 
-    if resolution > 10000 {
+    if resolution >= 10000 {
         warn!("the floorplan is too large to be presented in the graph!");
         return Ok(())
     }
