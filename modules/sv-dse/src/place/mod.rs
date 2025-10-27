@@ -55,19 +55,19 @@ fn verify_dimension(
         return Err(format!("DRRA cell height is not a multiple of the grid height").into());
     }
     
-    db.technology_constraint.width_ratio = (
+    db.technology_constraint.grid_per_drra_width = (
         db.technology_constraint.width_drra / db.technology_constraint.width_grid
     ).round() as i32;
 
-    db.technology_constraint.height_ratio = (
+    db.technology_constraint.grid_per_drra_height = (
         db.technology_constraint.height_drra / db.technology_constraint.height_grid
     ).round() as i32;
 
-    if db.technology_constraint.width_ratio > 20 {
+    if db.technology_constraint.grid_per_drra_width > 20 {
         return Err(format!("width ratio exceeds limit").into());
     }
 
-    if db.technology_constraint.height_ratio > 20 {
+    if db.technology_constraint.grid_per_drra_height > 20 {
         return Err(format!("height ratio exceeds limit").into());
     }
 
@@ -112,11 +112,11 @@ fn dimension(
     let all_ports = number_inputs + number_outputs;
 
     Ok((
-        instance.width * db.technology_constraint.width_ratio,
-        instance.height * db.technology_constraint.height_ratio,
+        instance.width * db.technology_constraint.grid_per_drra_width,
+        instance.height * db.technology_constraint.grid_per_drra_height,
         // -------- input/output buffers and transporters use DRRA cell sizes ----------
-        if number_outputs != 0 { 2 * db.technology_constraint.height_ratio } else { 0 }, // transporter and output buffer
-        if number_inputs != 0 { 1 * db.technology_constraint.height_ratio } else { 0 },  // input buffer 
+        if number_outputs != 0 { 2 * db.technology_constraint.grid_per_drra_height } else { 0 }, // transporter and output buffer
+        if number_inputs != 0 { 1 * db.technology_constraint.grid_per_drra_height } else { 0 },  // input buffer 
         // ----------------------------------------------------------------------------
         ((all_ports / 3) + 1) * routing_reserved_size, // left space   
         ((all_ports / 3) + 1) * routing_reserved_size, // right space
@@ -226,8 +226,8 @@ fn create_floor_plan(
             return Err(format!("Cannot find the source port {} in {}", edge.source_port, edge.source_node).into());
         }
 
-        let source_port_position = source_port_index.unwrap_or(0) * db.technology_constraint.width_ratio + 
-            ((db.technology_constraint.width_ratio - 1) / 2);
+        let source_port_position = source_port_index.unwrap_or(0) * db.technology_constraint.grid_per_drra_width + 
+            ((db.technology_constraint.grid_per_drra_width - 1) / 2);
         
         // finding index position of target port 
         let mut target_start_address = 0;
@@ -260,8 +260,8 @@ fn create_floor_plan(
             return Err(format!("Cannot find the target port {} in {}", edge.target_port, edge.target_node).into());
         }
 
-        let target_port_position = target_port_index.unwrap_or(0) * db.technology_constraint.width_ratio + 
-            ((db.technology_constraint.width_ratio - 1) / 2);
+        let target_port_position = target_port_index.unwrap_or(0) * db.technology_constraint.grid_per_drra_width + 
+            ((db.technology_constraint.grid_per_drra_width - 1) / 2);
 
 
         fp.source_node.push(source_node_index);

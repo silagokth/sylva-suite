@@ -271,8 +271,8 @@ fn create_routing_graph(
     let mut node_maps: HashMap<String, (i32, i32, i32, i32, HashMap<String, i32>, HashMap<String, i32>)> = HashMap::new();
 
     for node in &db.app_graph.nodes {
-        let input_space = if node.input_ports.len() > 0 { 1 * db.technology_constraint.height_ratio } else { 0 };
-        let output_space = if node.output_ports.len() > 0 { 2 * db.technology_constraint.height_ratio } else { 0 };
+        let input_space = if node.input_ports.len() > 0 { 1 * db.technology_constraint.grid_per_drra_height } else { 0 };
+        let output_space = if node.output_ports.len() > 0 { 2 * db.technology_constraint.grid_per_drra_height } else { 0 };
         
         // get x, y coordinates of the node placement
         let (x, y) = db.synthesized_information.placements.iter()
@@ -286,8 +286,8 @@ fn create_routing_graph(
         let (width, height) = db.synthesized_information.alimp_bindings.iter()
             .find(|b| b.app_node_id == node.id)
             .map(|b| (
-                b.alimp_instance.width * db.technology_constraint.width_ratio, 
-                b.alimp_instance.height * db.technology_constraint.height_ratio + input_space + output_space
+                b.alimp_instance.width * db.technology_constraint.grid_per_drra_width, 
+                b.alimp_instance.height * db.technology_constraint.grid_per_drra_height + input_space + output_space
             ))
             .ok_or_else(|| {
                 Box::<dyn std::error::Error>::from("Cannot find binding")
@@ -308,7 +308,7 @@ fn create_routing_graph(
                 &input_port.id,
                 "in",
             )?;
-            let position = index * db.technology_constraint.width_ratio;
+            let position = index * db.technology_constraint.grid_per_drra_width;
             
             used_ports.push(index);
             input_ports.insert(input_port.id.clone(), position);
@@ -324,7 +324,7 @@ fn create_routing_graph(
                 &output_port.id,
                 "out",
             )?;
-            let position = index * db.technology_constraint.width_ratio;
+            let position = index * db.technology_constraint.grid_per_drra_width;
 
             used_ports.push(index);
             output_ports.insert(output_port.id.clone(), position);
@@ -678,8 +678,8 @@ fn plot_routing_graph(
 
         for binding in &db.synthesized_information.alimp_bindings {
             if binding.app_node_id == node.id {
-                width = binding.alimp_instance.width * db.technology_constraint.width_ratio;
-                height = binding.alimp_instance.height * db.technology_constraint.height_ratio; 
+                width = binding.alimp_instance.width * db.technology_constraint.grid_per_drra_width;
+                height = binding.alimp_instance.height * db.technology_constraint.grid_per_drra_height; 
                 break;
             }
         }
@@ -688,8 +688,8 @@ fn plot_routing_graph(
             return Err(format!("Placement or binding missing for node {}", node.id).into());
         }
 
-        let step_x = db.technology_constraint.width_ratio;
-        let step_y = db.technology_constraint.height_ratio;
+        let step_x = db.technology_constraint.grid_per_drra_width;
+        let step_y = db.technology_constraint.grid_per_drra_height;
         let (step_x_float, step_y_float) = (step_x as f64, step_y as f64);
 
         // Orange: Main node

@@ -401,8 +401,8 @@ fn plot_graph(
 
         for binding in &db.synthesized_information.alimp_bindings {
             if binding.app_node_id == node.id {
-                w = binding.alimp_instance.width * db.technology_constraint.width_ratio;
-                h = binding.alimp_instance.height * db.technology_constraint.height_ratio;
+                w = binding.alimp_instance.width * db.technology_constraint.grid_per_drra_width;
+                h = binding.alimp_instance.height * db.technology_constraint.grid_per_drra_height;
                 break;
             }
         }
@@ -411,7 +411,7 @@ fn plot_graph(
             return Err(format!("Missing placement/binding for node {}", node.id).into());
         }
 
-        let (step_x, step_y) = (db.technology_constraint.width_ratio, db.technology_constraint.height_ratio);
+        let (step_x, step_y) = (db.technology_constraint.grid_per_drra_width, db.technology_constraint.grid_per_drra_height);
         let (step_x_f, step_y_f) = (step_x as f64, step_y as f64);
 
         // Node rectangle
@@ -479,8 +479,8 @@ fn plot_graph(
 
         for binding in &db.synthesized_information.alimp_bindings {
             if binding.app_node_id == node.id {
-                w = binding.alimp_instance.width * db.technology_constraint.width_ratio;
-                h = binding.alimp_instance.height * db.technology_constraint.height_ratio;
+                w = binding.alimp_instance.width * db.technology_constraint.grid_per_drra_width;
+                h = binding.alimp_instance.height * db.technology_constraint.grid_per_drra_height;
                 break;
             }
         }

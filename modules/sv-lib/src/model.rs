@@ -142,8 +142,8 @@ pub struct TechConstraint {
     pub height_grid: f64, // um
     pub width_drra: f64, // um
     pub height_drra: f64, // um
-    pub width_ratio: i32, // number of grid blocks for one DRRA cell's width 
-    pub height_ratio: i32, // number of grid blocks for one DRRA cell's height
+    pub grid_per_drra_width: i32, // number of grid blocks for one DRRA cell's width 
+    pub grid_per_drra_height: i32, // number of grid blocks for one DRRA cell's height
     pub clock_frequency: f64, // Hz
     pub required_slew: f64,
     pub initial_slew: f64,
@@ -363,8 +363,8 @@ impl DataBase {
                 height_grid: 0.0,
                 width_drra: 0.0,
                 height_drra: 0.0,
-                width_ratio: 0,
-                height_ratio: 0,
+                grid_per_drra_width: 0,
+                grid_per_drra_height: 0,
                 clock_frequency: 0.0,
                 required_slew: 0.0,
                 initial_slew: 0.0,
