@@ -1,5 +1,5 @@
 use sv_lib::model::{DataBase, RoutingGraph, Node, Edge, Channel, RoutingPath, Coordinate};
-use log::{info, error};
+use log::{info, warn, error};
 use std::collections::{HashMap, HashSet};
 use plotters::prelude::*;
 
@@ -189,6 +189,76 @@ fn create_full_graph(
 }
 
 
+fn find_port_index(
+    db: &DataBase,
+    used_channels: &Vec<i32>,
+    node_id: &str,
+    port_id: &str,
+    dir: &str,
+) -> Result<i32, Box<dyn std::error::Error>> {
+    // finding start address and token size
+    let ports: &Vec<_> = db.app_graph.nodes
+        .iter()
+        .find(|n| n.id == node_id)
+        .map(|n| 
+            if dir == "in" {
+                &n.input_ports
+            } else {
+                &n.output_ports
+            }
+        )
+        .ok_or_else(|| {
+            Box::from(format!("Cannot find node {}", node_id))
+            as Box<dyn std::error::Error>
+        })?;
+
+    let mut start_address = 0;
+    let mut token_size = -1;
+    for port in ports.iter() {
+        if port.id == port_id {
+            token_size = port.token_size;
+            break;
+        }
+        start_address += port.token_size;
+    }
+
+    if token_size < 0 {
+        return Err(format!("Cannot find port {} in {}", port_id, node_id).into());
+    }
+
+    // finding index
+    let patterns: &Vec<_> = db.synthesized_information.alimp_bindings
+        .iter()
+        .find(|a| a.app_node_id == node_id)
+        .map(|a|
+            if dir == "in" {
+                &a.alimp_instance.input_addr_time_patterns
+            } else {
+                &a.alimp_instance.output_addr_time_patterns
+            }
+        ) 
+        .ok_or_else(|| {
+            Box::from(format!("Cannot find alimp {}", node_id))
+            as Box<dyn std::error::Error>
+        })?;
+
+    let mut channels: Vec<_> = patterns
+        .iter()
+        .filter(|p| p.address >= start_address && p.address < start_address + token_size)
+        .map(|p| p.channel)
+        .collect();
+    
+    if channels.is_empty() {
+        return Err(format!("Cannot map patterns in alimp {}", node_id).into());
+    }
+    channels.retain(|x| !used_channels.contains(x));
+    
+    // assume that the input/output goes to/from the most left side
+    // of each DRRA cell w.r.t. grid cell
+    Ok(*channels.iter().min().unwrap_or(&0))
+}
+
+
 
 fn create_routing_graph(
     db: &mut DataBase,
@@ -198,11 +268,11 @@ fn create_routing_graph(
         db.synthesized_information.max_width,
         db.synthesized_information.max_height,
     );
-    let mut node_maps: HashMap<String, (i32, i32, i32, i32)> = HashMap::new();
+    let mut node_maps: HashMap<String, (i32, i32, i32, i32, HashMap<String, i32>, HashMap<String, i32>)> = HashMap::new();
 
     for node in &db.app_graph.nodes {
-        let input_space = if node.input_ports.len() > 0 { 1 } else { 0 };
-        let output_space = if node.output_ports.len() > 0 { 2 } else { 0 };
+        let input_space = if node.input_ports.len() > 0 { 1 * db.technology_constraint.grid_per_drra_height } else { 0 };
+        let output_space = if node.output_ports.len() > 0 { 2 * db.technology_constraint.grid_per_drra_height } else { 0 };
         
         // get x, y coordinates of the node placement
         let (x, y) = db.synthesized_information.placements.iter()
@@ -215,12 +285,52 @@ fn create_routing_graph(
         // get width and height of the alimp
         let (width, height) = db.synthesized_information.alimp_bindings.iter()
             .find(|b| b.app_node_id == node.id)
-            .map(|b| (b.alimp_instance.width, b.alimp_instance.height + input_space + output_space))
+            .map(|b| (
+                b.alimp_instance.width * db.technology_constraint.grid_per_drra_width, 
+                b.alimp_instance.height * db.technology_constraint.grid_per_drra_height + input_space + output_space
+            ))
             .ok_or_else(|| {
                 Box::<dyn std::error::Error>::from("Cannot find binding")
             })?;
+        
+        // get port positions and
+        // remove the nodes covered by the placement from the graph
+        let mut exclude_lists: Vec<String> = Vec::new();
+        let mut input_ports: HashMap<String, i32> = HashMap::new();
+        let mut output_ports: HashMap<String, i32> = HashMap::new();
+        
+        let mut used_ports: Vec<i32> = vec![];
+        for input_port in node.input_ports.iter() {
+            let index = find_port_index(
+                &db,
+                &used_ports,
+                &node.id,
+                &input_port.id,
+                "in",
+            )?;
+            let position = index * db.technology_constraint.grid_per_drra_width;
+            
+            used_ports.push(index);
+            input_ports.insert(input_port.id.clone(), position);
+            exclude_lists.push(format!("s_{}", position));
+        }
 
-    
+        used_ports = vec![];
+        for output_port in node.output_ports.iter() {
+            let index = find_port_index(
+                &db,
+                &used_ports,
+                &node.id,
+                &output_port.id,
+                "out",
+            )?;
+            let position = index * db.technology_constraint.grid_per_drra_width;
+
+            used_ports.push(index);
+            output_ports.insert(output_port.id.clone(), position);
+            exclude_lists.push(format!("n_{}", position));
+        }
+
         // add these in the maps
         node_maps.insert(
             node.id.clone(), 
@@ -229,17 +339,12 @@ fn create_routing_graph(
                 y.clone(), 
                 width.clone(), 
                 height.clone(),
+                input_ports,
+                output_ports,
             )
         );
-            
-        // remove the nodes covered by the placement from the graph
-        let mut exclude_lists: Vec<String> = Vec::new();
-        for i in 0..node.input_ports.len() {
-            exclude_lists.push(format!("s_{}", i));
-        }
-        for i in 0..node.output_ports.len() {
-            exclude_lists.push(format!("n_{}", i));
-        }
+        
+        // remove obstacle nodes from the graph
         _add_obstacle(&mut graph, x, y, width, height, exclude_lists)?;
     }
 
@@ -247,40 +352,26 @@ fn create_routing_graph(
     let mut channels: Vec<Channel> = Vec::new(); 
 
     for edge in &db.app_graph.edges {
-        let &(source_x, source_y, source_width, source_height) = node_maps
+        let &(source_x, source_y, source_width, source_height, _, ref source_output_ports) = node_maps
             .get(&edge.source_node)
             .clone()
             .ok_or(format!("Missing source_node {} in node_maps", edge.source_node))?;
-        let &(target_x, target_y, target_width, target_height) = node_maps
+        let &(target_x, target_y, target_width, target_height, ref target_input_ports, _) = node_maps
             .get(&edge.target_node)
             .ok_or(format!("Missing target_node {} in node_maps", edge.target_node))?;
         
         // get source/target port index
-        let source_port_index = db.app_graph.nodes.iter()
-            .find(|node| node.id == edge.source_node)
-            .and_then(|node| {
-                node.output_ports.iter().enumerate()
-                    .find(|(_, port)| port.id == edge.source_port)
-                    .map(|(i, _)| i)
-            })
-            .ok_or_else(|| {
-                Box::<dyn std::error::Error>::from("Cannot find source port in the edges")
-            })?;
+        let source_position = source_output_ports
+            .get(&edge.source_port)
+            .ok_or(format!("Missing source_port {} of {}", edge.source_port, edge.source_node))?;
 
-        let target_port_index = db.app_graph.nodes.iter()
-            .find(|node| node.id == edge.target_node)
-            .and_then(|node| {
-                node.input_ports.iter().enumerate()
-                    .find(|(_, port)| port.id == edge.target_port)
-                    .map(|(i, _)| i)
-            })
-            .ok_or_else(|| {
-                Box::<dyn std::error::Error>::from("Cannot find target port in the edges")
-            })?;
+        let target_position = target_input_ports
+            .get(&edge.target_port)
+            .ok_or(format!("Missing target_port {} of {}", edge.target_port, edge.target_node))?;
         
         // get the node coordinates
-        let source_port = format!("n_{}", source_port_index);
-        let target_port = format!("s_{}", target_port_index);
+        let source_port = format!("n_{}", source_position);
+        let target_port = format!("s_{}", target_position);
         let source = _port_id_to_node_id(source_x, source_y, source_width, source_height, source_port)?;
         let target = _port_id_to_node_id(target_x, target_y, target_width, target_height, target_port)?;
 
@@ -307,12 +398,27 @@ fn plot_available_routing_graph(
     graph: &RoutingGraph,
     module_dir: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let output_file = format!("{}/available_routing_graph.png", module_dir);
-    let root = BitMapBackend::new(&output_file, (800, 800)).into_drawing_area();
-    root.fill(&WHITE)?;
-
+    
     let max_x = db.synthesized_information.max_width.clone();
     let max_y = db.synthesized_information.max_height.clone();
+    let step_x_label = (max_x / 20) + 1;
+    let step_y_label = (max_y / 20) + 1;
+    let resolution = match max_x * max_y {
+        a if a > 100_000 => 10000,
+        a if a > 50_000 => 4000,
+        a if a > 10_000 => 2000,
+        a if a > 5_000 => 1000,
+        _ => 800,
+    } as u32;
+
+    if resolution >= 10000 {
+        warn!("the floorplan is too large to be presented in the graph!");
+        return Ok(())
+    }
+    
+    let output_file = format!("{}/available_routing_graph.png", module_dir);
+    let root = BitMapBackend::new(&output_file, (resolution, resolution)).into_drawing_area();
+    root.fill(&WHITE)?;
 
     let mut chart = ChartBuilder::on(&root)
         .caption("Available Routing Graph", ("sans-serif", 30))
@@ -321,7 +427,10 @@ fn plot_available_routing_graph(
         .y_label_area_size(40)
         .build_cartesian_2d(0.0..max_x as f64, 0.0..max_y as f64)?;
 
-    chart.configure_mesh().draw()?;
+    chart.configure_mesh()
+        .x_labels(((max_x / step_x_label) + 1) as usize)
+        .y_labels(((max_y / step_y_label) + 1) as usize)
+        .draw()?;
 
     // Draw grid
     for x in 0..max_x {
@@ -365,7 +474,7 @@ fn plot_available_routing_graph(
 fn route(
     graph: &mut RoutingGraph,
 ) -> Result<(), Box<dyn std::error::Error>> {
-
+    
     // helper functions
     fn _remove_nodes(graph: &mut RoutingGraph, nodes: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         for id in nodes {
@@ -381,10 +490,11 @@ fn route(
         Ok(())
     }
 
+    /* Remove the concept of sharing path 
     fn _share_paths(c1: &Channel, c2: &Channel) -> bool {
         c1.source[0] == c2.source[0] || c1.target[0] == c2.target[0]
     }
-
+    */
 
     // sort channels by traffic (high to low)
     graph.channels.sort_by(|a, b| b.traffic.partial_cmp(&a.traffic).unwrap_or(std::cmp::Ordering::Equal));
@@ -394,9 +504,7 @@ fn route(
         let mut routing_graph = graph.clone();
 
         for i in 0..index {
-            if !_share_paths(&graph.channels[index], &graph.channels[i]) {
-                _remove_nodes(&mut routing_graph, &graph.channels[i].path)?;    
-            }
+            _remove_nodes(&mut routing_graph, &graph.channels[i].path)?;    
         }
 
         // find a path 
@@ -497,12 +605,27 @@ fn plot_routing_graph(
     db: &DataBase,
     module_dir: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let output_file = format!("{}/routing_graph.png", module_dir);
-    let root = BitMapBackend::new(&output_file, (800, 800)).into_drawing_area();
-    root.fill(&WHITE)?;
-
+    
     let max_x = db.synthesized_information.max_width.clone();
     let max_y = db.synthesized_information.max_height.clone();
+    let step_x_label = (max_x / 20) + 1;
+    let step_y_label = (max_y / 20) + 1;
+    let resolution = match max_x * max_y {
+        a if a > 100_000 => 10000,
+        a if a > 50_000 => 4000,
+        a if a > 10_000 => 2000,
+        a if a > 5_000 => 1000,
+        _ => 800,
+    } as u32;
+
+    if resolution >= 10000 {
+        warn!("the floorplan is too large to be presented in the graph!");
+        return Ok(())
+    }
+    
+    let output_file = format!("{}/routing_graph.png", module_dir);
+    let root = BitMapBackend::new(&output_file, (resolution, resolution)).into_drawing_area();
+    root.fill(&WHITE)?;
 
     let mut chart = ChartBuilder::on(&root)
         .caption("Routing Graph", ("sans-serif", 30))
@@ -514,70 +637,11 @@ fn plot_routing_graph(
     chart.configure_mesh()
         .disable_x_mesh()
         .disable_y_mesh()
-        .x_labels((max_x + 1) as usize)
-        .y_labels((max_y + 1) as usize)
+        .x_labels(((max_x / step_x_label) + 1) as usize)
+        .y_labels(((max_y / step_y_label) + 1) as usize)
         .draw()?;
     
-
-    // plot nodes
-    for node in &db.app_graph.nodes {
-        let (mut x, mut y, mut width, mut height) = (-1, -1, -1, -1);
-
-        for placement in &db.synthesized_information.placements {
-            if placement.app_node_id == node.id {
-                x = placement.x;
-                y = placement.y;
-                break;
-            }
-        }
-
-        for binding in &db.synthesized_information.alimp_bindings {
-            if binding.app_node_id == node.id {
-                width = binding.alimp_instance.width;
-                height = binding.alimp_instance.height;
-                break;
-            }
-        }
-
-        if x == -1 || y == -1 || width == -1 || height == -1 {
-            return Err(format!("Placement or binding missing for node {}", node.id).into());
-        }
-
-        let x = x as f64;
-        let y = y as f64;
-        let width = width as f64;
-        let height = height as f64;
-
-        // Orange: Main node
-        chart.draw_series(std::iter::once(Rectangle::new(
-            [(x - 0.5, y - 0.5), (x - 0.5 + width, y - 0.5 + height)],
-            RGBColor(255, 165, 0).filled(), // Orange
-        )))?;
- 
-        if node.input_ports.len() > 0 {
-            // Purple: Input buffer (south of node)
-            chart.draw_series(std::iter::once(Rectangle::new(
-                [(x - 0.5, y - 1.5), (x - 0.5 + width, y - 0.5)],
-                RGBColor(160, 32, 240).filled(), // Purple
-            )))?;
-        }
-       
-        if node.output_ports.len() > 0 {
-            // Red: Output buffer (north of node)
-            chart.draw_series(std::iter::once(Rectangle::new(
-                [(x - 0.5, y + height - 0.5), (x - 0.5 + width, y + height + 0.5)],
-                RED.filled(),
-            )))?;
-
-            // Green: Data transporter (north+1)
-            chart.draw_series(std::iter::once(Rectangle::new(
-                [(x - 0.5, y + height + 0.5), (x - 0.5 + width, y + height + 1.5)],
-                GREEN.filled(),
-            )))?;
-        }
-    }
-
-
+        
     // Plot routing paths (blue blocks)
     for routing_path in &db.synthesized_information.routing_paths {
         for coord in &routing_path.path {
@@ -605,6 +669,83 @@ fn plot_routing_graph(
             vec![(-0.5, i as f64 - 0.5), (max_x as f64 - 0.5, i as f64 - 0.5)],
             ShapeStyle::from(&RGBColor(200, 200, 200)).stroke_width(2),
         ))?;
+    }
+
+    // plot nodes
+    for node in &db.app_graph.nodes {
+        let (mut x, mut y, mut width, mut height) = (-1, -1, -1, -1);
+
+        for placement in &db.synthesized_information.placements {
+            if placement.app_node_id == node.id {
+                x = placement.x;
+                y = placement.y;
+                break;
+            }
+        }
+
+        for binding in &db.synthesized_information.alimp_bindings {
+            if binding.app_node_id == node.id {
+                width = binding.alimp_instance.width * db.technology_constraint.grid_per_drra_width;
+                height = binding.alimp_instance.height * db.technology_constraint.grid_per_drra_height; 
+                break;
+            }
+        }
+
+        if x == -1 || y == -1 || width == -1 || height == -1 {
+            return Err(format!("Placement or binding missing for node {}", node.id).into());
+        }
+
+        let step_x = db.technology_constraint.grid_per_drra_width;
+        let step_y = db.technology_constraint.grid_per_drra_height;
+        let (step_x_float, step_y_float) = (step_x as f64, step_y as f64);
+
+        // Orange: Main node
+        for i in (x..(x + width)).step_by(step_x as usize) {
+            for j in (y..(y + height)).step_by(step_y as usize) {
+                let (i_float, j_float) = (i as f64, j as f64);
+                chart.draw_series(std::iter::once(Rectangle::new(
+                    [(i_float - 0.30, j_float - 0.30), (i_float - 0.70 + step_x_float, j_float - 0.70 + step_y_float)],
+                    RGBColor(255, 165, 0).filled(), // Orange
+                )))?;
+            }
+        }
+
+        if node.input_ports.len() > 0 {
+            // Purple: Input buffer (south of node)
+            for i in (x..(x + width)).step_by(step_x as usize) {
+                for j in ((y - step_y)..y).step_by(step_y as usize) {
+                    let (i_float, j_float) = (i as f64, j as f64);
+                    chart.draw_series(std::iter::once(Rectangle::new(
+                        [(i_float - 0.30, j_float - 0.30), (i_float - 0.70 + step_x_float, j_float - 0.70 + step_y_float)],
+                        RGBColor(160, 32, 240).filled(), // Purple
+                    )))?;
+                }
+            }
+        }
+       
+        if node.output_ports.len() > 0 {
+            // Red: Output buffer (north of node)
+            for i in (x..(x + width)).step_by(step_x as usize) {
+                for j in ((y + height)..(y + height + step_y)).step_by(step_y as usize) {
+                    let (i_float, j_float) = (i as f64, j as f64);
+                    chart.draw_series(std::iter::once(Rectangle::new(
+                        [(i_float - 0.30, j_float - 0.30), (i_float - 0.70 + step_x_float, j_float - 0.70 + step_y_float)],
+                        RED.filled(),
+                    )))?;
+                }
+            }
+
+            // Green: Data transporter (north+1)
+            for i in (x..(x + width)).step_by(step_x as usize) {
+                for j in ((y + height + step_y)..(y + height + (2 * step_y))).step_by(step_y as usize) {
+                    let (i_float, j_float) = (i as f64, j as f64);
+                    chart.draw_series(std::iter::once(Rectangle::new(
+                        [(i_float - 0.30, j_float - 0.30), (i_float - 0.70 + step_x_float, j_float - 0.70 + step_y_float)],
+                        GREEN.filled(),
+                    )))?;
+                }
+            }
+        }
     }
 
     root.present()?;
