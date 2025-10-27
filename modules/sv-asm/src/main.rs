@@ -11,10 +11,10 @@ mod noc;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    #[arg(short = 'o', long = "object", help="Input database object")]
-    object: String,
+    #[arg(short = 'i', long = "intermediate-representation", help="Input Intermediate Representation Object")]
+    ir_object: String,
 
-    #[arg(short = 'b', long = "binary", help="output binary directory")]
+    #[arg(short = 'o', long = "binary", help="output directory")]
     output: String,
 }
 
@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
 
     // read configuration files and store the information in ds 
-    let mut db = file_handler::load_json_file(&args.object)?;
+    let mut db = file_handler::load_json_file(&args.ir_object)?;
     
     // This will create the output directory if it doesn't exist
     match std::fs::create_dir_all(&args.output) {

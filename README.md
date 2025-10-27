@@ -15,8 +15,7 @@ Tool suite for Application Level Synthesis.
    ./setup.sh
    ```
 
-3. Create test example (minimum, copy, sobel, lenet5)
-
+3. Create test example (minimum, copy, sobel, and lenet5)  
    ```bash
    ./bin/config --name {example} --output ./config/
    ```
@@ -30,13 +29,13 @@ Tool suite for Application Level Synthesis.
 `
 ### Commands
 
-#### `sylva`
+#### `sv-dse`
 
 ```shell
 Arguments to get the configuration files and output directory
 
 
-Usage: sylva --graph <GRAPH> --constraint <CONSTRAINT_FILE> --library <ALIMP_LIB> --parameter <HYPER_PARAMETER> --technology <TECHNOLOGY_CONSTRAINT> --output <OUTPUT>
+Usage: sv-dse --graph <GRAPH> --constraint <CONSTRAINT_FILE> --library <ALIMP_LIB> --parameter <HYPER_PARAMETER> --technology <TECHNOLOGY_CONSTRAINT> --output <OUTPUT>
 
 Options:
   -g, --graph <GRAPH>                       SDF graph file
@@ -60,6 +59,20 @@ Options:
       --dir <DIR>  Directory containing the files
   -h, --help       Print help
   -V, --version    Print version
+```
+
+#### `sv-asm`
+
+```shell
+Arguments to get the configuration files and output directory
+
+Usage: sv-asm --intermediate-representation <IR_OBJECT> --binary <OUTPUT>
+
+Options:
+  -i, --intermediate-representation <IR_OBJECT>  Input Intermediate Representation Object
+  -o, --binary <OUTPUT>                          output directory
+  -h, --help                                     Print help
+  -V, --version                                  Print version
 ```
 
 #### `config`
