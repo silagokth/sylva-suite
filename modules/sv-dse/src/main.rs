@@ -71,7 +71,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     /* save synthesized information */
     let bin_file = format!("{}/db.bin", args.output);
     file_handler::write_json_file(&bin_file, &db)?;
-    //db = file_handler::load_json_file(&bin_file)?;
+    db = file_handler::load_json_file(&bin_file)?;
     
     let sim = sim::run(&mut db, &args.output)?;
     if !sim {

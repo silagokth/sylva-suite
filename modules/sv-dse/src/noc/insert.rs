@@ -64,7 +64,8 @@ pub fn is_path_satisfied(
 
     // constraints
     let requirements = [
-        tech_const.required_period > sum_delay - improved_delay,
+        // change clock frequency to required period 
+        (1.0 / tech_const.clock_frequency) > sum_delay - improved_delay,
         tech_const.required_slew < slowdown_slew,
     ];
 
@@ -249,7 +250,11 @@ mod tests {
     #[test]
     fn test_insert_buffer() {
         let mut constraints = TechConstraint {
-            required_period: 100.0,
+            width_grid: 0.0,
+            height_grid: 0.0,
+            width_drra: 0.0,
+            height_drra: 0.0,
+            clock_frequency: 1e-2,
             required_slew: 0.5,
             initial_slew: 1.0,
             buffer_slew_declined_factor: 0.05,
@@ -280,7 +285,11 @@ mod tests {
     #[test]
     fn test_insert_main() {
         let mut constraints = TechConstraint {
-            required_period: 100.0,
+            width_grid: 0.0,
+            height_grid: 0.0,
+            width_drra: 0.0,
+            height_drra: 0.0,
+            clock_frequency: 1e-2,
             required_slew: 0.5,
             initial_slew: 1.0,
             buffer_slew_declined_factor: 0.05,

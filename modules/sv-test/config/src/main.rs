@@ -65,7 +65,12 @@ fn save_files(db: &DataBase, dir: &str) -> Result<(), Box<dyn std::error::Error>
 
 fn add_common_technology(db: &mut DataBase) -> Result<(), Box<dyn std::error::Error>> {
     
-    db.technology_constraint.required_period = 4.0e-9;
+    db.technology_constraint.width_grid = 1.0;
+    db.technology_constraint.height_grid = 1.0;
+    db.technology_constraint.width_drra = 4.0;
+    db.technology_constraint.height_drra = 4.0;
+
+    db.technology_constraint.clock_frequency = 250.0e+6;
     db.technology_constraint.required_slew = 0.4;
     db.technology_constraint.initial_slew = 0.7;
     db.technology_constraint.buffer_slew_declined_factor = 0.05;
