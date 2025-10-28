@@ -260,8 +260,8 @@ fn memory_synthesis(
             src_fire_time: *src_fire_time,
             dst_fire_time: *dst_fire_time,
             routing_delay: routing_delay,
-            output_buffer_size: total_output_buffer,
-            input_buffer_size: total_input_buffer,
+            output_buffer_size: total_output_buffer as i32,
+            input_buffer_size: total_input_buffer as i32,
             channel_width_size: *total_communication_channel,
         };
 
@@ -361,51 +361,55 @@ fn memory_synthesis(
             
             for bank_index in 0..memory_info.ob_memory_types.len() {
                 // output buffer 
-                let mut most_left_x_position = *src_list.iter().min().unwrap_or(&0) as usize;
-                let mut most_right_x_position = *src_list.iter().max().unwrap_or(&0) as usize;
-                           
+                let source_most_left_x_position = *src_list.iter().min().unwrap_or(&0) as usize;
+                let source_most_right_x_position = *src_list.iter().max().unwrap_or(&0) as usize;
+                
                 let output_communication_channels: Vec<_> = memory_info.output_ob_channels
                     .index_axis(Axis(0), bank_index)
                     .iter()
                     .enumerate()
                     .filter(|&(_, &val)| val == 1)
-                    .map(|(idx, _)| (idx + most_left_x_position) as i32)
+                    .map(|(idx, _)| (idx + source_most_left_x_position) as i32)
                     .collect();
-                    
-                source_memory.memory_structure.push(MemoryStructure {
-                    memory_type: memory_info.ob_memory_types[bank_index].clone(),
-                    memory_size: memory_info.ob_size[bank_index],
-                    input_channels: src_list.clone(), 
-                    output_channels: output_communication_channels.clone(), 
-                    placement: MemoryPlacement {
-                        x: source_x + (most_left_x_position as i32), 
-                        y: source_y,
-                        width: (most_right_x_position - most_left_x_position) as i32 + 1,
-                        height: 1, // fixed to 1
-                    },
-                });
                 
-                // input buffer 
-                most_left_x_position = *dst_list.iter().min().unwrap_or(&0) as usize;
-                most_right_x_position = *dst_list.iter().max().unwrap_or(&0) as usize;
-            
+                // input buffer            
+                let target_most_left_x_position = *src_list.iter().min().unwrap_or(&0) as usize;
+                let target_most_right_x_position = *src_list.iter().max().unwrap_or(&0) as usize;
+                               
                 let input_communication_channels: Vec<_> = memory_info.input_ib_channels
                     .index_axis(Axis(0), bank_index)
                     .iter()
                     .enumerate()
                     .filter(|&(_, &val)| val == 1)
-                    .map(|(idx, _)| (idx + most_left_x_position) as i32)
-                    .collect();
-                    
+                    .map(|(idx, _)| (idx + target_most_left_x_position) as i32)
+                    .collect();    
+                
+                assert_eq!(output_communication_channels.len(), input_communication_channels.len());
+
+                source_memory.memory_structure.push(MemoryStructure {
+                    memory_type: memory_info.ob_memory_types[bank_index].clone(),
+                    memory_size: memory_info.ob_size[bank_index] as u32,
+                    input_channels: src_list.iter().map(|&x| x as u32).collect(), 
+                    output_channels: output_communication_channels.iter().map(|&x| x as u32).collect(), 
+                    corresponding_channels: input_communication_channels.iter().map(|&x| x as u32).collect(), 
+                    placement: MemoryPlacement {
+                        x: source_x + (source_most_left_x_position as i32), 
+                        y: source_y,
+                        width: (source_most_right_x_position - source_most_left_x_position) as i32 + 1,
+                        height: 1, // fixed to 1
+                    },
+                });
+                
                 target_memory.memory_structure.push(MemoryStructure {
                     memory_type: memory_info.ib_memory_types[bank_index].clone(),
-                    memory_size: memory_info.ib_size[bank_index],
-                    input_channels: dst_list.clone(), 
-                    output_channels: input_communication_channels.clone(), 
+                    memory_size: memory_info.ib_size[bank_index] as u32,
+                    input_channels: dst_list.iter().map(|&x| x as u32).collect(), 
+                    output_channels: input_communication_channels.iter().map(|&x| x as u32).collect(), 
+                    corresponding_channels: vec![],
                     placement: MemoryPlacement {
-                        x: target_x + (most_left_x_position as i32), 
+                        x: target_x + (target_most_left_x_position as i32), 
                         y: target_y,
-                        width: (most_right_x_position - most_left_x_position) as i32 + 1,
+                        width: (target_most_right_x_position - target_most_left_x_position) as i32 + 1,
                         height: 1, // fixed to 1
                     },
                 });
@@ -654,6 +658,8 @@ fn memory_synthesis(
                         fire_time: fire_time,
                         end_time: end_time,
                         entries: entries,
+                        from: memory.output_channels[transporter_position],
+                        to: memory.corresponding_channels[transporter_position],
                         placement: MemoryPlacement {
                             x: memory.placement.x + (transporter_position as i32),
                             y: memory.placement.y + 1,
@@ -681,12 +687,12 @@ fn memory_synthesis(
             return Err(format!("find an overestimated solution for channel width at edge {}", &edge.id).into());
         }       
 
-        if source_memory.memory_structure.iter().map(|m| m.memory_size).sum::<i32>() >
+        if source_memory.memory_structure.iter().map(|m| m.memory_size).sum::<u32>() >
             2 * total_output_buffer {
             return Err(format!("find an overestimated solution for OB at edge {}", &edge.id).into());
         } 
 
-        if target_memory.memory_structure.iter().map(|m| m.memory_size).sum::<i32>() >
+        if target_memory.memory_structure.iter().map(|m| m.memory_size).sum::<u32>() >
             2 * total_input_buffer {
             return Err(format!("find an overestimated solution for IB at edge {}", &edge.id).into());
         } 

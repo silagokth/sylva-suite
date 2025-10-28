@@ -1,6 +1,6 @@
 use sv_lib::model::{DataBase, Node, Edge, Channel, 
                     RoutingGraph, RoutingPath, Coordinate};
-use log::{info, error, debug};
+use log::{info, error, warn, debug};
 use std::collections::{HashMap};
 use regex::Regex;
 use plotters::prelude::*;
@@ -107,17 +107,17 @@ fn noc_identification(
             };
             
             let dir_in = match (coord_prev.x, coord_prev.y) {
-                (p_x, p_y) if p_x == coord.x && p_y == coord.y - 1 => "s",
+                (p_x, p_y) if p_x == coord.x && p_y + 1 == coord.y => "s",
                 (p_x, p_y) if p_x == coord.x && p_y == coord.y + 1 => "n",
-                (p_x, p_y) if p_x == coord.x - 1 && p_y == coord.y => "w",
+                (p_x, p_y) if p_x + 1 == coord.x && p_y == coord.y => "w",
                 (p_x, p_y) if p_x == coord.x + 1 && p_y == coord.y => "e",
                 _ => return Err(format!("path is not continuous").into()),
             };
 
             let dir_out = match (coord_next.x, coord_next.y) {
-                (n_x, n_y) if n_x == coord.x && n_y == coord.y - 1 => "s",
+                (n_x, n_y) if n_x == coord.x && n_y + 1 == coord.y => "s",
                 (n_x, n_y) if n_x == coord.x && n_y == coord.y + 1 => "n",
-                (n_x, n_y) if n_x == coord.x - 1 && n_y == coord.y => "w",
+                (n_x, n_y) if n_x + 1 == coord.x && n_y == coord.y => "w",
                 (n_x, n_y) if n_x == coord.x + 1 && n_y == coord.y => "e",
                 _ => return Err(format!("path is not continuous").into()),
             };
@@ -220,7 +220,7 @@ fn noc_resynthesis(
             routing_path.delay,
         )?;
 */
-        let design = "wwwbwrwww";
+        let design = "w".repeat(routing_path.path.len());
 
         if design.is_empty() {
             error!("fail to find a NoC solution ");
@@ -249,9 +249,9 @@ fn noc_resynthesis(
             };
 
             let dir_in = match (coord_prev.x, coord_prev.y) {
-                (p_x, p_y) if p_x == coord.x && p_y == coord.y - 1 => "s",
+                (p_x, p_y) if p_x == coord.x && p_y + 1 == coord.y => "s",
                 (p_x, p_y) if p_x == coord.x && p_y == coord.y + 1 => "n",
-                (p_x, p_y) if p_x == coord.x - 1 && p_y == coord.y => "w",
+                (p_x, p_y) if p_x + 1 == coord.x && p_y == coord.y => "w",
                 (p_x, p_y) if p_x == coord.x + 1 && p_y == coord.y => "e",
                 _ => return Err(format!("path is not continuous").into()),
             };
@@ -291,12 +291,27 @@ fn plot_graph(
     db: &DataBase,
     module_dir: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let output_file = format!("{}/layout_graph.png", module_dir);
-    let root = BitMapBackend::new(&output_file, (1024, 1024)).into_drawing_area();
-    root.fill(&WHITE)?;
-
+ 
     let max_x = db.synthesized_information.max_width.clone();
     let max_y = db.synthesized_information.max_height.clone();
+    let step_x_label = (max_x / 20) + 1;
+    let step_y_label = (max_y / 20) + 1;
+    let resolution = match max_x * max_y {
+        a if a > 100_000 => 10000,
+        a if a > 50_000 => 4000,
+        a if a > 10_000 => 2000,
+        a if a > 5_000 => 1000,
+        _ => 800,
+    } as u32;
+
+    if resolution >= 10000 {
+        warn!("the floorplan is too large to be presented in the graph!");
+        return Ok(())
+    }
+    
+    let output_file = format!("{}/layout_graph.png", module_dir);
+    let root = BitMapBackend::new(&output_file, (resolution, resolution)).into_drawing_area();
+    root.fill(&WHITE)?;
 
     let mut chart = ChartBuilder::on(&root)
         .margin(10)
@@ -311,79 +326,9 @@ fn plot_graph(
     chart.configure_mesh()
         .disable_x_mesh()
         .disable_y_mesh()
+        .x_labels(((max_x / step_x_label) + 1) as usize)
+        .y_labels(((max_y / step_y_label) + 1) as usize)
         .draw()?;
-
-    // draw nodes and buffers 
-    for node in &db.app_graph.nodes {
-        let (mut x, mut y, mut w, mut h) = (-1, -1, -1, -1);
-
-        for placement in &db.synthesized_information.placements {
-            if placement.app_node_id == node.id {
-                x = placement.x;
-                y = placement.y;
-                break;
-            }
-        }
-
-        for binding in &db.synthesized_information.alimp_bindings {
-            if binding.app_node_id == node.id {
-                w = binding.alimp_instance.width;
-                h = binding.alimp_instance.height;
-                break;
-            }
-        }
-
-        if x == -1 || y == -1 || w == -1 || h == -1 {
-            return Err(format!("Missing placement/binding for node {}", node.id).into());
-        }
-
-        let x_f = x as f64;
-        let y_f = y as f64;
-        let w_f = w as f64;
-        let h_f = h as f64;
-
-        // Node rectangle (Orange)
-        chart.plotting_area().draw(&Rectangle::new(
-            [(x_f - 0.5, y_f - 0.5), (x_f - 0.5 + w_f, y_f - 0.5 + h_f)],
-            RGBColor(255, 165, 0).filled(),
-        ))?;
-    }
-    
-    // Plot memories 
-    // Purple for IB
-    // Red for OB
-    for memory in &db.synthesized_information.memory_synthesis {
-        for bank in &memory.memory_structure {
-            let place = &bank.placement;
-            let colour = if memory.memory_direction == "out" {
-                RED.filled()
-            } else {
-                RGBColor(160, 32, 240).filled() // purple
-            };
-
-            chart.draw_series(std::iter::once(Rectangle::new(
-                [
-                    (place.x as f64 - 0.5, place.y as f64 - 0.5), 
-                    (place.x as f64 - 0.5 + place.width as f64, place.y as f64 - 0.5 + place.height as f64)
-                ],
-                colour,
-            )))?;
-        }  
-    }
-    
-    // Plot Data transporter (Green)
-    for transporter in &db.synthesized_information.transporter_tables {
-        let place = &transporter.placement; 
-
-        chart.draw_series(std::iter::once(Rectangle::new(
-            [
-                (place.x as f64 - 0.5, place.y as f64 - 0.5), 
-                (place.x as f64 - 0.5 + place.width as f64, place.y as f64 - 0.5 + place.height as f64)
-            ],
-            GREEN.filled(),
-        )))?;
-    }
-
 
     // draw routing paths
     for path in &db.synthesized_information.routing_paths {
@@ -434,7 +379,7 @@ fn plot_graph(
 
                 let x2 = end_x - arrow_head_size * (angle + arrow_angle).cos();
                 let y2 = end_y - arrow_head_size * (angle + arrow_angle).sin();
- 
+                
                 // colour 
                 // register - dark pink
                 // buffer - light yellow
@@ -448,13 +393,12 @@ fn plot_graph(
                 // draw arrowhead
                 area.draw(&PathElement::new(
                     vec![(end_x, end_y), (x1, y1)],
-                    ShapeStyle::from(&colour).stroke_width(2),
+                    ShapeStyle::from(&BLACK).stroke_width(2),
                 ))?;
                 area.draw(&PathElement::new(
                     vec![(end_x, end_y), (x2, y2)],
-                    ShapeStyle::from(&colour).stroke_width(2),
+                    ShapeStyle::from(&BLACK).stroke_width(2),
                 ))?;
-
 
                 area.draw(&Polygon::new(
                     vec![(end_x, end_y), (x1, y1), (x2, y2)],
@@ -507,7 +451,7 @@ fn plot_graph(
                         _ => return Err("invalid arrow direction".into()),
                     }
                 }
-            }            
+            } 
         }
     }
 
@@ -525,6 +469,84 @@ fn plot_graph(
         ))?;
     }
 
+    // draw nodes and buffers 
+    for node in &db.app_graph.nodes {
+        let (mut x, mut y, mut w, mut h) = (-1, -1, -1, -1);
+
+        for placement in &db.synthesized_information.placements {
+            if placement.app_node_id == node.id {
+                x = placement.x;
+                y = placement.y;
+                break;
+            }
+        }
+
+        for binding in &db.synthesized_information.alimp_bindings {
+            if binding.app_node_id == node.id {
+                w = binding.alimp_instance.width * db.technology_constraint.grid_per_drra_width;
+                h = binding.alimp_instance.height * db.technology_constraint.grid_per_drra_height;
+                break;
+            }
+        }
+
+        if x == -1 || y == -1 || w == -1 || h == -1 {
+            return Err(format!("Missing placement/binding for node {}", node.id).into());
+        }
+
+        let (step_x, step_y) = (db.technology_constraint.grid_per_drra_width, db.technology_constraint.grid_per_drra_height);
+        let (step_x_f, step_y_f) = (step_x as f64, step_y as f64);
+
+        // Node rectangle
+        // Orange: Main node
+        for i in (x..(x + w)).step_by(step_x as usize) {
+            for j in (y..(y + h)).step_by(step_y as usize) {
+                let (i_f, j_f) = (i as f64, j as f64);
+                chart.draw_series(std::iter::once(Rectangle::new(
+                    [(i_f - 0.30, j_f - 0.30), (i_f - 0.70 + step_x_f, j_f - 0.70 + step_y_f)],
+                    RGBColor(255, 165, 0).filled(), // Orange
+                )))?;
+            }
+        }
+
+
+        if node.input_ports.len() > 0 {
+            // Input buffer (purple, below node)
+            for i in (x..(x + w)).step_by(step_x as usize) {
+                for j in ((y - step_y)..y).step_by(step_y as usize) {
+                    let (i_f, j_f) = (i as f64, j as f64);
+                    chart.draw_series(std::iter::once(Rectangle::new(
+                        [(i_f - 0.30, j_f - 0.30), (i_f - 0.70 + step_x_f, j_f - 0.70 + step_y_f)],
+                        RGBColor(160, 32, 240).filled(), // Purple
+                    )))?;
+                }
+            }
+        }
+        
+        if node.output_ports.len() > 0 {
+            // Output buffer (red, above node)
+            for i in (x..(x + w)).step_by(step_x as usize) {
+                for j in ((y + h)..(y + h + step_y)).step_by(step_y as usize) {
+                    let (i_f, j_f) = (i as f64, j as f64);
+                    chart.draw_series(std::iter::once(Rectangle::new(
+                        [(i_f - 0.30, j_f - 0.30), (i_f - 0.70 + step_x_f, j_f - 0.70 + step_y_f)],
+                        RED.filled(),
+                    )))?;
+                }
+            }
+
+            // Transporter (green, above buffer)
+            for i in (x..(x + w)).step_by(step_x as usize) {
+                for j in ((y + h + step_y)..(y + h + (2 * step_y))).step_by(step_y as usize) {
+                    let (i_f, j_f) = (i as f64, j as f64);
+                    chart.draw_series(std::iter::once(Rectangle::new(
+                        [(i_f - 0.30, j_f - 0.30), (i_f - 0.70 + step_x_f, j_f - 0.70 + step_y_f)],
+                        GREEN.filled(),
+                    )))?;
+                }
+            }
+        }
+    }
+
     // add node labels 
     for node in &db.app_graph.nodes {
         let (mut x, mut y, mut w, mut h) = (-1, -1, -1, -1);
@@ -539,8 +561,8 @@ fn plot_graph(
 
         for binding in &db.synthesized_information.alimp_bindings {
             if binding.app_node_id == node.id {
-                w = binding.alimp_instance.width;
-                h = binding.alimp_instance.height;
+                w = binding.alimp_instance.width * db.technology_constraint.grid_per_drra_width;
+                h = binding.alimp_instance.height * db.technology_constraint.grid_per_drra_height;
                 break;
             }
         }
@@ -557,7 +579,7 @@ fn plot_graph(
         // Label
         chart.plotting_area().draw(&Text::new(
             &node.id[..],
-            (x_f + (w_f - 1.0) / 2.0, y_f + h_f / 2.0),
+            (x_f + (w_f - 1.0) / 5.0, y_f + h_f / 2.0),
             ("sans-serif", 50.0).into_font().color(&BLACK),
         ))?;
     }

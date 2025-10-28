@@ -191,7 +191,7 @@ pub struct Channel {
     pub source: Vec<String>,
     pub target: Vec<String>,
     pub traffic: f64,
-    pub path: Vec<String>,
+    pub path: Vec<Vec<String>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -291,9 +291,9 @@ pub struct RoutingPath {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Coordinate {
-    pub x: i32,
-    pub y: i32,
-    pub port: i32, // 0: normal, 1: output, 2: input
+    pub x: u32,
+    pub y: u32,
+    pub port: u32, // 0: normal, 1: output, 2: input
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -317,9 +317,10 @@ pub struct MemorySynthesis {
 #[serde(rename_all = "camelCase")]
 pub struct MemoryStructure {
     pub memory_type: String,
-    pub memory_size: i32,
-    pub input_channels: Vec<i32>,
-    pub output_channels: Vec<i32>,
+    pub memory_size: u32,
+    pub input_channels: Vec<u32>,
+    pub output_channels: Vec<u32>,
+    pub corresponding_channels: Vec<u32>,
     pub placement: MemoryPlacement, 
 }
 
@@ -329,6 +330,8 @@ pub struct TransporterTable {
     pub transporter_id: String,
     pub fire_time: i32,
     pub end_time: i32,
+    pub from: u32,
+    pub to: u32,
     pub entries: Vec<TransportTableEntry>,
     pub placement: MemoryPlacement,
 }

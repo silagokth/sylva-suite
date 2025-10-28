@@ -7,10 +7,10 @@ mod graph;
 
 
 fn _port_id_to_node_id(
-    x: i32,
-    y: i32,
-    width: i32,
-    height: i32,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
     port_id: String,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let parts: Vec<&str> = port_id.split('_').collect();    
@@ -19,7 +19,7 @@ fn _port_id_to_node_id(
     }
     
     let dir = parts[0];
-    let i: i32 = parts[1].parse()?;
+    let i: u32 = parts[1].parse()?;
 
     match dir {
         "N" | "n" => return Ok(format!("{}_{}_{}", x + i, y + height - 1, 1)),
@@ -32,26 +32,26 @@ fn _port_id_to_node_id(
 
 fn _node_id_to_coordinates(
     node_id: String,
-) -> Result<(i32, i32, i32), Box<dyn std::error::Error>> {
+) -> Result<(u32, u32, u32), Box<dyn std::error::Error>> {
     
     let parts: Vec<&str> = node_id.split('_').collect();    
     if parts.len() != 3 {
         return Err("Node ID format is incorrect".into())
     }
     
-    let i: i32 = parts[0].parse()?;
-    let j: i32 = parts[1].parse()?;
-    let k: i32 = parts[2].parse()?;
+    let i: u32 = parts[0].parse()?;
+    let j: u32 = parts[1].parse()?;
+    let k: u32 = parts[2].parse()?;
     Ok((i, j, k))
 }
 
 
 fn _add_obstacle(
     graph: &mut RoutingGraph,
-    x: i32,
-    y: i32,
-    width: i32,
-    height: i32,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
     excludes: Vec<String>, 
 ) -> Result<(), Box<dyn std::error::Error>> {
     
@@ -108,12 +108,12 @@ fn _add_obstacle(
 
 
 fn create_full_graph(
-    width: i32, 
-    height: i32,
+    width: u32, 
+    height: u32,
 ) -> RoutingGraph {
     
     // helper function to create node IDs
-    let node_id = |x: i32, y: i32, z: i32| -> String {
+    let node_id = |x: u32, y: u32, z: u32| -> String {
         format!("{}_{}_{}", x, y, z)
     };
 
@@ -191,11 +191,11 @@ fn create_full_graph(
 
 fn find_port_index(
     db: &DataBase,
-    used_channels: &Vec<i32>,
+    used_channels: &Vec<u32>,
     node_id: &str,
     port_id: &str,
     dir: &str,
-) -> Result<i32, Box<dyn std::error::Error>> {
+) -> Result<u32, Box<dyn std::error::Error>> {
     // finding start address and token size
     let ports: &Vec<_> = db.app_graph.nodes
         .iter()
@@ -245,7 +245,7 @@ fn find_port_index(
     let mut channels: Vec<_> = patterns
         .iter()
         .filter(|p| p.address >= start_address && p.address < start_address + token_size)
-        .map(|p| p.channel)
+        .map(|p| p.channel as u32)
         .collect();
     
     if channels.is_empty() {
@@ -265,10 +265,10 @@ fn create_routing_graph(
 ) -> Result<RoutingGraph, Box<dyn std::error::Error>> {
 
     let mut graph = create_full_graph(
-        db.synthesized_information.max_width,
-        db.synthesized_information.max_height,
+        db.synthesized_information.max_width as u32,
+        db.synthesized_information.max_height as u32,
     );
-    let mut node_maps: HashMap<String, (i32, i32, i32, i32, HashMap<String, i32>, HashMap<String, i32>)> = HashMap::new();
+    let mut node_maps: HashMap<String, (u32, u32, u32, u32, HashMap<String, u32>, HashMap<String, u32>)> = HashMap::new();
 
     for node in &db.app_graph.nodes {
         let input_space = if node.input_ports.len() > 0 { 1 * db.technology_constraint.grid_per_drra_height } else { 0 };
@@ -277,7 +277,7 @@ fn create_routing_graph(
         // get x, y coordinates of the node placement
         let (x, y) = db.synthesized_information.placements.iter()
             .find(|place| place.app_node_id == node.id)
-            .map(|place| (place.x, place.y - input_space))
+            .map(|place| (place.x as u32, (place.y - input_space) as u32))
             .ok_or_else(|| {
                 Box::<dyn std::error::Error>::from("Cannot find placement")
             })?;
@@ -286,8 +286,8 @@ fn create_routing_graph(
         let (width, height) = db.synthesized_information.alimp_bindings.iter()
             .find(|b| b.app_node_id == node.id)
             .map(|b| (
-                b.alimp_instance.width * db.technology_constraint.grid_per_drra_width, 
-                b.alimp_instance.height * db.technology_constraint.grid_per_drra_height + input_space + output_space
+                (b.alimp_instance.width * db.technology_constraint.grid_per_drra_width) as u32, 
+                (b.alimp_instance.height * db.technology_constraint.grid_per_drra_height + input_space + output_space) as u32
             ))
             .ok_or_else(|| {
                 Box::<dyn std::error::Error>::from("Cannot find binding")
@@ -296,10 +296,10 @@ fn create_routing_graph(
         // get port positions and
         // remove the nodes covered by the placement from the graph
         let mut exclude_lists: Vec<String> = Vec::new();
-        let mut input_ports: HashMap<String, i32> = HashMap::new();
-        let mut output_ports: HashMap<String, i32> = HashMap::new();
+        let mut input_ports: HashMap<String, u32> = HashMap::new();
+        let mut output_ports: HashMap<String, u32> = HashMap::new();
         
-        let mut used_ports: Vec<i32> = vec![];
+        let mut used_ports: Vec<u32> = vec![];
         for input_port in node.input_ports.iter() {
             let index = find_port_index(
                 &db,
@@ -308,7 +308,7 @@ fn create_routing_graph(
                 &input_port.id,
                 "in",
             )?;
-            let position = index * db.technology_constraint.grid_per_drra_width;
+            let position = index * db.technology_constraint.grid_per_drra_width as u32;
             
             used_ports.push(index);
             input_ports.insert(input_port.id.clone(), position);
@@ -324,7 +324,7 @@ fn create_routing_graph(
                 &output_port.id,
                 "out",
             )?;
-            let position = index * db.technology_constraint.grid_per_drra_width;
+            let position = index * db.technology_constraint.grid_per_drra_width as u32;
 
             used_ports.push(index);
             output_ports.insert(output_port.id.clone(), position);
@@ -490,32 +490,21 @@ fn route(
         Ok(())
     }
 
-    /* Remove the concept of sharing path 
-    fn _share_paths(c1: &Channel, c2: &Channel) -> bool {
-        c1.source[0] == c2.source[0] || c1.target[0] == c2.target[0]
-    }
-    */
-
     // sort channels by traffic (high to low)
     graph.channels.sort_by(|a, b| b.traffic.partial_cmp(&a.traffic).unwrap_or(std::cmp::Ordering::Equal));
     
     // allocate paths
     for index in 0..graph.channels.len() {
-        let mut routing_graph = graph.clone();
-
-        for i in 0..index {
-            _remove_nodes(&mut routing_graph, &graph.channels[i].path)?;    
-        }
-
         // find a path 
         let path = graph::a_star(
-            &routing_graph, 
+            &graph, 
             graph.channels[index].source[0].clone(), 
             graph.channels[index].target[0].clone()
         )?;
 
+        _remove_nodes(graph, &path)?;    
         // update the actual channel's path
-        graph.channels[index].path = path; 
+        graph.channels[index].path = vec![path]; 
     }
 
     Ok(())
@@ -537,11 +526,11 @@ fn update_synthesized_info(
     
         match (x0, y0, d0, x1, y1, d1) {
             // west to east
-            (x0, y0, 0, x1, y1, 0) if x0 == x1 - 1 && y0 == y1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
+            (x0, y0, 0, x1, y1, 0) if x0 + 1 == x1 && y0 == y1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
             // east to west
             (x0, y0, 0, x1, y1, 0) if x0 == x1 + 1 && y0 == y1 => Ok(Coordinate { x: x0, y: y0, port: 0 }),
             // south to north
-            (x0, y0, 1, x1, y1, 1) if x0 == x1 && y0 == y1 - 1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
+            (x0, y0, 1, x1, y1, 1) if x0 == x1 && y0 + 1 == y1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
             // north to south
             (x0, y0, 1, x1, y1, 1) if x0 == x1 && y0 == y1 + 1 => Ok(Coordinate { x: x0, y: y0, port: 0 }),
             // east to north
@@ -549,17 +538,17 @@ fn update_synthesized_info(
             // north to east
             (x0, y0, 1, x1, y1, 0) if x0 == x1 && y0 == y1 => Ok(Coordinate { x: x0, y: y0, port: 0 }),
             // west to north
-            (x0, y0, 0, x1, y1, 1) if x0 == x1 - 1 && y0 == y1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
+            (x0, y0, 0, x1, y1, 1) if x0 + 1 == x1 && y0 == y1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
             // north to west
             (x0, y0, 1, x1, y1, 0) if x0 == x1 + 1 && y0 == y1 => Ok(Coordinate { x: x0, y: y0, port: 0 }),
             // east to south
             (x0, y0, 0, x1, y1, 1) if x0 == x1 && y0 == y1 + 1 => Ok(Coordinate { x: x0, y: y0, port: 0 }),
             // south to east
-            (x0, y0, 1, x1, y1, 0) if x0 == x1 && y0 == y1 - 1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
+            (x0, y0, 1, x1, y1, 0) if x0 == x1 && y0 + 1 == y1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
             // west to south
-            (x0, y0, 0, x1, y1, 1) if x0 == x1 - 1 && y0 == y1 + 1 => Ok(Coordinate { x: x0 + 1, y: y0, port: 0 }),
+            (x0, y0, 0, x1, y1, 1) if x0 + 1 == x1 && y0 == y1 + 1 => Ok(Coordinate { x: x0 + 1, y: y0, port: 0 }),
             // south to west
-            (x0, y0, 1, x1, y1, 0) if x0 == x1 + 1 && y0 == y1 - 1 => Ok(Coordinate { x: x0, y: y0 + 1, port: 0 }),
+            (x0, y0, 1, x1, y1, 0) if x0 == x1 + 1 && y0 + 1 == y1 => Ok(Coordinate { x: x0, y: y0 + 1, port: 0 }),
             _ => Err(format!("Invalid path segment: {} -> {}", n0, n1).into()),
         }
     }
@@ -570,30 +559,33 @@ fn update_synthesized_info(
         if !db.app_graph.edges.iter().any(|edge| edge.id == channel.app_edge_id) {
             return Err(format!("Edge {} does not exist in the graph", channel.app_edge_id).into());
         }
-
-        let mut path: Vec<Coordinate> = Vec::new();
-        for i in 0..(channel.path.len() - 1) {
-            let mut coord = _path_segment_to_coordinate(
-                channel.path[i].clone(),
-                channel.path[i + 1].clone(),
-            )?;
+        
+        for each_path in channel.path.iter() {
+            let mut path: Vec<Coordinate> = Vec::new();
+            for i in 0..(each_path.len() - 1) {
+                let mut coord = _path_segment_to_coordinate(
+                    each_path[i].clone(),
+                    each_path[i + 1].clone(),
+                )?;
             
-            if i == 0 {
-                coord.port = 1;
-            } else if i == channel.path.len() - 2 {
-                coord.port = 2;
+                // input, output, and normal wires
+                coord.port = match i {
+                    0 => 1,
+                    x if x == each_path.len() - 2 => 2,
+                    _ => 0,
+                };
+
+                path.push(coord);
             }
 
-            path.push(coord);
+            db.synthesized_information.routing_paths.push(
+                RoutingPath {
+                    app_edge_id: channel.app_edge_id.clone(),
+                    path: path,
+                    delay: 0,
+                }
+            );
         }
-
-        db.synthesized_information.routing_paths.push(
-            RoutingPath {
-                app_edge_id: channel.app_edge_id.clone(),
-                path: path,
-                delay: 0,
-            }
-        );
     }
 
     Ok(())

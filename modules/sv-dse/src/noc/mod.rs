@@ -109,17 +109,17 @@ fn noc_identification(
             };
 
             let dir_in = match (coord_prev.x, coord_prev.y) {
-                (p_x, p_y) if p_x == coord.x && p_y == coord.y - 1 => "s",
+                (p_x, p_y) if p_x == coord.x && p_y + 1 == coord.y => "s",
                 (p_x, p_y) if p_x == coord.x && p_y == coord.y + 1 => "n",
-                (p_x, p_y) if p_x == coord.x - 1 && p_y == coord.y => "w",
+                (p_x, p_y) if p_x + 1 == coord.x && p_y == coord.y => "w",
                 (p_x, p_y) if p_x == coord.x + 1 && p_y == coord.y => "e",
                 _ => return Err(format!("path is not continuous").into()),
             };
 
             let dir_out = match (coord_next.x, coord_next.y) {
-                (n_x, n_y) if n_x == coord.x && n_y == coord.y - 1 => "s",
+                (n_x, n_y) if n_x == coord.x && n_y + 1 == coord.y => "s",
                 (n_x, n_y) if n_x == coord.x && n_y == coord.y + 1 => "n",
-                (n_x, n_y) if n_x == coord.x - 1 && n_y == coord.y => "w",
+                (n_x, n_y) if n_x + 1 == coord.x && n_y == coord.y => "w",
                 (n_x, n_y) if n_x == coord.x + 1 && n_y == coord.y => "e",
                 _ => return Err(format!("path is not continuous").into()),
             };

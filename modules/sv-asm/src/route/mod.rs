@@ -1,6 +1,6 @@
 use sv_lib::model::{DataBase, Node, Edge, Channel, 
                     RoutingGraph, RoutingPath, Coordinate};
-use log::{info, error, debug};
+use log::{info, error, warn};
 use std::collections::{HashMap, HashSet};
 use plotters::prelude::*;
 
@@ -10,10 +10,10 @@ mod graph;
 
 #[allow(unused_variables)]
 fn _port_id_to_node_id(
-    x: i32,
-    y: i32,
-    width: i32,
-    height: i32,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
     id: String,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let parts: Vec<&str> = id.split('_').collect();    
@@ -22,7 +22,7 @@ fn _port_id_to_node_id(
     }
     
     let dir = parts[0];
-    let i: i32 = parts[1].parse()?;
+    let i: u32 = parts[1].parse()?;
 
     match dir {
         "N" | "n" => return Ok(format!("{}_{}_{}", x + i, y + height - 1, 1)),
@@ -32,43 +32,18 @@ fn _port_id_to_node_id(
 }
 
 
-#[allow(unused_variables)]
-fn _barrier_id_to_node_id(
-    x: i32,
-    y: i32,
-    width: i32,
-    height: i32,
-    id: String,
-) -> Result<String, Box<dyn std::error::Error>> {
-    let parts: Vec<&str> = id.split('_').collect();    
-    if parts.len() != 2 {
-        return Err("ID format is incorrect".into())
-    }
-    
-    let dir = parts[0];
-    let i: i32 = parts[1].parse()?;
-
-    match dir {
-        "N" | "n" => return Ok(format!("{}_{}_{}", x + i, y + height, 0)),
-        "S" | "s" => return Ok(format!("{}_{}_{}", x + i, y - 1, 0)),
-        _ => return Err("Invalid direction in ID".into()),
-    }
-}
-
-
-
 fn _node_id_to_coordinates(
     node_id: String,
-) -> Result<(i32, i32, i32), Box<dyn std::error::Error>> {
+) -> Result<(u32, u32, u32), Box<dyn std::error::Error>> {
     
     let parts: Vec<&str> = node_id.split('_').collect();    
     if parts.len() != 3 {
         return Err("Node ID format is incorrect".into())
     }
     
-    let i: i32 = parts[0].parse()?;
-    let j: i32 = parts[1].parse()?;
-    let k: i32 = parts[2].parse()?;
+    let i: u32 = parts[0].parse()?;
+    let j: u32 = parts[1].parse()?;
+    let k: u32 = parts[2].parse()?;
     Ok((i, j, k))
 }
 
@@ -76,73 +51,30 @@ fn _node_id_to_coordinates(
 
 fn _add_obstacle(
     graph: &mut RoutingGraph,
-    x: i32,
-    y: i32,
-    width: i32,
-    height: i32,
-    output_positions: HashMap<i32, i32>, 
-    input_positions: HashMap<i32, i32>, 
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+    output_positions: Vec<u32>, 
+    input_positions: Vec<u32>, 
 ) -> Result<(), Box<dyn std::error::Error>> {
  
     // work out which nodes must be 
     // deleted apart from the alimp block itself
     let mut port_ids = HashSet::new();
-    let mut barrier_ids = HashSet::new();
     
-    // output 
-    for (pos, len) in output_positions.iter() {
-        assert!(*pos >= 0);
-        assert!(*len >= 1);
-
-        // add first port
-        let mut id = format!("n_{}", pos);
-        let mut node_id = _port_id_to_node_id(x, y, width, height, id)?;
-        
+    // output
+    for pos in output_positions.iter() {
+        let id = format!("n_{}", pos);
+        let node_id = _port_id_to_node_id(x, y, width, height, id)?;
         port_ids.insert(node_id);
-       
-        // add last port, if any
-        if *len > 1 {
-            id = format!("n_{}", pos + len - 1);
-            node_id = _port_id_to_node_id(x, y, width, height, id)?;
-            
-            port_ids.insert(node_id);
-        }
-
-        // delete every node in between
-        for i in 0..len-1 {
-            id = format!("n_{}", pos + i);
-            node_id = _barrier_id_to_node_id(x, y, width, height, id)?;
-            
-            barrier_ids.insert(node_id);
-        }
     }
 
     // input 
-    for (pos, len) in input_positions.iter() {
-        assert!(*pos >= 0);
-        assert!(*len >= 1);
-
-        // add first port
-        let mut id = format!("s_{}", pos);
-        let mut node_id = _port_id_to_node_id(x, y, width, height, id)?;
-        
+    for pos in input_positions.iter() {
+        let id = format!("s_{}", pos);
+        let node_id = _port_id_to_node_id(x, y, width, height, id)?;
         port_ids.insert(node_id);
-        
-        // add last port, if any
-        if *len > 1 {
-            id = format!("s_{}", pos + len - 1);
-            node_id = _port_id_to_node_id(x, y, width, height, id)?;
-            
-            port_ids.insert(node_id);
-        }
-
-        // delete every node in between
-        for i in 0..len-1 {
-            id = format!("s_{}", pos + i);
-            node_id = _barrier_id_to_node_id(x, y, width, height, id)?;
-            
-            barrier_ids.insert(node_id);
-        }
     }
 
     // delete nodes inside the placement
@@ -152,11 +84,6 @@ fn _add_obstacle(
         // exclude the ports
         if port_ids.contains(&node.id) {
             return true;
-        }
-    
-        // include spaces between ports for routing
-        if barrier_ids.contains(&node.id) {
-            return false;
         }
         
         let (i, j, k) = match _node_id_to_coordinates(node.id.clone()) {
@@ -205,13 +132,13 @@ fn _add_obstacle(
 
 
 fn create_full_graph(
-    width: i32, 
-    height: i32,
+    width: u32, 
+    height: u32,
 ) -> RoutingGraph {
     
     // helper function to create node IDs
     // analogy: z -> (dx, dy) 
-    let node_id = |x: i32, y: i32, z: i32| -> String {
+    let node_id = |x: u32, y: u32, z: u32| -> String {
         format!("{}_{}_{}", x, y, z)
     };
 
@@ -293,19 +220,19 @@ fn create_routing_graph(
 ) -> Result<RoutingGraph, Box<dyn std::error::Error>> {
 
     let mut graph = create_full_graph(
-        db.synthesized_information.max_width,
-        db.synthesized_information.max_height,
+        db.synthesized_information.max_width as u32,
+        db.synthesized_information.max_height as u32,
     );
-    let mut node_maps: HashMap<String, (i32, i32, i32, i32)> = HashMap::new();
+    let mut node_maps: HashMap<String, (u32, u32, u32, u32)> = HashMap::new();
 
     for node in &db.app_graph.nodes {
-        let input_space = if node.input_ports.len() > 0 { 1 } else { 0 };
-        let output_space = if node.output_ports.len() > 0 { 2 } else { 0 };
+        let input_space = if node.input_ports.len() > 0 { 1 * db.technology_constraint.grid_per_drra_height } else { 0 };
+        let output_space = if node.output_ports.len() > 0 { 2 * db.technology_constraint.grid_per_drra_height } else { 0 };
         
         // get x, y coordinates of the node placement
         let (x, y) = db.synthesized_information.placements.iter()
             .find(|place| place.app_node_id == node.id)
-            .map(|place| (place.x, place.y - input_space))
+            .map(|place| (place.x as u32, (place.y - input_space) as u32))
             .ok_or_else(|| {
                 Box::<dyn std::error::Error>::from("Cannot find placement")
             })?;
@@ -313,40 +240,33 @@ fn create_routing_graph(
         // get width and height of the alimp
         let (width, height) = db.synthesized_information.alimp_bindings.iter()
             .find(|b| b.app_node_id == node.id)
-            .map(|b| (b.alimp_instance.width, b.alimp_instance.height + input_space + output_space))
+            .map(|b| (
+                (b.alimp_instance.width * db.technology_constraint.grid_per_drra_width) as u32, 
+                (b.alimp_instance.height * db.technology_constraint.grid_per_drra_height + input_space + output_space) as u32
+            ))
             .ok_or_else(|| {
                 Box::<dyn std::error::Error>::from("Cannot find binding")
             })?;
          
         // port information
-        let mut output_ports: HashMap<i32, i32> = HashMap::new();
-   
+        let mut output_ports: Vec<u32> = vec![];
+
         let output_memories: &Vec<Vec<_>> = &db.synthesized_information.memory_synthesis
             .iter()
             .find(|m| m.app_node_id == node.id && m.memory_direction == "out")
             .map(|m| m.memory_structure.clone())
             .into_iter()
             .collect();
-   
-        for edge_memory in output_memories.iter() {
-            let first_position = edge_memory
-                .iter()
-                .filter_map(|m| m.output_channels.iter().copied().min())
-                .min()
-                .unwrap_or(0);
-            let last_position = edge_memory
-                .iter()
-                .filter_map(|m| m.output_channels.iter().copied().max())
-                .max()
-                .unwrap_or(0);
-        
-            output_ports.insert(
-                first_position,
-                last_position - first_position + 1, // length
-            );
+
+        for memory in output_memories.iter() {
+            for memory_structure in memory.iter() {
+                for output_channel in memory_structure.output_channels.iter() {
+                    output_ports.push((*output_channel) * db.technology_constraint.grid_per_drra_width as u32);
+                }
+            }
         }   
 
-        let mut input_ports: HashMap<i32, i32> = HashMap::new();
+        let mut input_ports: Vec<u32> = vec![];
    
         let input_memories: &Vec<Vec<_>> = &db.synthesized_information.memory_synthesis
             .iter()
@@ -355,23 +275,13 @@ fn create_routing_graph(
             .into_iter()
             .collect();
     
-        for edge_memory in input_memories.iter() {
-            let first_position = edge_memory
-                .iter()
-                .filter_map(|m| m.input_channels.iter().copied().min())
-                .min()
-                .unwrap_or(0);
-            let last_position = edge_memory
-                .iter()
-                .filter_map(|m| m.input_channels.iter().copied().max())
-                .max()
-                .unwrap_or(0);
-       
-            input_ports.insert(
-                first_position,
-                last_position - first_position + 1, // length
-            );
-        }  
+        for memory in input_memories.iter() {
+            for memory_structure in memory.iter() {
+                for input_channel in memory_structure.input_channels.iter() {
+                    input_ports.push((*input_channel) * db.technology_constraint.grid_per_drra_width as u32);
+                }
+            }   
+        }
 
         // add these in the maps
         node_maps.insert(
@@ -399,83 +309,33 @@ fn create_routing_graph(
             .get(&edge.target_node)
             .ok_or(format!("Missing target_node {} in node_maps", edge.target_node))?;
         
-        // get source/target port positions
-        let source_memories: &Vec<_> = db.synthesized_information.memory_synthesis
-            .iter()
-            .find(|m| 
-                m.app_node_id == edge.source_node && 
-                m.port_id == edge.source_port && 
-                m.memory_direction == "out")
-            .map(|m| &m.memory_structure)
-            .unwrap();
-        
-        assert!(source_memories.len() > 0);
-        
-        let source_first_position = source_memories
-            .iter()
-            .filter_map(|m| m.output_channels.iter().copied().min())
-            .min()
-            .unwrap_or(0);
-        
-        let source_last_position = source_memories
-            .iter()
-            .filter_map(|m| m.output_channels.iter().copied().max())
-            .max()
-            .unwrap_or(0);
-
-        
-        let target_memories: &Vec<_> = db.synthesized_information.memory_synthesis
-            .iter()
-            .find(|m| 
-                m.app_node_id == edge.target_node && 
-                m.port_id == edge.target_port && 
-                m.memory_direction == "in")
-            .map(|m| &m.memory_structure)
-            .unwrap();
- 
-        assert!(target_memories.len() > 0);
-
-        let target_first_position = target_memories
-            .iter()
-            .filter_map(|m| m.input_channels.iter().copied().min())
-            .min()
-            .unwrap_or(0);
-        
-        let target_last_position = target_memories
-            .iter()
-            .filter_map(|m| m.input_channels.iter().copied().max())
-            .max()
-            .unwrap_or(0);
-       
         // get the node coordinates
         let mut source = vec![];
         let mut target = vec![];
+       
+        // get source/target port positions
+        let transporter_prefix = format!("transporter_{}_", &edge.id);
         
-        let mut source_port = format!("n_{}", source_first_position);
-        let mut target_port = format!("s_{}", target_first_position);
+        let matching_transporters: Vec<_> = db.synthesized_information.transporter_tables
+            .iter()
+            .filter(|t| t.transporter_id.starts_with(&transporter_prefix))
+            .collect();
+        
+        for transporter in matching_transporters.iter() {
+            // select the most left grid block of the DRRA transporter cells
+            let source_index: u32 = transporter.from * db.technology_constraint.grid_per_drra_width as u32; 
+            let target_index: u32 = transporter.to * db.technology_constraint.grid_per_drra_width as u32;
 
-        source.push(
-            _port_id_to_node_id(source_x, source_y, source_width, source_height, source_port)?
-        );
-        target.push(
-            _port_id_to_node_id(target_x, target_y, target_width, target_height, target_port)?
-        );
-
-        if source_first_position != source_last_position {
-            assert!(source_first_position < source_last_position);
-            source_port = format!("n_{}", source_last_position);
+            let source_port = format!("n_{}", source_index);
+            let target_port = format!("s_{}", target_index);
+ 
             source.push(
                 _port_id_to_node_id(source_x, source_y, source_width, source_height, source_port)?
             );
-        }
-
-        if target_first_position != target_last_position {
-            assert!(target_first_position < target_last_position);
-            target_port = format!("s_{}", target_last_position);
             target.push(
                 _port_id_to_node_id(target_x, target_y, target_width, target_height, target_port)?
             );
-        }
+        }  
 
         channels.push(
             Channel {
@@ -519,7 +379,6 @@ fn reroute(
     
     // allocate paths
     for index in 0..graph.channels.len() {
-        let mut routing_graph = graph.clone();
         let target_length = db.synthesized_information.routing_paths
             .iter()
             .find(|r| r.app_edge_id == graph.channels[index].app_edge_id)
@@ -528,39 +387,30 @@ fn reroute(
                 Box::<dyn std::error::Error>::from(format!("No routing path found for edge {}", graph.channels[index].app_edge_id))
             })?;
 
-        // update routing graph from previous routes
-        for i in 0..index {
-            _remove_nodes(&mut routing_graph, &graph.channels[i].path)?;    
-        }
 
-        // find all possible paths
-        let mut path: Vec<_> = vec![];
+        // find all routing paths in this edge
+        let mut paths: Vec<_> = vec![];
         for i in 0..graph.channels[index].source.len() { 
-            for j in 0..graph.channels[index].target.len() {
-                path.push(
-                    graph::modified_a_star(
-                        &routing_graph, 
-                        graph.channels[index].source[i].clone(), 
-                        graph.channels[index].target[j].clone(),
-                        0.5,
-                        target_length as i32,
-                    )?
-                );
+            let path = graph::modified_a_star(
+                &graph, 
+                graph.channels[index].source[i].clone(), 
+                graph.channels[index].target[i].clone(),
+                0.5,
+                target_length as i32,
+            )?;
+           
+            _remove_nodes(graph, &path)?;  
+            
+            if path.is_empty() {
+                return Err(format!("Cannot find a routing path on edge {}, iteration {}", graph.channels[index].app_edge_id, i).into());
             }
-        }
-        if path.iter().all(|p| p.is_empty()) {
-            return Err("None of the paths can reach the target in the graph".into())
+
+            print!("paths - {:?}\n", path);
+
+            paths.push(path);
         }
 
-        // select one to update the actual channel's path
-        let selected_path = path
-            .iter()
-            .min_by_key(|p| p.len().abs_diff(target_length))
-            .ok_or_else(|| {
-                Box::<dyn std::error::Error>::from("Cannot select path in reroute")
-            })?;
-
-        graph.channels[index].path = selected_path.clone(); 
+        graph.channels[index].path = paths; 
     }
 
     Ok(())
@@ -583,11 +433,11 @@ fn update_synthesized_info(
     
         match (x0, y0, d0, x1, y1, d1) {
             // west to east
-            (x0, y0, 0, x1, y1, 0) if x0 == x1 - 1 && y0 == y1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
+            (x0, y0, 0, x1, y1, 0) if x0 + 1 == x1 && y0 == y1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
             // east to west
             (x0, y0, 0, x1, y1, 0) if x0 == x1 + 1 && y0 == y1 => Ok(Coordinate { x: x0, y: y0, port: 0 }),
             // south to north
-            (x0, y0, 1, x1, y1, 1) if x0 == x1 && y0 == y1 - 1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
+            (x0, y0, 1, x1, y1, 1) if x0 == x1 && y0 + 1 == y1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
             // north to south
             (x0, y0, 1, x1, y1, 1) if x0 == x1 && y0 == y1 + 1 => Ok(Coordinate { x: x0, y: y0, port: 0 }),
             // east to north
@@ -595,210 +445,69 @@ fn update_synthesized_info(
             // north to east
             (x0, y0, 1, x1, y1, 0) if x0 == x1 && y0 == y1 => Ok(Coordinate { x: x0, y: y0, port: 0 }),
             // west to north
-            (x0, y0, 0, x1, y1, 1) if x0 == x1 - 1 && y0 == y1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
+            (x0, y0, 0, x1, y1, 1) if x0 + 1 == x1 && y0 == y1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
             // north to west
             (x0, y0, 1, x1, y1, 0) if x0 == x1 + 1 && y0 == y1 => Ok(Coordinate { x: x0, y: y0, port: 0 }),
             // east to south
             (x0, y0, 0, x1, y1, 1) if x0 == x1 && y0 == y1 + 1 => Ok(Coordinate { x: x0, y: y0, port: 0 }),
             // south to east
-            (x0, y0, 1, x1, y1, 0) if x0 == x1 && y0 == y1 - 1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
+            (x0, y0, 1, x1, y1, 0) if x0 == x1 && y0 + 1 == y1 => Ok(Coordinate { x: x1, y: y1, port: 0 }),
             // west to south
-            (x0, y0, 0, x1, y1, 1) if x0 == x1 - 1 && y0 == y1 + 1 => Ok(Coordinate { x: x0 + 1, y: y0, port: 0 }),
+            (x0, y0, 0, x1, y1, 1) if x0 + 1 == x1 && y0 == y1 + 1 => Ok(Coordinate { x: x0 + 1, y: y0, port: 0 }),
             // south to west
-            (x0, y0, 1, x1, y1, 0) if x0 == x1 + 1 && y0 == y1 - 1 => Ok(Coordinate { x: x0, y: y0 + 1, port: 0 }),
+            (x0, y0, 1, x1, y1, 0) if x0 == x1 + 1 && y0 + 1 == y1 => Ok(Coordinate { x: x0, y: y0 + 1, port: 0 }),
             _ => Err(format!("Invalid path segment: {} -> {}", n0, n1).into()),
         }
     }
 
   
     for channel in graph.channels.iter() {
-        let mut path: Vec<Coordinate> = Vec::new();
-        for i in 0..(channel.path.len() - 1) {
-            let mut coord = _path_segment_to_coordinate(
-                channel.path[i].clone(),
-                channel.path[i + 1].clone(),
-            )?;
-            
-            if i == 0 {
-                coord.port = 1;
-            } else if i == channel.path.len() - 2 {
-                coord.port = 2;
+        let mut paths: Vec<Vec<Coordinate>> = Vec::new();
+        for path in channel.path.iter() {
+            let mut each_path: Vec<Coordinate> = Vec::new(); 
+            for i in 0..(path.len() - 1) { 
+                let mut coord = _path_segment_to_coordinate(
+                    path[i].clone(),
+                    path[i + 1].clone(),
+                )?;
+                
+                // input, output, and normal wires
+                coord.port = match i {
+                    0 => 1,
+                    x if x == path.len() - 2 => 2,
+                    _ => 0,
+                };
+
+                each_path.push(coord);
             }
 
-            path.push(coord);
+            paths.push(each_path);
         }
 
-        // Adding more paths if more than one port is used
-        // get edge information
-        let edge = &db.app_graph.edges
+        // Get the delay information from the routing_paths and delete it
+        let fixed_delay = db.synthesized_information.routing_paths
             .iter()
-            .find(|e| e.id == channel.app_edge_id)
+            .find(|r| r.app_edge_id == channel.app_edge_id)
+            .map(|r| r.delay)
             .ok_or_else(|| {
-                Box::<dyn std::error::Error>::from("Cannot find an edge using routing graph information")
-            })?;
-        
-        // --------------------------------------------------
-        // source paths
-        let (source_x, source_y) = db.synthesized_information.placements
-            .iter()
-            .find(|p| p.app_node_id == edge.source_node)
-            .map(|p| (p.x, p.y))
-            .ok_or_else(|| {
-                Box::<dyn std::error::Error>::from("Cannot find source node using routing graph information")
-            })?;
-       
-        let source_height = db.synthesized_information.alimp_bindings
-            .iter()
-            .find(|a| a.app_node_id == edge.source_node)
-            .map(|a| a.alimp_instance.height)
-            .ok_or_else(|| {
-                Box::<dyn std::error::Error>::from("Cannot find source height using routing graph information")
+                Box::<dyn std::error::Error>::from(format!("Cannot find an edge {} from routing_paths", channel.app_edge_id))
             })?;
 
-        let source_memories: Vec<_> = db.synthesized_information.memory_synthesis
-            .iter()
-            .find(|m| 
-                m.app_node_id == edge.source_node && 
-                m.port_id == edge.source_port && 
-                m.memory_direction == "out")
-            .ok_or_else(|| "Cannot find the source memory")?
-            .memory_structure
-            .clone();
-
-        let source_x_positions: Vec<i32> = source_memories
-            .iter()
-            .flat_map(|m| m.output_channels.iter().map(|v| v + source_x))
-            .collect();
-
-        let source_min_x = *source_x_positions.iter().min().ok_or("No source x positions")?;
-        let source_max_x = *source_x_positions.iter().max().ok_or("No source x positions")?;
-
-        // sanity checks
-        let (_source_x, _source_y, _source_z) = _node_id_to_coordinates(channel.path[0].clone())?; 
-        assert_eq!(_source_z, 1);
-        assert_eq!(_source_y, source_y + source_height + 1); 
-        assert!(_source_x == source_min_x || _source_x == source_max_x); 
-   
-        // extending source paths 
-        if _source_x == source_min_x {
-            for i in source_min_x..=source_max_x {
-                if i != source_min_x {
-                    let port = if source_x_positions.contains(&i) {
-                        1 
-                    } else {
-                        0
-                    };
-
-                    path.insert(0,
-                        Coordinate {
-                            x: i,
-                            y: source_y + source_height + 2,
-                            port: port,
-                        }    
-                    );
-                } 
-            }
-        }
-        else {
-            for i in (source_min_x..=source_max_x).rev() {
-                if i != source_max_x {
-                    let port = if source_x_positions.contains(&i) {
-                        1 
-                    } else {
-                        0
-                    };
-
-                    path.insert(0,
-                        Coordinate {
-                            x: i,
-                            y: source_y + source_height + 2,
-                            port: port,
-                        }    
-                    );
-                } 
-            }
-        }
- 
-        // --------------------------------------------------
-        // target paths
-        let (target_x, target_y) = db.synthesized_information.placements
-            .iter()
-            .find(|p| p.app_node_id == edge.target_node)
-            .map(|p| (p.x, p.y))
-            .ok_or_else(|| {
-                Box::<dyn std::error::Error>::from("Cannot find source node using routing graph information")
-            })?;
-
-        let target_memories: Vec<_> = db.synthesized_information.memory_synthesis
-            .iter()
-            .find(|m| 
-                m.app_node_id == edge.target_node && 
-                m.port_id == edge.target_port && 
-                m.memory_direction == "in")
-            .ok_or_else(|| "Cannot find the target memory")?
-            .memory_structure
-            .clone();
-            
-        let target_x_positions: Vec<i32> = target_memories
-            .iter()
-            .flat_map(|m| m.input_channels.iter().map(|v| v + target_x))
-            .collect();
-            
-        let target_min_x = *target_x_positions.iter().min().ok_or("No target x positions")?;
-        let target_max_x = *target_x_positions.iter().max().ok_or("No target x positions")?;
-
-        // sanity checks
-        let (_target_x, _target_y, _target_z) = _node_id_to_coordinates(channel.path[channel.path.len() - 1].clone())?; 
-        assert_eq!(_target_z, 1);
-        assert_eq!(_target_y, target_y - 2);
-        assert!(_target_x == target_min_x || _target_x == target_max_x); 
-   
-        // extending target paths 
-        if _target_x == target_min_x {
-            for i in target_min_x..=target_max_x {
-                if i != target_min_x {
-                    let port = if target_x_positions.contains(&i) {
-                        2
-                    } else {
-                        0
-                    };
-
-                    path.push(
-                        Coordinate {
-                            x: i,
-                            y: target_y - 2,
-                            port: port,
-                        }    
-                    );
-                } 
-            }
-        }
-        else {
-            for i in (target_min_x..=target_max_x).rev() {
-                if i != target_max_x {
-                    let port = if target_x_positions.contains(&i) {
-                        2 
-                    } else {
-                        0
-                    };
-
-                    path.push(
-                        Coordinate {
-                            x: i,
-                            y: target_y - 2,
-                            port: port,
-                        }    
-                    );
-                } 
-            }
-        }
+        db.synthesized_information.routing_paths
+            .retain(|r| r.app_edge_id != channel.app_edge_id);
 
         // update the final routing path 
-        db.synthesized_information.routing_paths
-            .iter_mut()
-            .find(|r| r.app_edge_id == channel.app_edge_id)
-            .ok_or_else(|| "Cannot find routing path for the given app_edge_id")?
-            .path = path;
+        for i in 0..paths.len() {
+            let routing_id = format!("{}_{}", channel.app_edge_id, i);
+            
+            db.synthesized_information.routing_paths.push(
+                RoutingPath {
+                    app_edge_id: routing_id,
+                    path: paths[i].clone(),
+                    delay: fixed_delay,
+                }
+            );
+        }
     }
 
     Ok(())
@@ -811,21 +520,44 @@ fn plot_available_routing_graph(
     graph: &RoutingGraph,
     module_dir: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let output_file = format!("{}/available_routing_graph.png", module_dir);
-    let root = BitMapBackend::new(&output_file, (800, 800)).into_drawing_area();
-    root.fill(&WHITE)?;
-
+    
     let max_x = db.synthesized_information.max_width.clone();
     let max_y = db.synthesized_information.max_height.clone();
+    let step_x_label = (max_x / 20) + 1;
+    let step_y_label = (max_y / 20) + 1;
+    let resolution = match max_x * max_y {
+        a if a > 100_000 => 10000,
+        a if a > 50_000 => 4000,
+        a if a > 10_000 => 2000,
+        a if a > 5_000 => 1000,
+        _ => 800,
+    } as u32;
 
+    if resolution >= 10000 {
+        warn!("the floorplan is too large to be presented in the graph!");
+        return Ok(())
+    }
+
+    let output_file = format!("{}/available_routing_graph.png", module_dir);
+    let root = BitMapBackend::new(&output_file, (resolution, resolution)).into_drawing_area();
+    root.fill(&WHITE)?;
+    
     let mut chart = ChartBuilder::on(&root)
         .caption("Available Routing Graph", ("sans-serif", 30))
-        .margin(20)
-        .x_label_area_size(40)
-        .y_label_area_size(40)
-        .build_cartesian_2d(0.0..max_x as f64, 0.0..max_y as f64)?;
+        .margin(10)
+        .x_label_area_size(30)
+        .y_label_area_size(30)
+        .build_cartesian_2d(
+            -0.5f64..(max_x as f64 - 0.5),
+            -0.5f64..(max_y as f64 - 0.5),
+        )?;
 
-    chart.configure_mesh().draw()?;
+    chart.configure_mesh()
+        .disable_x_mesh()
+        .disable_y_mesh()
+        .x_labels(((max_x / step_x_label) + 1) as usize)
+        .y_labels(((max_y / step_y_label) + 1) as usize)
+        .draw()?;
 
     // Draw grid
     for x in 0..max_x {
@@ -872,6 +604,24 @@ fn plot_routing_graph(
     db: &DataBase,
     module_dir: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
+     
+    let max_x = db.synthesized_information.max_width.clone();
+    let max_y = db.synthesized_information.max_height.clone();
+    let step_x_label = (max_x / 20) + 1;
+    let step_y_label = (max_y / 20) + 1;
+    let resolution = match max_x * max_y {
+        a if a > 100_000 => 10000,
+        a if a > 50_000 => 4000,
+        a if a > 10_000 => 2000,
+        a if a > 5_000 => 1000,
+        _ => 800,
+    } as u32;
+
+    if resolution >= 10000 {
+        warn!("the floorplan is too large to be presented in the graph!");
+        return Ok(())
+    }
+
     let output_file = format!("{}/routing_graph.png", module_dir);
     let root = BitMapBackend::new(&output_file, (800, 800)).into_drawing_area();
     root.fill(&WHITE)?;
@@ -889,82 +639,11 @@ fn plot_routing_graph(
     chart.configure_mesh()
         .disable_x_mesh()
         .disable_y_mesh()
-        .x_labels((max_x + 1) as usize)
-        .y_labels((max_y + 1) as usize)
+        .x_labels(((max_x / step_x_label) + 1) as usize)
+        .y_labels(((max_y / step_y_label) + 1) as usize)
         .draw()?;
     
-
-    // plot nodes
-    for node in &db.app_graph.nodes {
-        let (mut x, mut y, mut width, mut height) = (-1, -1, -1, -1);
-
-        for placement in &db.synthesized_information.placements {
-            if placement.app_node_id == node.id {
-                x = placement.x;
-                y = placement.y;
-                break;
-            }
-        }
-
-        for binding in &db.synthesized_information.alimp_bindings {
-            if binding.app_node_id == node.id {
-                width = binding.alimp_instance.width;
-                height = binding.alimp_instance.height;
-                break;
-            }
-        }
-
-        if x == -1 || y == -1 || width == -1 || height == -1 {
-            return Err(format!("Placement or binding missing for node {}", node.id).into());
-        }
-
-        let x = x as f64;
-        let y = y as f64;
-        let width = width as f64;
-        let height = height as f64;
-
-        // Orange: Main node
-        chart.draw_series(std::iter::once(Rectangle::new(
-            [(x - 0.5, y - 0.5), (x - 0.5 + width, y - 0.5 + height)],
-            RGBColor(255, 165, 0).filled(), // Orange
-        )))?;
-    }
-    
-    // Plot memories 
-    // Purple for IB
-    // Red for OB
-    for memory in &db.synthesized_information.memory_synthesis {
-        for bank in &memory.memory_structure {
-            let place = &bank.placement;
-            let colour = if memory.memory_direction == "out" {
-                RED.filled()
-            } else {
-                RGBColor(160, 32, 240).filled() // purple
-            };
-
-            chart.draw_series(std::iter::once(Rectangle::new(
-                [
-                    (place.x as f64 - 0.5, place.y as f64 - 0.5), 
-                    (place.x as f64 - 0.5 + place.width as f64, place.y as f64 - 0.5 + place.height as f64)
-                ],
-                colour,
-            )))?;
-        }  
-    }
-    
-    // Plot Data transporter (Green)
-    for transporter in &db.synthesized_information.transporter_tables {
-        let place = &transporter.placement; 
-
-        chart.draw_series(std::iter::once(Rectangle::new(
-            [
-                (place.x as f64 - 0.5, place.y as f64 - 0.5), 
-                (place.x as f64 - 0.5 + place.width as f64, place.y as f64 - 0.5 + place.height as f64)
-            ],
-            GREEN.filled(),
-        )))?;
-    }
-
+ 
     // Plot routing paths (blue blocks)
     for routing_path in &db.synthesized_information.routing_paths {
         for coord in &routing_path.path {
@@ -994,11 +673,87 @@ fn plot_routing_graph(
         ))?;
     }
 
+    // plot nodes
+    for node in &db.app_graph.nodes {
+        let (mut x, mut y, mut width, mut height) = (-1, -1, -1, -1);
+
+        for placement in &db.synthesized_information.placements {
+            if placement.app_node_id == node.id {
+                x = placement.x;
+                y = placement.y;
+                break;
+            }
+        }
+
+        for binding in &db.synthesized_information.alimp_bindings {
+            if binding.app_node_id == node.id {
+                width = binding.alimp_instance.width * db.technology_constraint.grid_per_drra_width;
+                height = binding.alimp_instance.height * db.technology_constraint.grid_per_drra_height; 
+                break;
+            }
+        }
+
+        if x == -1 || y == -1 || width == -1 || height == -1 {
+            return Err(format!("Placement or binding missing for node {}", node.id).into());
+        }
+
+        let step_x = db.technology_constraint.grid_per_drra_width;
+        let step_y = db.technology_constraint.grid_per_drra_height;
+        let (step_x_float, step_y_float) = (step_x as f64, step_y as f64);
+
+        // Orange: Main node
+        for i in (x..(x + width)).step_by(step_x as usize) {
+            for j in (y..(y + height)).step_by(step_y as usize) {
+                let (i_float, j_float) = (i as f64, j as f64);
+                chart.draw_series(std::iter::once(Rectangle::new(
+                    [(i_float - 0.30, j_float - 0.30), (i_float - 0.70 + step_x_float, j_float - 0.70 + step_y_float)],
+                    RGBColor(255, 165, 0).filled(), // Orange
+                )))?;
+            }
+        }
+
+        if node.input_ports.len() > 0 {
+            // Purple: Input buffer (south of node)
+            for i in (x..(x + width)).step_by(step_x as usize) {
+                for j in ((y - step_y)..y).step_by(step_y as usize) {
+                    let (i_float, j_float) = (i as f64, j as f64);
+                    chart.draw_series(std::iter::once(Rectangle::new(
+                        [(i_float - 0.30, j_float - 0.30), (i_float - 0.70 + step_x_float, j_float - 0.70 + step_y_float)],
+                        RGBColor(160, 32, 240).filled(), // Purple
+                    )))?;
+                }
+            }
+        }
+       
+        if node.output_ports.len() > 0 {
+            // Red: Output buffer (north of node)
+            for i in (x..(x + width)).step_by(step_x as usize) {
+                for j in ((y + height)..(y + height + step_y)).step_by(step_y as usize) {
+                    let (i_float, j_float) = (i as f64, j as f64);
+                    chart.draw_series(std::iter::once(Rectangle::new(
+                        [(i_float - 0.30, j_float - 0.30), (i_float - 0.70 + step_x_float, j_float - 0.70 + step_y_float)],
+                        RED.filled(),
+                    )))?;
+                }
+            }
+
+            // Green: Data transporter (north+1)
+            for i in (x..(x + width)).step_by(step_x as usize) {
+                for j in ((y + height + step_y)..(y + height + (2 * step_y))).step_by(step_y as usize) {
+                    let (i_float, j_float) = (i as f64, j as f64);
+                    chart.draw_series(std::iter::once(Rectangle::new(
+                        [(i_float - 0.30, j_float - 0.30), (i_float - 0.70 + step_x_float, j_float - 0.70 + step_y_float)],
+                        GREEN.filled(),
+                    )))?;
+                }
+            }
+        }
+    }
+
     root.present()?;
     info!("Saved routing graph to: {}", output_file);
     Ok(())
 }
-
 
 
 #[allow(unused_variables)]

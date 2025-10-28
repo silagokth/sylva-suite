@@ -254,9 +254,10 @@ fn update_synthesized_information(
                 memory_structure: vec![
                     MemoryStructure {
                         memory_type: "None".to_string(),
-                        memory_size: schedules.ib[port],
+                        memory_size: schedules.ib[port] as u32,
                         input_channels: vec![],
                         output_channels: vec![],
+                        corresponding_channels: vec![],
                         placement: MemoryPlacement {
                            x: -1,
                            y: -1,
@@ -278,9 +279,10 @@ fn update_synthesized_information(
                 memory_structure: vec![
                     MemoryStructure {
                         memory_type: "None".to_string(),
-                        memory_size: schedules.ob[port],
+                        memory_size: schedules.ob[port] as u32,
                         input_channels: vec![],
                         output_channels: vec![],
+                        corresponding_channels: vec![],
                         placement: MemoryPlacement {
                            x: -1,
                            y: -1,
@@ -530,6 +532,8 @@ fn update_synthesized_information(
                 fire_time: fire_time,
                 end_time: fire_time + time_array.iter().max().unwrap(),
                 entries: entries,
+                from: 0,
+                to: 0,
                 placement: MemoryPlacement {
                     x: -1,
                     y: -1,
