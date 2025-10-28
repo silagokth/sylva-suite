@@ -335,23 +335,23 @@ fn memory_synthesis(
         };
 
         // getting geometry information 
-        // need to get the height of the alimp to calculate the positions of input buffers
-        let target_height = previous_db.synthesized_information.alimp_bindings
+        // need to get the height of the alimp to calculate the positions of OB and transporter
+        let source_height = previous_db.synthesized_information.alimp_bindings
             .iter()
-            .find(|b| b.app_node_id == edge.target_node)
+            .find(|b| b.app_node_id == edge.source_node)
             .map(|b| b.alimp_instance.height)
             .ok_or(format!("cannot find alimp binding of {}", &edge.target_node))?;
 
         let (source_x, source_y) = previous_db.synthesized_information.placements
             .iter()
             .find(|p| p.app_node_id == edge.source_node)
-            .map(|p| (p.x, p.y + target_height)) // point to vertical OB level 
+            .map(|p| (p.x, p.y + source_height * db.technology_constraint.grid_per_drra_height)) // point to vertical OB level 
             .ok_or(format!("cannot find placement of {}", &edge.source_node))?;
 
         let (target_x, target_y) = previous_db.synthesized_information.placements
             .iter()
             .find(|p| p.app_node_id == edge.target_node)
-            .map(|p| (p.x, p.y - 1)) // point to vertical IB level
+            .map(|p| (p.x, p.y - db.technology_constraint.grid_per_drra_height)) // point to vertical IB level
             .ok_or(format!("cannot find placement of {}", &edge.target_node))?;
 
         // iterate to collect all banking information into the memory synthesis data
@@ -393,7 +393,7 @@ fn memory_synthesis(
                     output_channels: output_communication_channels.iter().map(|&x| x as u32).collect(), 
                     corresponding_channels: input_communication_channels.iter().map(|&x| x as u32).collect(), 
                     placement: MemoryPlacement {
-                        x: source_x + (source_most_left_x_position as i32), 
+                        x: source_x + (source_most_left_x_position as i32) * db.technology_constraint.grid_per_drra_width, 
                         y: source_y,
                         width: (source_most_right_x_position - source_most_left_x_position) as i32 + 1,
                         height: 1, // fixed to 1
@@ -407,7 +407,7 @@ fn memory_synthesis(
                     output_channels: input_communication_channels.iter().map(|&x| x as u32).collect(), 
                     corresponding_channels: vec![],
                     placement: MemoryPlacement {
-                        x: target_x + (target_most_left_x_position as i32), 
+                        x: target_x + (target_most_left_x_position as i32) * db.technology_constraint.grid_per_drra_width, 
                         y: target_y,
                         width: (target_most_right_x_position - target_most_left_x_position) as i32 + 1,
                         height: 1, // fixed to 1
@@ -625,7 +625,7 @@ fn memory_synthesis(
         let mut transporter_index = 0;
 
         for memory in &source_memory.memory_structure {
-            for transporter_position in 0..memory.output_channels.len() {
+            for i in 0..memory.output_channels.len() {
                 if source_target_pairs.is_empty() {
                     return Err(format!("Fail to assign the transporter tables at source node {}", &edge.source_node).into());
                 }
@@ -658,11 +658,11 @@ fn memory_synthesis(
                         fire_time: fire_time,
                         end_time: end_time,
                         entries: entries,
-                        from: memory.output_channels[transporter_position],
-                        to: memory.corresponding_channels[transporter_position],
+                        from: memory.output_channels[i],
+                        to: memory.corresponding_channels[i],
                         placement: MemoryPlacement {
-                            x: memory.placement.x + (transporter_position as i32),
-                            y: memory.placement.y + 1,
+                            x: memory.placement.x + (i as i32) * db.technology_constraint.grid_per_drra_width,
+                            y: memory.placement.y + db.technology_constraint.grid_per_drra_height,
                             width: 1,
                             height: 1,
                         }

@@ -393,11 +393,11 @@ fn plot_graph(
                 // draw arrowhead
                 area.draw(&PathElement::new(
                     vec![(end_x, end_y), (x1, y1)],
-                    ShapeStyle::from(&BLACK).stroke_width(2),
+                    ShapeStyle::from(&colour).stroke_width(2),
                 ))?;
                 area.draw(&PathElement::new(
                     vec![(end_x, end_y), (x2, y2)],
-                    ShapeStyle::from(&BLACK).stroke_width(2),
+                    ShapeStyle::from(&colour).stroke_width(2),
                 ))?;
 
                 area.draw(&Polygon::new(
@@ -469,7 +469,7 @@ fn plot_graph(
         ))?;
     }
 
-    // draw nodes and buffers 
+    // draw nodes 
     for node in &db.app_graph.nodes {
         let (mut x, mut y, mut w, mut h) = (-1, -1, -1, -1);
 
@@ -507,42 +507,59 @@ fn plot_graph(
                 )))?;
             }
         }
+    }
 
+    // draw memories
+    // Purple for IB
+    // Red for OB
+    for memory in &db.synthesized_information.memory_synthesis {
+        for bank in &memory.memory_structure {
+            let place = &bank.placement;
+            let colour = if memory.memory_direction == "out" {
+                RED.filled()
+            } else {
+                RGBColor(160, 32, 240).filled() // purple
+            };
 
-        if node.input_ports.len() > 0 {
-            // Input buffer (purple, below node)
+            let (step_x, step_y) = (db.technology_constraint.grid_per_drra_width, db.technology_constraint.grid_per_drra_height);
+            let (step_x_f, step_y_f) = (step_x as f64, step_y as f64);
+
+            let x = place.x;
+            let y = place.y;
+            let w = place.width * step_x;
+            let h = place.height * step_y;
+
             for i in (x..(x + w)).step_by(step_x as usize) {
-                for j in ((y - step_y)..y).step_by(step_y as usize) {
+                for j in (y..(y + h)).step_by(step_y as usize) {
                     let (i_f, j_f) = (i as f64, j as f64);
                     chart.draw_series(std::iter::once(Rectangle::new(
                         [(i_f - 0.30, j_f - 0.30), (i_f - 0.70 + step_x_f, j_f - 0.70 + step_y_f)],
-                        RGBColor(160, 32, 240).filled(), // Purple
+                        colour, 
                     )))?;
                 }
             }
         }
-        
-        if node.output_ports.len() > 0 {
-            // Output buffer (red, above node)
-            for i in (x..(x + w)).step_by(step_x as usize) {
-                for j in ((y + h)..(y + h + step_y)).step_by(step_y as usize) {
-                    let (i_f, j_f) = (i as f64, j as f64);
-                    chart.draw_series(std::iter::once(Rectangle::new(
-                        [(i_f - 0.30, j_f - 0.30), (i_f - 0.70 + step_x_f, j_f - 0.70 + step_y_f)],
-                        RED.filled(),
-                    )))?;
-                }
-            }
+    }
 
-            // Transporter (green, above buffer)
-            for i in (x..(x + w)).step_by(step_x as usize) {
-                for j in ((y + h + step_y)..(y + h + (2 * step_y))).step_by(step_y as usize) {
-                    let (i_f, j_f) = (i as f64, j as f64);
-                    chart.draw_series(std::iter::once(Rectangle::new(
-                        [(i_f - 0.30, j_f - 0.30), (i_f - 0.70 + step_x_f, j_f - 0.70 + step_y_f)],
-                        GREEN.filled(),
-                    )))?;
-                }
+    // draw data transporter (Green)
+    for transporter in &db.synthesized_information.transporter_tables {
+        let place = &transporter.placement;
+
+        let (step_x, step_y) = (db.technology_constraint.grid_per_drra_width, db.technology_constraint.grid_per_drra_height);
+        let (step_x_f, step_y_f) = (step_x as f64, step_y as f64);
+
+        let x = place.x;
+        let y = place.y;
+        let w = place.width * step_x;
+        let h = place.height * step_y;
+
+        for i in (x..(x + w)).step_by(step_x as usize) {
+            for j in (y..(y + h)).step_by(step_y as usize) {
+                let (i_f, j_f) = (i as f64, j as f64);
+                chart.draw_series(std::iter::once(Rectangle::new(
+                    [(i_f - 0.30, j_f - 0.30), (i_f - 0.70 + step_x_f, j_f - 0.70 + step_y_f)],
+                    GREEN.filled(),
+                )))?;
             }
         }
     }
