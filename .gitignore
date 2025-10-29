@@ -4,6 +4,10 @@
 /config/
 /out/
 
+# all vim swap files
+*.swp
+*.swo
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -97,41 +97,57 @@ fn pattern_dependencies(
     Ok(dep_vec)
 }
 
+
 fn group_dependencies(
     dep: &HashMap<i32, Vec<i32>>,
 ) -> Result<(Vec<Vec<i32>>, Vec<Vec<i32>>), Box<dyn std::error::Error>> {
-    let mut dst_deps: Vec<Vec<i32>> = Vec::new();
-    let mut src_deps: Vec<Vec<i32>> = Vec::new();
+    let mut dst_deps: Vec<HashSet<i32>> = Vec::new();
+    let mut src_deps: Vec<HashSet<i32>> = Vec::new();
 
     for (dst, src_list) in dep.iter() {
-        // Check if src_list overlaps with an existing group
-        if let Some((idx, _)) = src_deps
+        // find all groups that overlap with the new src_list
+        let indices: Vec<usize> = src_deps
             .iter()
             .enumerate()
-            .find(|(_, group)| group.iter().any(|s| src_list.contains(s)))
-        {
-            // merge into existing group
-            src_deps[idx].extend(src_list.clone());
-            dst_deps[idx].push(*dst);
-        } else {
+            .filter(|(_, group)| group.iter().any(|s| src_list.contains(s)))
+            .map(|(idx, _)| idx)
+            .collect();
+
+        if indices.is_empty() {
             // create a new group
-            src_deps.push(src_list.clone());
-            dst_deps.push(vec![*dst]);
-        }
-        
-        for group in src_deps.iter_mut() {
-            group.sort();
-            group.dedup();
-        }
-        for group in dst_deps.iter_mut() {
-            group.sort();
-            group.dedup();
+            let mut new_src = HashSet::new();
+            new_src.extend(src_list.iter().copied());
+            let mut new_dst = HashSet::new();
+            new_dst.insert(*dst);
+
+            src_deps.push(new_src);
+            dst_deps.push(new_dst);
+        } else {
+            // merge all overlapping groups into one
+            let mut merged_src = HashSet::new();
+            let mut merged_dst = HashSet::new();
+
+            // important to iterate in reverse order
+            for &idx in indices.iter().rev() {
+                merged_src.extend(src_deps.remove(idx));
+                merged_dst.extend(dst_deps.remove(idx));
+            }
+            
+            // add the new sources and destination
+            merged_src.extend(src_list.iter().copied());
+            merged_dst.insert(*dst);
+
+            src_deps.push(merged_src);
+            dst_deps.push(merged_dst);
         }
     }
     
-    Ok((dst_deps, src_deps))
+    // Convert HashSet<i32> → Vec<i32> for the result
+    let dst_vecs: Vec<Vec<i32>> = dst_deps.into_iter().map(|s| s.into_iter().collect()).collect();
+    let src_vecs: Vec<Vec<i32>> = src_deps.into_iter().map(|s| s.into_iter().collect()).collect();
+ 
+    Ok((dst_vecs, src_vecs))
 }
-
 
 
 
@@ -301,6 +317,8 @@ fn memory_synthesis(
             let out_addrs: Vec<_> = working_output_patterns.iter().map(|(addr, _, _)| *addr).collect();
             let in_addrs: Vec<_> = working_input_patterns.iter().map(|(addr, _, _)| *addr).collect();
             if out_addrs != in_addrs {
+                error!("displaying out_addrs: {:?}", out_addrs);
+                error!("displaying in_addrs: {:?}", in_addrs);
                 return Err(format!("cannot extract working address channel patterns").into());
             }
 
@@ -373,8 +391,8 @@ fn memory_synthesis(
                     .collect();
                 
                 // input buffer            
-                let target_most_left_x_position = *src_list.iter().min().unwrap_or(&0) as usize;
-                let target_most_right_x_position = *src_list.iter().max().unwrap_or(&0) as usize;
+                let target_most_left_x_position = *dst_list.iter().min().unwrap_or(&0) as usize;
+                let target_most_right_x_position = *dst_list.iter().max().unwrap_or(&0) as usize;
                                
                 let input_communication_channels: Vec<_> = memory_info.input_ib_channels
                     .index_axis(Axis(0), bank_index)
@@ -584,7 +602,30 @@ fn memory_synthesis(
                     .map(|((t1, src), tgt)| (*t1, *src, *tgt))
                     .collect();
 
-                source_target_pairs.push(grouped_pairs);
+                // split the addresses according to the number of communication channels inuse
+                let set_indices: Vec<Vec<_>> = memory_info.t1
+                    .axis_iter(Axis(0))
+                    .map(|row| {
+                        row.iter()
+                            .enumerate()
+                            .filter(|&(_, &x)| x > 0)
+                            .map(|(idx, _)| idx)
+                            .collect::<Vec<_>>()
+                    })
+                    .collect();
+
+                assert_eq!(grouped_pairs.len(), set_indices.iter().map(|x| x.len()).sum::<usize>());
+            
+                for indices in set_indices.iter() {
+                    let collected: Vec<_> = grouped_pairs
+                        .iter()
+                        .enumerate()
+                        .filter(|(idx, _)| indices.contains(idx))
+                        .map(|(_, content)| content.clone())
+                        .collect();
+                
+                    source_target_pairs.push(collected);
+                }
 
                 bank_index += 1;
             } 
@@ -620,8 +661,12 @@ fn memory_synthesis(
             .map(|mem| mem.output_channels.len())
             .sum();
 
-        assert_eq!(source_target_pairs.len(), number_of_transporters);
-       
+        if source_target_pairs.len() != number_of_transporters {
+            error!("number_of_transporters = {} from {:?}", number_of_transporters, source_memory.memory_structure);
+            error!("source_target_pairs = {:?}", source_target_pairs);
+            return Err(format!("fail to verify that a table exists for every transporter").into());
+        }
+
         let mut transporter_index = 0;
 
         for memory in &source_memory.memory_structure {

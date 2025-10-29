@@ -106,8 +106,8 @@ pub fn optimise_memory(
     }
 
     // sorted column indices of consuming matrix 
-    let mut sorted_consuming_indices: Vec<_> = (0..output_patterns.len()).map(|i| i as i32).collect();   
-    sorted_consuming_indices.sort_by_key(|&i| output_patterns[i as usize].2);
+    let mut sorted_consuming_indices: Vec<_> = (0..input_patterns.len()).map(|i| i as i32).collect();   
+    sorted_consuming_indices.sort_by_key(|&i| input_patterns[i as usize].2);
     sorted_consuming_indices = sorted_consuming_indices.into_iter().map(|i| i + 1).collect(); 
 
     // maximum number of time in the scope 
@@ -132,6 +132,13 @@ pub fn optimise_memory(
     let max_ob_bank = 1; // set to min(M,K)
     let max_ib_bank = 1; // set to min(N,K)
 
+    fn next_power_of_two(x: i32) -> i32 {
+        if x <= 1 {
+            return 2;
+        }
+        ((x as u32).next_power_of_two()) as i32
+    }
+
     // work on this statement if sharing a channel to different banks is permitted
     let statements = format!(r#"include "cumulative.mzn";
 % problem to select memory banks and map channels to minimize cost 
@@ -145,7 +152,7 @@ int: MAX_OB_SIZE = {MAXIMUM_OUTPUT_BUFFER_SIZE};
 int: MAX_IB_SIZE = {MAXIMUM_INPUT_BUFFER_SIZE};
 int: MAX_DELAY = {MAXIMUM_DELAY};
 
-%%%% LIMITING TO FIND A 1-BANK SOLUTION BECAUSE OF CHANNELS CANNOT BE SHARED %%%%
+%%%% LIMITING TO FIND A 1-BANK SOLUTION BECAUSE CHANNELS CANNOT BE SHARED %%%%
 int: MAX_OB_BANK = {MAX_OB_BANK}; % min(M,MAX_K);
 int: MAX_IB_BANK = {MAX_IB_BANK}; % min(N,MAX_K);
 
@@ -220,11 +227,11 @@ var 1..MAX_K: comm_cap;
 array [1..MAX_OB_BANK] of var 0..MAX_OB_SIZE: ob_cap;
 array [1..MAX_IB_BANK] of var 0..MAX_IB_SIZE: ib_cap;
 array [1..MAX_OB_BANK] of var 1..16: ob_cap_power;
-array [1..MAX_OB_BANK] of var 1..16: ib_cap_power;
+array [1..MAX_IB_BANK] of var 1..16: ib_cap_power;
 
 % force the buffer to be 2 ** N size
-constraint forall(b in 1..MAX_OB_BANK)(ob_cap[b] = pow(2, ob_cap_power[b]));
-constraint forall(b in 1..MAX_IB_BANK)(ib_cap[b] = pow(2, ib_cap_power[b]));
+constraint forall(b in 1..MAX_OB_BANK)(ob_cap[b] = 2 ^ ob_cap_power[b]);
+constraint forall(b in 1..MAX_IB_BANK)(ib_cap[b] = 2 ^ ib_cap_power[b]);
 
 array [1..MAX_OB_BANK] of var 0..M: ob_in_ports;
 array [1..MAX_OB_BANK] of var 0..MAX_K: ob_out_ports;
@@ -239,7 +246,6 @@ array [1..MAX_K,1..TOKEN_SIZE] of var -1..MAX_DELAY: T2;
 array [1..MAX_K] of var bool: comm_used;
 
 % value 0 means unused 
-array [1..MAX_OB_BANK,1..TOKEN_SIZE] of var 0..MAX_DELAY: D01_INDEX;
 array [1..MAX_OB_BANK,1..TOKEN_SIZE] of var 0..MAX_DELAY: D01_START;
 array [1..MAX_OB_BANK,1..TOKEN_SIZE] of var 0..MAX_DELAY: D01_END;
 array [1..MAX_OB_BANK,1..TOKEN_SIZE] of var 0..MAX_DELAY: D01;
@@ -264,7 +270,7 @@ constraint forall(i in 1..MAX_K)(
     comm_used[i] <-> exists(j in 1..TOKEN_SIZE)(T1[i,j] != -1)
 );
 
-constraint comm_cap = max([i | i in 1..MAX_K where comm_used[i] ] ++ [0]);
+constraint comm_cap = sum(i in 1..MAX_K)(bool2int(comm_used[i]));
 
 constraint forall(i in 1..MAX_K, j in 1..TOKEN_SIZE)(
     if T1[i,j] != -1 then
@@ -292,13 +298,11 @@ constraint forall(b in 1..MAX_OB_BANK, j in 1..TOKEN_SIZE)(
         D01[b,j] = T1[selected_i2, j] - T0[selected_i1, j] /\
         D01[b,j] >= 1 /\
         D01_START[b,j] = T0[selected_i1, j] /\
-        D01_END[b,j] = T1[selected_i2, j] /\
-        D01_INDEX[b,j] = SORTED_T3[j]
+        D01_END[b,j] = T1[selected_i2, j] 
     else 
         D01[b,j] = 0 /\
         D01_START[b,j] = 0 /\
-        D01_END[b,j] = 0 /\
-        D01_INDEX[b,j] = 0
+        D01_END[b,j] = 0 
     endif
 );
 
@@ -331,11 +335,16 @@ constraint forall(j in 1..TOKEN_SIZE)(sum(b in 1..MAX_IB_BANK)(bool2int(D23[b,j]
 
 % apply NDF ordering for each OB bank to pressure the OB
 constraint forall(b in 1..MAX_OB_BANK)(
-    forall(j1 in 1..TOKEN_SIZE-1, j2 in j1+1..TOKEN_SIZE)(
+    forall(k1 in 1..TOKEN_SIZE-1, k2 in k1+1..TOKEN_SIZE)(
+        let {{
+            int: j1 = SORTED_T3[k1],
+            int: j2 = SORTED_T3[k2]
+        }} in
         (D01[b,j1] != 0 /\ D01[b,j2] != 0) ->
-            D01_END[b,j1] <= D01_END[b, j2]
+            D01_END[b,j1] <= D01_END[b,j2]
     )
 );
+
 
 
 % constraints for limiting the buffer size 
@@ -433,8 +442,8 @@ output [
         PRODUCING_CHANNELS = number_of_producers,
         CONSUMING_CHANNELS = number_of_consumers,
         MAXIMUM_CHANNEL_WIDTH = number_of_communications,
-        MAXIMUM_OUTPUT_BUFFER_SIZE = if constraints.output_buffer_size < 2 { 2 } else { constraints.output_buffer_size },
-        MAXIMUM_INPUT_BUFFER_SIZE = if constraints.input_buffer_size < 2 { 2 } else { constraints.input_buffer_size },
+        MAXIMUM_OUTPUT_BUFFER_SIZE = next_power_of_two(constraints.output_buffer_size),
+        MAXIMUM_INPUT_BUFFER_SIZE = next_power_of_two(constraints.input_buffer_size),
         MAXIMUM_DELAY = maximum_delay,
         MAX_OB_BANK = max_ob_bank,
         MAX_IB_BANK = max_ib_bank,

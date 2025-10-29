@@ -529,6 +529,12 @@ fn plot_graph(
             let w = place.width * step_x;
             let h = place.height * step_y;
 
+            // draw a background for one memory bank
+            chart.draw_series(std::iter::once(Rectangle::new(
+                [(x as f64 - 0.40, y as f64 - 0.40), (x as f64 - 0.60 + w as f64, y as f64 - 0.60 + step_y_f)],
+                RGBColor(102, 255, 255).filled(),
+            )))?;
+
             for i in (x..(x + w)).step_by(step_x as usize) {
                 for j in (y..(y + h)).step_by(step_y as usize) {
                     let (i_f, j_f) = (i as f64, j as f64);
