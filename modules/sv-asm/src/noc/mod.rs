@@ -1,5 +1,4 @@
-use sv_lib::model::{DataBase, Node, Edge, Channel, 
-                    RoutingGraph, RoutingPath, Coordinate};
+use sv_lib::model::{DataBase, Coordinate};
 use log::{info, error, warn, debug};
 use std::collections::{HashMap};
 use regex::Regex;
@@ -203,24 +202,12 @@ fn noc_resynthesis(
 
     let mut all_paths = String::new();
     for routing_path in &mut db.synthesized_information.routing_paths {
-        let output_length = 1 + routing_path.path
-            .iter()
-            .rposition(|coord| coord.port == 1)
-            .ok_or_else(|| "No coordinate with port == 1 found")?;
-
-        let input_length = routing_path.path.len() - routing_path.path
-            .iter()
-            .position(|coord| coord.port == 2)
-            .ok_or_else(|| "No coordinate with port == 2 found")?;
-       
-        /*
+                
         let design = optimiser::main(
             &db.technology_constraint,
-            (routing_path.path.len() as i32, output_length, input_length),
-            routing_path.delay,
+            routing_path.path.len() as u32,
+            routing_path.delay as u32,
         )?;
-*/
-        let design = "w".repeat(routing_path.path.len());
 
         if design.is_empty() {
             error!("fail to find a NoC solution ");

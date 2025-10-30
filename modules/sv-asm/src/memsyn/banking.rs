@@ -403,59 +403,25 @@ constraint forall(b in 1..MAX_OB_BANK)(memory_minimum_size[ob_type[b]] <= ob_cap
 constraint forall(b in 1..MAX_IB_BANK)(memory_minimum_size[ib_type[b]] <= ib_cap[b]);
 
 % fifo's patterns need to be made sure
-constraint forall(b in 1..MAX_OB_BANK, j in 1..TOKEN_SIZE-1) (
-    if ob_type[b] = fifo then
-        if D01[b,j] != 0 then
-            % Look ahead for the first used token k > j
-            forall(k in j+1..TOKEN_SIZE) (
-                if D01[b,k] != 0 then
-                    % Once the next used token k is found, enforce the order
-                    % And ensure no token l between j and k is used
-                    if forall(l in j+1..k-1) (D01[b,l] = 0) then
-                        D01_START[b,j] < D01_START[b,k]
-                    endif
-                endif
-            )
-        endif
-    endif
+constraint forall(b in 1..MAX_OB_BANK)(
+    ob_in_ports[b] = 1 /\ ob_out_ports[b] = 1 /\ 
+    forall(j1 in 1..TOKEN_SIZE-1, j2 in j1+1..TOKEN_SIZE)(
+        (D01[b,j1] != 0 /\ D01[b,j2] != 0) -> D01_START[b,j1] < D01_START[b,j2]
+    ) /\
+    forall(j1 in 1..TOKEN_SIZE-1, j2 in j1+1..TOKEN_SIZE)(
+        (D01[b,j1] != 0 /\ D01[b,j2] != 0) -> D01_END[b,j1] < D01_END[b,j2]
+    ) <-> ob_type[b] = fifo
 );
 
-constraint forall(b in 1..MAX_IB_BANK, j in 1..TOKEN_SIZE-1) (
-    if ib_type[b] = fifo then
-        if D23[b,j] != 0 then
-            % Look ahead for the first used token k > j
-            forall(k in j+1..TOKEN_SIZE) (
-                if D23[b,k] != 0 then
-                    % Once the next used token k is found, enforce the order
-                    % And ensure no token l between j and k is used
-                    if forall(l in j+1..k-1) (D23[b,l] = 0) then
-                        D23_START[b,j] < D23_START[b,k]
-                    endif
-                endif
-            )
-        endif
-    endif
+constraint forall(b in 1..MAX_IB_BANK)(
+    ib_in_ports[b] = 1 /\ ib_out_ports[b] = 1 /\ 
+    forall(j1 in 1..TOKEN_SIZE-1, j2 in j1+1..TOKEN_SIZE)(
+        (D23[b,j1] != 0 /\ D23[b,j2] != 0) -> D23_START[b,j1] < D23_START[b,j2]
+    ) /\
+    forall(j1 in 1..TOKEN_SIZE-1, j2 in j1+1..TOKEN_SIZE)(
+        (D23[b,j1] != 0 /\ D23[b,j2] != 0) -> D23_END[b,j1] < D23_END[b,j2]
+    ) <-> ib_type[b] = fifo
 );
-
-%constraint forall(b in 1..MAX_OB_BANK)(
-%    ob_in_ports[b] = 1 /\ ob_out_ports[b] = 1 /\ 
-%    forall(j1 in 1..TOKEN_SIZE-1, j2 in j1+1..TOKEN_SIZE)(
-%        (D01[b,j1] != 0 /\ D01[b,j2] != 0) -> D01_START[b,j1] < D01_START[b,j2]
-%    ) /\
-%    forall(j1 in 1..TOKEN_SIZE-1, j2 in j1+1..TOKEN_SIZE)(
-%        (D01[b,j1] != 0 /\ D01[b,j2] != 0) -> D01_END[b,j1] < D01_END[b,j2]
-%    ) <-> ob_type[b] = fifo
-%);
-%
-%constraint forall(b in 1..MAX_IB_BANK)(
-%    ib_in_ports[b] = 1 /\ ib_out_ports[b] = 1 /\ 
-%    forall(j1 in 1..TOKEN_SIZE-1, j2 in j1+1..TOKEN_SIZE)(
-%        (D23[b,j1] != 0 /\ D23[b,j2] != 0) -> D23_START[b,j1] < D23_START[b,j2]
-%    ) /\
-%    forall(j1 in 1..TOKEN_SIZE-1, j2 in j1+1..TOKEN_SIZE)(
-%        (D23[b,j1] != 0 /\ D23[b,j2] != 0) -> D23_END[b,j1] < D23_END[b,j2]
-%    ) <-> ib_type[b] = fifo
-%);
 
 constraint forall(b in 1..MAX_OB_BANK)(
     (OB_BANK_USED[b] = 0) -> ob_type[b] = none
