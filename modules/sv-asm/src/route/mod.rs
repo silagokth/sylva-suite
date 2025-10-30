@@ -1,6 +1,6 @@
 use sv_lib::model::{DataBase, Node, Edge, Channel, 
                     RoutingGraph, RoutingPath, Coordinate};
-use log::{info, error, warn, debug};
+use log::{info, error, warn};
 use std::collections::{HashMap, HashSet};
 use plotters::prelude::*;
 
@@ -405,7 +405,7 @@ fn reroute(
                 return Err(format!("Cannot find a routing path on edge {}, iteration {}", graph.channels[index].app_edge_id, i).into());
             }
 
-            debug!("paths at edge {} of iteration {} - {:?}", graph.channels[index].app_edge_id, i, path);
+            //debug!("paths at edge {} of iteration {} - {:?}", graph.channels[index].app_edge_id, i, path);
 
             paths.push(path);
         }

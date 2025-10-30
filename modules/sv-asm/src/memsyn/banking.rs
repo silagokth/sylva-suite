@@ -215,10 +215,30 @@ constraint forall(j in 1..MAX_K)(
 );
 constraint forall(j in 1..MAX_K)(
     (sum(i in 1..MAX_OB_BANK)(bool2int(OUT_OB_BANK[i,j] = 1)) = 1) ->
-        sum(i in 1..MAX_IB_BANK)(bool2int(IN_IB_BANK[i,j] = 1)) >= 1
+        sum(i in 1..MAX_IB_BANK)(bool2int(IN_IB_BANK[i,j] = 1)) = 1
 );
 constraint forall(j in 1..N)(
     sum(i in 1..MAX_IB_BANK)(bool2int(OUT_IB_BANK[i,j] = 1)) = 1
+);
+
+% geometry constraints
+% memory banks must be continuous 
+constraint forall(b in 1..MAX_OB_BANK)(
+    forall(j in 2..M)(
+        (IN_OB_BANK[b,j] - IN_OB_BANK[b,j-1] < 0) -> % falling edge
+        forall(k in j..M)(IN_OB_BANK[b,k] = 0)
+    )
+);
+
+constraint forall(b in 1..MAX_IB_BANK)(
+    forall(j in 2..N)(
+        (OUT_IB_BANK[b,j] - OUT_IB_BANK[b,j-1] < 0) -> % falling edge
+        forall(k in j..M)(OUT_IB_BANK[b,k] = 0)
+    )
+);
+
+constraint forall(k in 2..MAX_K)(
+    comm_used[k-1] >= comm_used[k]
 );
 
 %%%%%%%%%%%%%%%%%%%
@@ -243,7 +263,7 @@ array [1..MAX_IB_BANK] of var MemType: ib_type;
 
 array [1..MAX_K,1..TOKEN_SIZE] of var -1..MAX_DELAY: T1;
 array [1..MAX_K,1..TOKEN_SIZE] of var -1..MAX_DELAY: T2;
-array [1..MAX_K] of var bool: comm_used;
+array [1..MAX_K] of var bool: comm_used; % update this for banking
 
 % value 0 means unused 
 array [1..MAX_OB_BANK,1..TOKEN_SIZE] of var 0..MAX_DELAY: D01_START;
@@ -383,25 +403,59 @@ constraint forall(b in 1..MAX_OB_BANK)(memory_minimum_size[ob_type[b]] <= ob_cap
 constraint forall(b in 1..MAX_IB_BANK)(memory_minimum_size[ib_type[b]] <= ib_cap[b]);
 
 % fifo's patterns need to be made sure
-constraint forall(b in 1..MAX_OB_BANK)(
-    ob_in_ports[b] = 1 /\ ob_out_ports[b] = 1 /\ 
-    forall(j1 in 1..TOKEN_SIZE-1, j2 in j1+1..TOKEN_SIZE)(
-        (D01[b,j1] != 0 /\ D01[b,j2] != 0) -> D01_START[b,j1] < D01_START[b,j2]
-    ) /\
-    forall(j1 in 1..TOKEN_SIZE-1, j2 in j1+1..TOKEN_SIZE)(
-        (D01[b,j1] != 0 /\ D01[b,j2] != 0) -> D01_END[b,j1] < D01_END[b,j2]
-    ) <-> ob_type[b] = fifo
+constraint forall(b in 1..MAX_OB_BANK, j in 1..TOKEN_SIZE-1) (
+    if ob_type[b] = fifo then
+        if D01[b,j] != 0 then
+            % Look ahead for the first used token k > j
+            forall(k in j+1..TOKEN_SIZE) (
+                if D01[b,k] != 0 then
+                    % Once the next used token k is found, enforce the order
+                    % And ensure no token l between j and k is used
+                    if forall(l in j+1..k-1) (D01[b,l] = 0) then
+                        D01_START[b,j] < D01_START[b,k]
+                    endif
+                endif
+            )
+        endif
+    endif
 );
 
-constraint forall(b in 1..MAX_IB_BANK)(
-    ib_in_ports[b] = 1 /\ ib_out_ports[b] = 1 /\ 
-    forall(j1 in 1..TOKEN_SIZE-1, j2 in j1+1..TOKEN_SIZE)(
-        (D23[b,j1] != 0 /\ D23[b,j2] != 0) -> D23_START[b,j1] < D23_START[b,j2]
-    ) /\
-    forall(j1 in 1..TOKEN_SIZE-1, j2 in j1+1..TOKEN_SIZE)(
-        (D23[b,j1] != 0 /\ D23[b,j2] != 0) -> D23_END[b,j1] < D23_END[b,j2]
-    ) <-> ib_type[b] = fifo
+constraint forall(b in 1..MAX_IB_BANK, j in 1..TOKEN_SIZE-1) (
+    if ib_type[b] = fifo then
+        if D23[b,j] != 0 then
+            % Look ahead for the first used token k > j
+            forall(k in j+1..TOKEN_SIZE) (
+                if D23[b,k] != 0 then
+                    % Once the next used token k is found, enforce the order
+                    % And ensure no token l between j and k is used
+                    if forall(l in j+1..k-1) (D23[b,l] = 0) then
+                        D23_START[b,j] < D23_START[b,k]
+                    endif
+                endif
+            )
+        endif
+    endif
 );
+
+%constraint forall(b in 1..MAX_OB_BANK)(
+%    ob_in_ports[b] = 1 /\ ob_out_ports[b] = 1 /\ 
+%    forall(j1 in 1..TOKEN_SIZE-1, j2 in j1+1..TOKEN_SIZE)(
+%        (D01[b,j1] != 0 /\ D01[b,j2] != 0) -> D01_START[b,j1] < D01_START[b,j2]
+%    ) /\
+%    forall(j1 in 1..TOKEN_SIZE-1, j2 in j1+1..TOKEN_SIZE)(
+%        (D01[b,j1] != 0 /\ D01[b,j2] != 0) -> D01_END[b,j1] < D01_END[b,j2]
+%    ) <-> ob_type[b] = fifo
+%);
+%
+%constraint forall(b in 1..MAX_IB_BANK)(
+%    ib_in_ports[b] = 1 /\ ib_out_ports[b] = 1 /\ 
+%    forall(j1 in 1..TOKEN_SIZE-1, j2 in j1+1..TOKEN_SIZE)(
+%        (D23[b,j1] != 0 /\ D23[b,j2] != 0) -> D23_START[b,j1] < D23_START[b,j2]
+%    ) /\
+%    forall(j1 in 1..TOKEN_SIZE-1, j2 in j1+1..TOKEN_SIZE)(
+%        (D23[b,j1] != 0 /\ D23[b,j2] != 0) -> D23_END[b,j1] < D23_END[b,j2]
+%    ) <-> ib_type[b] = fifo
+%);
 
 constraint forall(b in 1..MAX_OB_BANK)(
     (OB_BANK_USED[b] = 0) -> ob_type[b] = none
@@ -455,14 +509,14 @@ output [
         MEMORY_PORT_CAPACITY = vec![0, 1, maximum_reg_file_port_cap, 2],
         MEMORY_MINIMUM_SIZE = vec![0, 1, 1, 1024],
         MEMORY_COST = vec![100, 2, 3, 1],
-        COMMUNICATION_COST = 1,
+        COMMUNICATION_COST = 30,
     );
 
     /* solving the model */
     let mut solver = Solver::new(format!("solve_memory_{}_{}", constraints.edge_id, number), module_dir.clone());
     solver.add(statements);
     *number = *number + 1;
-    let (status, solutions) = solver.solve("cp-sat", 120, "-p 16")?;
+    let (status, solutions) = solver.solve("cp-sat", 180, "-p 16")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
         _ => return Err(format!("fail to optimize the memory banking under the constraint programming").into()),

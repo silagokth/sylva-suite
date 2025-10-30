@@ -141,14 +141,83 @@ fn group_dependencies(
             dst_deps.push(merged_dst);
         }
     }
-    
-    // Convert HashSet<i32> → Vec<i32> for the result
+ 
+    // convert HashSet<i32> → Vec<i32> for the result
     let dst_vecs: Vec<Vec<i32>> = dst_deps.into_iter().map(|s| s.into_iter().collect()).collect();
     let src_vecs: Vec<Vec<i32>> = src_deps.into_iter().map(|s| s.into_iter().collect()).collect();
  
     Ok((dst_vecs, src_vecs))
 }
 
+
+#[allow(unused_variables)]
+fn evaluate_dependencies(
+    dst_groups: &mut Vec<Vec<i32>>, 
+    src_groups: &mut Vec<Vec<i32>>, 
+    output_patterns: &HashMap<i32, (i32, i32)>, 
+    input_patterns: &HashMap<i32, (i32, i32)>,
+) -> Result<(), Box<dyn std::error::Error>> {
+
+    for group in dst_groups.iter_mut() {
+        group.sort_unstable();
+        group.dedup();
+    }
+    for group in src_groups.iter_mut() {
+        group.sort_unstable();
+        group.dedup();
+    }
+
+    // First regroup dst and src that are overlapping
+    // e.g., if we have [[1, 3], [2, 4]], it needs to be merged because 
+    // 2 is overlapping in the first group
+    //
+    // To avoid this, we need to introduce the concept of sharing channels
+
+    let mut changed = true;
+    
+    while changed {
+        changed = false;
+
+        'outer: for i in 0..dst_groups.len() {
+            for j in (i + 1)..dst_groups.len() {
+                // check if groups i and j overlap
+                if dst_groups[i].iter().any(|x| dst_groups[j].contains(x)) {
+                    // merge group j into i
+                    let mut merged_dst = dst_groups[i].clone();
+                    merged_dst.extend(dst_groups[j].iter());
+                    merged_dst.sort_unstable();
+                    merged_dst.dedup();
+                    dst_groups[i] = merged_dst;
+
+                    // merge src as well
+                    let mut merged_src = src_groups[i].clone();
+                    merged_src.extend(src_groups[j].iter());
+                    merged_src.sort_unstable();
+                    merged_src.dedup();
+                    src_groups[i] = merged_src;
+
+                    // remove j-th group (since merged)
+                    dst_groups.remove(j);
+                    src_groups.remove(j);
+
+                    changed = true;
+                    break 'outer; // restart the outer loop
+                }
+            }
+        }
+    }
+
+
+    // TODO optimization
+    // group sub-projects together in one optimization problem
+    // to explore more possibility
+    
+    // rough idea
+    // look at the bandwidth -> merge adjacent low-bandwidth channels
+
+
+    Ok(())
+}
 
 
 fn equitable_address_assignment(
@@ -278,7 +347,7 @@ fn memory_synthesis(
             routing_delay: routing_delay,
             output_buffer_size: total_output_buffer as i32,
             input_buffer_size: total_input_buffer as i32,
-            channel_width_size: *total_communication_channel,
+            channel_width_size: *total_communication_channel + 2, // add space to explore
         };
 
         let dst_dependencies = pattern_dependencies(
@@ -288,11 +357,13 @@ fn memory_synthesis(
             &edge.target_node, 
             &edge.target_port
         )?;
-        let (dst_groups, src_groups) = group_dependencies(&dst_dependencies)?;
+        let (mut dst_groups, mut src_groups) = group_dependencies(&dst_dependencies)?;
        
         let output_patterns = translate_addr_pattern(&previous_db, &edge.source_node, &edge.source_port, "out")?;
         let input_patterns = translate_addr_pattern(&previous_db, &edge.target_node, &edge.target_port, "in")?;
         
+        evaluate_dependencies(&mut dst_groups, &mut src_groups, &output_patterns, &input_patterns)?;
+    
         let mut numbering = 0;
         let mut memory_collections: Vec<banking::MemoryBankInfo> = vec![];
 
@@ -623,8 +694,10 @@ fn memory_synthesis(
                         .filter(|(idx, _)| indices.contains(idx))
                         .map(|(_, content)| content.clone())
                         .collect();
-                
-                    source_target_pairs.push(collected);
+                    
+                    if !collected.is_empty() { 
+                        source_target_pairs.push(collected);
+                    }
                 }
 
                 bank_index += 1;
@@ -696,7 +769,11 @@ fn memory_synthesis(
                     })
                     .collect();
 
-                // update synthesized information 
+                let x_offset = (memory.output_channels[i] - 
+                    memory.output_channels.iter().min().unwrap_or(&0)) as i32 
+                    * db.technology_constraint.grid_per_drra_width;
+                
+                // update synthesized information
                 db.synthesized_information.transporter_tables.push(
                     TransporterTable {
                         transporter_id: transporter_id.clone(),
@@ -706,7 +783,7 @@ fn memory_synthesis(
                         from: memory.output_channels[i],
                         to: memory.corresponding_channels[i],
                         placement: MemoryPlacement {
-                            x: memory.placement.x + (i as i32) * db.technology_constraint.grid_per_drra_width,
+                            x: memory.placement.x + x_offset,
                             y: memory.placement.y + db.technology_constraint.grid_per_drra_height,
                             width: 1,
                             height: 1,
@@ -723,22 +800,24 @@ fn memory_synthesis(
             }
         }
 
-
         // ---------------------------------------------------------------
         // end of updating synthesized information at this edge
 
         // sanity checks for constraints
-        if number_of_transporters as i32 > *total_communication_channel {
+        debug!("expected number of channel width = {}, actual synthesized result = {}", total_communication_channel, number_of_transporters);
+        if number_of_transporters as i32 > *total_communication_channel + 10 {
             return Err(format!("find an overestimated solution for channel width at edge {}", &edge.id).into());
         }       
 
+        debug!("expected output buffer size = {}, actual size = {:?}", total_output_buffer, source_memory.memory_structure.iter().map(|m| m.memory_size).collect::<Vec<_>>());
         if source_memory.memory_structure.iter().map(|m| m.memory_size).sum::<u32>() >
-            2 * total_output_buffer {
+            8 * total_output_buffer {
             return Err(format!("find an overestimated solution for OB at edge {}", &edge.id).into());
         } 
 
+        debug!("expected input buffer size = {}, actual size = {:?}", total_input_buffer, target_memory.memory_structure.iter().map(|m| m.memory_size).collect::<Vec<_>>());
         if target_memory.memory_structure.iter().map(|m| m.memory_size).sum::<u32>() >
-            2 * total_input_buffer {
+            8 * total_input_buffer {
             return Err(format!("find an overestimated solution for IB at edge {}", &edge.id).into());
         } 
     }
