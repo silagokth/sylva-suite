@@ -6,7 +6,7 @@ use std::collections::hash_map::Entry;
 use itertools::Itertools;
 use ndarray::{Axis};
 
-mod banking;
+mod optimiser;
 
 
 fn address_pattern_to_hashmap(list: &Vec<AddressPatterns>) -> HashMap<i32, (i32, i32)> {
@@ -207,15 +207,6 @@ fn evaluate_dependencies(
         }
     }
 
-
-    // TODO optimization
-    // group sub-projects together in one optimization problem
-    // to explore more possibility
-    
-    // rough idea
-    // look at the bandwidth -> merge adjacent low-bandwidth channels
-
-
     Ok(())
 }
 
@@ -340,7 +331,7 @@ fn memory_synthesis(
             .get(&format!("transporter_{}", edge.id))
             .ok_or(format!("cannot find channel width of {} edge", &edge.id))?;
         
-        let edge_memory_constraints = banking::MemoryConstraint {
+        let mut edge_memory_constraints = optimiser::MemoryConstraint {
             edge_id: edge.id.clone(),
             src_fire_time: *src_fire_time,
             dst_fire_time: *dst_fire_time,
@@ -348,6 +339,9 @@ fn memory_synthesis(
             output_buffer_size: total_output_buffer as i32,
             input_buffer_size: total_input_buffer as i32,
             channel_width_size: *total_communication_channel + 2, // add space to explore
+            input_memory_type: "".to_string(),
+            output_memory_type: "".to_string(),
+            fixed: false,
         };
 
         let dst_dependencies = pattern_dependencies(
@@ -363,48 +357,17 @@ fn memory_synthesis(
         let input_patterns = translate_addr_pattern(&previous_db, &edge.target_node, &edge.target_port, "in")?;
         
         evaluate_dependencies(&mut dst_groups, &mut src_groups, &output_patterns, &input_patterns)?;
-    
-        let mut numbering = 0;
-        let mut memory_collections: Vec<banking::MemoryBankInfo> = vec![];
 
-        for (dst_list, src_list) in dst_groups.iter().zip(src_groups.iter()) {
-            let mut working_output_patterns: Vec<_> = output_patterns
-                .iter()
-                .filter(|(_, (c, _))| src_list.contains(c))
-                .map(|(a, (c, t))| (*a, *c, *t)) // deref so we own i32, not refs
-                .collect();
+        // explore memory solutions and pick the optimal or close-to-optimal one
+        let memory_collections: Vec<optimiser::MemoryBankInfo> = optimiser::explore_memory_space(
+            &mut edge_memory_constraints,
+            &mut src_groups,
+            &mut dst_groups,
+            &output_patterns,
+            &input_patterns,
+            module_dir.clone(),
+        )?;
 
-            let mut working_input_patterns: Vec<_> = input_patterns
-                .iter()
-                .filter(|(_, (c, _))| dst_list.contains(c))
-                .map(|(a, (c, t))| (*a, *c, *t))
-                .collect();
-
-            // Sort by address
-            working_output_patterns.sort_by_key(|(addr, _, _)| *addr);
-            working_input_patterns.sort_by_key(|(addr, _, _)| *addr);
-
-            // verifying working patterns 
-            let out_addrs: Vec<_> = working_output_patterns.iter().map(|(addr, _, _)| *addr).collect();
-            let in_addrs: Vec<_> = working_input_patterns.iter().map(|(addr, _, _)| *addr).collect();
-            if out_addrs != in_addrs {
-                error!("displaying out_addrs: {:?}", out_addrs);
-                error!("displaying in_addrs: {:?}", in_addrs);
-                return Err(format!("cannot extract working address channel patterns").into());
-            }
-
-            // solve the constraint programming problem 
-            memory_collections.push(
-                banking::optimise_memory(
-                    &edge_memory_constraints,
-                    &mut numbering,
-                    &working_output_patterns,
-                    &working_input_patterns,
-                    module_dir.clone(),
-                )?
-            );
-        }
-    
         // update each edge's solution
         debug!("found all solutions for edge {}, updating synthesized information", edge.id);
       
@@ -443,68 +406,63 @@ fn memory_synthesis(
             .map(|p| (p.x, p.y - db.technology_constraint.grid_per_drra_height)) // point to vertical IB level
             .ok_or(format!("cannot find placement of {}", &edge.target_node))?;
 
+
         // iterate to collect all banking information into the memory synthesis data
         for ((i, dst_list), src_list) in dst_groups.iter().enumerate().zip(src_groups.iter()) {
-            // since sharing channels is not supported, we can just do this
             let memory_info = &memory_collections[i];
             
-            for bank_index in 0..memory_info.ob_memory_types.len() {
-                // output buffer 
-                let source_most_left_x_position = *src_list.iter().min().unwrap_or(&0) as usize;
-                let source_most_right_x_position = *src_list.iter().max().unwrap_or(&0) as usize;
-                
-                let output_communication_channels: Vec<_> = memory_info.output_ob_channels
-                    .index_axis(Axis(0), bank_index)
-                    .iter()
-                    .enumerate()
-                    .filter(|&(_, &val)| val == 1)
-                    .map(|(idx, _)| (idx + source_most_left_x_position) as i32)
-                    .collect();
-                
-                // input buffer            
-                let target_most_left_x_position = *dst_list.iter().min().unwrap_or(&0) as usize;
-                let target_most_right_x_position = *dst_list.iter().max().unwrap_or(&0) as usize;
-                               
-                let input_communication_channels: Vec<_> = memory_info.input_ib_channels
-                    .index_axis(Axis(0), bank_index)
-                    .iter()
-                    .enumerate()
-                    .filter(|&(_, &val)| val == 1)
-                    .map(|(idx, _)| (idx + target_most_left_x_position) as i32)
-                    .collect();    
-                
-                assert_eq!(output_communication_channels.len(), input_communication_channels.len());
+            // output buffer 
+            let source_most_left_x_position = *src_list.iter().min().unwrap_or(&0) as usize;
+            let source_most_right_x_position = *src_list.iter().max().unwrap_or(&0) as usize;
+            
+            let output_communication_channels: Vec<_> = memory_info.t1
+                .axis_iter(Axis(0))
+                .enumerate()
+                .filter(|(_, row)| row.iter().any(|&val| val != -1)) // keep active rows 
+                .map(|(idx, _)| (idx + source_most_left_x_position) as i32)
+                .collect();
+            
+            // input buffer            
+            let target_most_left_x_position = *dst_list.iter().min().unwrap_or(&0) as usize;
+            let target_most_right_x_position = *dst_list.iter().max().unwrap_or(&0) as usize;
+                           
+            let input_communication_channels: Vec<_> = memory_info.t2
+                .axis_iter(Axis(0))
+                .enumerate()
+                .filter(|(_, row)| row.iter().any(|&val| val != -1)) // keep active rows 
+                .map(|(idx, _)| (idx + target_most_left_x_position) as i32)
+                .collect();
+            
+            assert_eq!(output_communication_channels.len(), input_communication_channels.len());
 
-                source_memory.memory_structure.push(MemoryStructure {
-                    memory_type: memory_info.ob_memory_types[bank_index].clone(),
-                    memory_size: memory_info.ob_size[bank_index] as u32,
-                    input_channels: src_list.iter().map(|&x| x as u32).collect(), 
-                    output_channels: output_communication_channels.iter().map(|&x| x as u32).collect(), 
-                    corresponding_channels: input_communication_channels.iter().map(|&x| x as u32).collect(), 
-                    placement: MemoryPlacement {
-                        x: source_x + (source_most_left_x_position as i32) * db.technology_constraint.grid_per_drra_width, 
-                        y: source_y,
-                        width: (source_most_right_x_position - source_most_left_x_position) as i32 + 1,
-                        height: 1, // fixed to 1
-                    },
-                });
-                
-                target_memory.memory_structure.push(MemoryStructure {
-                    memory_type: memory_info.ib_memory_types[bank_index].clone(),
-                    memory_size: memory_info.ib_size[bank_index] as u32,
-                    input_channels: dst_list.iter().map(|&x| x as u32).collect(), 
-                    output_channels: input_communication_channels.iter().map(|&x| x as u32).collect(), 
-                    corresponding_channels: vec![],
-                    placement: MemoryPlacement {
-                        x: target_x + (target_most_left_x_position as i32) * db.technology_constraint.grid_per_drra_width, 
-                        y: target_y,
-                        width: (target_most_right_x_position - target_most_left_x_position) as i32 + 1,
-                        height: 1, // fixed to 1
-                    },
-                });
-            }
+            source_memory.memory_structure.push(MemoryStructure {
+                memory_type: memory_info.ob_type.clone(),
+                memory_size: memory_info.ob_size as u32,
+                input_channels: src_list.iter().map(|&x| x as u32).collect(), 
+                output_channels: output_communication_channels.iter().map(|&x| x as u32).collect(), 
+                corresponding_channels: input_communication_channels.iter().map(|&x| x as u32).collect(), 
+                placement: MemoryPlacement {
+                    x: source_x + (source_most_left_x_position as i32) * db.technology_constraint.grid_per_drra_width, 
+                    y: source_y,
+                    width: (source_most_right_x_position - source_most_left_x_position) as i32 + 1,
+                    height: 1, // fixed to 1
+                },
+            });
+            
+            target_memory.memory_structure.push(MemoryStructure {
+                memory_type: memory_info.ib_type.clone(),
+                memory_size: memory_info.ib_size as u32,
+                input_channels: dst_list.iter().map(|&x| x as u32).collect(), 
+                output_channels: input_communication_channels.iter().map(|&x| x as u32).collect(), 
+                corresponding_channels: vec![],
+                placement: MemoryPlacement {
+                    x: target_x + (target_most_left_x_position as i32) * db.technology_constraint.grid_per_drra_width, 
+                    y: target_y,
+                    width: (target_most_right_x_position - target_most_left_x_position) as i32 + 1,
+                    height: 1, // fixed to 1
+                },
+            });
         }
-
 
         // update the memory synthesis
         db.synthesized_information.memory_synthesis.push(
@@ -573,135 +531,85 @@ fn memory_synthesis(
                 .map(|col| col.iter().copied().find(|&x| x > 0).unwrap_or(0))
                 .collect(); 
 
-            let number_of_bank = memory_info.ob_memory_types.len(); // should be 1
-            for j in 0..number_of_bank {
-                // Address assignment for source node
-                let source_channels: Vec<_> = memory_info.input_ob_channels
-                    .index_axis(Axis(0), j)
-                    .iter()
-                    .enumerate()
-                    .filter(|&(_, &v)| v == 1)
-                    .map(|(idx, _)| src_list[idx])
-                    .collect();
+            // Address assignment for source node
+            let source_assigned_address: Vec<i32> = equitable_address_assignment(
+                &flattened_t0,
+                &flattened_t1,
+                &memory_info.ob_size,
+            )?; 
  
-                let selected_indices: Vec<_> = working_output_patterns
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, (_, c, _))| source_channels.contains(c))
-                    .map(|(idx, _)| idx)
-                    .collect();
-               
-                let scheduled_t0 = flattened_t0
-                    .iter()
-                    .enumerate()
-                    .filter(|(addr, _)| selected_indices.contains(addr))
-                    .map(|(_, &t)| t)
-                    .collect();
-               
-                let scheduled_t1 = flattened_t1
-                    .iter()
-                    .enumerate()
-                    .filter(|(addr, _)| selected_indices.contains(addr))
-                    .map(|(_, &t)| t)
-                    .collect();
-               
-                let source_assigned_address: Vec<i32> = equitable_address_assignment(
-                    &scheduled_t0,
-                    &scheduled_t1,
-                    &memory_info.ob_size[j],
-                )?; 
- 
-                assert_eq!(source_assigned_address.len(), selected_indices.len());
-
-                for k in 0..source_assigned_address.len() {
-                    let (virtual_address, channel, _) = working_output_patterns[selected_indices[k]];
-                    
-                    match source_assignment.address_assignment.entry(virtual_address) {
-                        Entry::Vacant(entry) => {
-                            entry.insert((channel, bank_index, source_assigned_address[k]));
-                        }
-                        Entry::Occupied(_) => {
-                            return Err(format!("virtual address is already occupied at source node {} ({}).", &edge.source_node, &edge.source_port).into());
-                        }
-                    }
-                }
-
-                // Address assignment for target node
-                let scheduled_t2 = flattened_t2
-                    .iter()
-                    .enumerate()
-                    .filter(|(addr, _)| selected_indices.contains(addr))
-                    .map(|(_, &t)| t)
-                    .collect();
-               
-                let scheduled_t3 = flattened_t3
-                    .iter()
-                    .enumerate()
-                    .filter(|(addr, _)| selected_indices.contains(addr))
-                    .map(|(_, &t)| t)
-                    .collect();
-               
-                let target_assigned_address: Vec<i32> = equitable_address_assignment(
-                    &scheduled_t2,
-                    &scheduled_t3,
-                    &memory_info.ib_size[j],
-                )?; 
- 
-                assert_eq!(target_assigned_address.len(), selected_indices.len());
-
-                for k in 0..target_assigned_address.len() {
-                    let (virtual_address, channel, _) = working_input_patterns[selected_indices[k]];
-                    
-                    match target_assignment.address_assignment.entry(virtual_address) {
-                        Entry::Vacant(entry) => {
-                            entry.insert((channel, bank_index, target_assigned_address[k]));
-                        }
-                        Entry::Occupied(_) => {
-                            return Err(format!("virtual address is already occupied at target node {} ({}).", &edge.target_node, &edge.target_port).into());
-                        }
-                    }
-                }
-
-                // keep some information for assigning transporter tables
-                assert_eq!(source_assigned_address.len(), target_assigned_address.len());
-                assert_eq!(source_assigned_address.len(), scheduled_t1.len());
+            for k in 0..source_assigned_address.len() {
+                let (virtual_address, channel, _) = working_output_patterns[k];
                 
-                let grouped_pairs: Vec<(i32, i32, i32)> = scheduled_t1
-                    .iter()
-                    .zip(source_assigned_address.iter())
-                    .zip(target_assigned_address.iter())
-                    .map(|((t1, src), tgt)| (*t1, *src, *tgt))
-                    .collect();
-
-                // split the addresses according to the number of communication channels inuse
-                let set_indices: Vec<Vec<_>> = memory_info.t1
-                    .axis_iter(Axis(0))
-                    .map(|row| {
-                        row.iter()
-                            .enumerate()
-                            .filter(|&(_, &x)| x > 0)
-                            .map(|(idx, _)| idx)
-                            .collect::<Vec<_>>()
-                    })
-                    .collect();
-
-                assert_eq!(grouped_pairs.len(), set_indices.iter().map(|x| x.len()).sum::<usize>());
-            
-                for indices in set_indices.iter() {
-                    let collected: Vec<_> = grouped_pairs
-                        .iter()
-                        .enumerate()
-                        .filter(|(idx, _)| indices.contains(idx))
-                        .map(|(_, content)| content.clone())
-                        .collect();
-                    
-                    if !collected.is_empty() { 
-                        source_target_pairs.push(collected);
+                match source_assignment.address_assignment.entry(virtual_address) {
+                    Entry::Vacant(entry) => {
+                        entry.insert((channel, bank_index, source_assigned_address[k]));
+                    }
+                    Entry::Occupied(_) => {
+                        return Err(format!("virtual address is already occupied at source node {} ({}).", &edge.source_node, &edge.source_port).into());
                     }
                 }
+            }
 
-                bank_index += 1;
-            } 
+            // Address assignment for target node
+            let target_assigned_address: Vec<i32> = equitable_address_assignment(
+                &flattened_t2,
+                &flattened_t3,
+                &memory_info.ib_size,
+            )?; 
+
+            for k in 0..target_assigned_address.len() {
+                let (virtual_address, channel, _) = working_input_patterns[k];
+                
+                match target_assignment.address_assignment.entry(virtual_address) {
+                    Entry::Vacant(entry) => {
+                        entry.insert((channel, bank_index, target_assigned_address[k]));
+                    }
+                    Entry::Occupied(_) => {
+                        return Err(format!("virtual address is already occupied at target node {} ({}).", &edge.target_node, &edge.target_port).into());
+                    }
+                }
+            }
+
+            // keep some information for assigning transporter tables
+            assert_eq!(source_assigned_address.len(), target_assigned_address.len());
+            assert_eq!(source_assigned_address.len(), flattened_t1.len());
+            
+            let grouped_pairs: Vec<(i32, i32, i32)> = flattened_t1
+                .iter()
+                .zip(source_assigned_address.iter())
+                .zip(target_assigned_address.iter())
+                .map(|((t1, src), tgt)| (*t1, *src, *tgt))
+                .collect();
+
+            // split the addresses according to the number of communication channels inuse
+            let set_indices: Vec<Vec<_>> = memory_info.t1
+                .axis_iter(Axis(0))
+                .map(|row| {
+                    row.iter()
+                        .enumerate()
+                        .filter(|&(_, &x)| x > 0)
+                        .map(|(idx, _)| idx)
+                        .collect::<Vec<_>>()
+                })
+                .collect();
+
+            assert_eq!(grouped_pairs.len(), set_indices.iter().map(|x| x.len()).sum::<usize>());
+            
+            for indices in set_indices.iter() {
+                let collected: Vec<_> = grouped_pairs
+                    .iter()
+                    .enumerate()
+                    .filter(|(idx, _)| indices.contains(idx))
+                    .map(|(_, content)| content.clone())
+                    .collect();
+                
+                if !collected.is_empty() { 
+                    source_target_pairs.push(collected);
+                }
+            }
+
+            bank_index += 1;
         }
             
         // verify that all addresses have been assigned
@@ -820,8 +728,8 @@ fn memory_synthesis(
             8 * total_input_buffer {
             return Err(format!("find an overestimated solution for IB at edge {}", &edge.id).into());
         } 
-    }
 
+    }
 
     Ok(())
 }

@@ -213,6 +213,7 @@ fn noc_resynthesis(
             error!("fail to find a NoC solution ");
             return Err(format!("noc solution is not found for {}", routing_path.app_edge_id).into());
         }
+        
         all_paths += &format!("\npath: {} - {}", routing_path.app_edge_id, design);
 
         for ((i, node), kind) in routing_path.path.iter().enumerate().zip(design.chars()) {

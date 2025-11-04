@@ -164,6 +164,13 @@ pub fn main(
         };
 
         *each = insert_buffer(tech_const, each.len() as u32, slew)?;
+        if each.len() == 0 {
+            return Err(
+                format!(
+                    "NoC resynthesis fails to find a solution"
+                ).into()
+            );
+        }
     }
 
     // combine all segments + registers into one string
