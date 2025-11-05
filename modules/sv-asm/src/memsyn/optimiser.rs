@@ -1,7 +1,7 @@
 use sv_lib::solver::{Solver};
 use log::{debug};
 use std::collections::{HashMap};
-use ndarray::Array2;
+use ndarray::{Array2, Axis, concatenate, s};
 use std::fmt::Display;
 
 
@@ -105,15 +105,6 @@ pub fn optimise_memory(
         consuming_matrix[(row as usize, col)] = time + constraints.dst_fire_time;
     }
 
-    // sorted column indices  
-    let mut sorted_producing_indices: Vec<_> = (0..output_patterns.len()).map(|i| i as i32).collect();   
-    sorted_producing_indices.sort_by_key(|&i| output_patterns[i as usize].2);
-    sorted_producing_indices = sorted_producing_indices.into_iter().map(|i| i + 1).collect();
-    
-    let mut sorted_consuming_indices: Vec<_> = (0..input_patterns.len()).map(|i| i as i32).collect();   
-    sorted_consuming_indices.sort_by_key(|&i| input_patterns[i as usize].2);
-    sorted_consuming_indices = sorted_consuming_indices.into_iter().map(|i| i + 1).collect(); 
-
     // maximum delay time in the scope 
     let maximum_delay = std::cmp::max(
         producing_matrix.iter().max().unwrap(), 
@@ -157,26 +148,84 @@ pub fn optimise_memory(
         ((x as u32).next_power_of_two()) as i32
     }
 
-    let mut statements = String::new();
+    // ----------------------------------------------------------------------
+    // Solving 
+    
+    // breaking into many small problem of size "window_size"
+    let mut current_position: usize = 0; 
+    let mut window_size: usize = 200; 
+    let number_of_iterations: usize = ((number_of_tokens - 1) / window_size) + 1;
 
-    statements += &format!(r#"include "cumulative.mzn";
+    // define an empty struct to be returned
+    let mut ret = MemoryBankInfo {
+        cost: -1,
+        ob_type: constraints.output_memory_type.clone(),
+        ib_type: constraints.input_memory_type.clone(),
+        ob_size: 2,
+        ib_size: 2,
+        comm_cap: 1,
+        t0: producing_matrix.clone(),
+        t1: Array2::zeros((0, 0)),
+        t2: Array2::zeros((0, 0)),
+        t3: consuming_matrix.clone(),
+    };
+
+    let mut prev_d01: Vec<i32> = Vec::new();
+    let mut prev_d01_start: Vec<i32> = Vec::new();
+    let mut prev_d23: Vec<i32> = Vec::new();
+    let mut prev_d23_start: Vec<i32> = Vec::new();
+    let mut prev_d01_end_last = 0;
+    let mut prev_d23_end_last = 0;
+
+    for i in 0..number_of_iterations {
+        current_position = window_size * i;
+        // last iteration
+        if i == number_of_iterations - 1 {
+            window_size = number_of_tokens - current_position;
+        }
+
+        // sorted column indices  
+        let output_slice: &_ = &output_patterns[current_position..current_position + window_size];
+        let mut sorted_producing_indices: Vec<_> = (0..output_slice.len()).collect();
+        sorted_producing_indices.sort_by_key(|&i| output_slice[i].2);
+        sorted_producing_indices = sorted_producing_indices.into_iter().map(|i| i + 1).collect();
+
+        let input_slice: &_ = &input_patterns[current_position..current_position + window_size];
+        let mut sorted_consuming_indices: Vec<_> = (0..input_slice.len()).collect();
+        sorted_consuming_indices.sort_by_key(|&i| input_slice[i].2);
+        sorted_consuming_indices = sorted_consuming_indices.into_iter().map(|i| i + 1).collect();
+
+        let mut statements = String::new();
+
+        statements += &format!(r#"include "cumulative.mzn";
 % problem to select memory banks and map channels to minimize cost 
 
 % Parameters 
-int: TOKEN_SIZE = {TOKEN_SIZE};
+int: WINDOW_SIZE = {WINDOW_SIZE};
+int: PREVIOUS_SIZE = {PREVIOUS_SIZE};
 int: M = {PRODUCING_CHANNELS}; % number of proceducer channels to OB
 int: N = {CONSUMING_CHANNELS}; % number of consumer channels from IB
 int: MAX_K = {MAXIMUM_CHANNEL_WIDTH}; % communication channels between OB and IB
 int: MAX_OB_SIZE = {MAXIMUM_OUTPUT_BUFFER_SIZE};
 int: MAX_IB_SIZE = {MAXIMUM_INPUT_BUFFER_SIZE};
 int: MAX_DELAY = {MAXIMUM_DELAY};
+int: comm_delay = {WIRE_DELAY};
 
 % addresss patterns 
-array [1..M,1..TOKEN_SIZE] of int: T0 = {PRODUCING_MATRIX}; % including fire time 
-array [1..N,1..TOKEN_SIZE] of int: T3 = {CONSUMING_MATRIX}; % including fire time 
-array [1..TOKEN_SIZE] of int: SORTED_T0 = {SORTED_OUTPUT_PATTERN_INDICES:?};
-array [1..TOKEN_SIZE] of int: SORTED_T3 = {SORTED_INPUT_PATTERN_INDICES:?};
-int: comm_delay = {WIRE_DELAY};
+array [1..M,1..WINDOW_SIZE] of int: T0 = {PRODUCING_MATRIX}; % including fire time 
+array [1..N,1..WINDOW_SIZE] of int: T3 = {CONSUMING_MATRIX}; % including fire time 
+array [1..WINDOW_SIZE] of int: SORTED_T0 = {SORTED_OUTPUT_PATTERN_INDICES:?};
+array [1..WINDOW_SIZE] of int: SORTED_T3 = {SORTED_INPUT_PATTERN_INDICES:?};
+
+array [1..MAX_K,1..PREVIOUS_SIZE] of -1..MAX_DELAY: PREV_T1 = {PREVIOUS_T1};
+array [1..PREVIOUS_SIZE] of -1..MAX_DELAY: PREV_D01_START = {PREVIOUS_D01_START:?};
+array [1..PREVIOUS_SIZE] of -1..MAX_DELAY: PREV_D01 = {PREVIOUS_D01:?};
+array [1..PREVIOUS_SIZE] of -1..MAX_DELAY: PREV_D23_START = {PREVIOUS_D23_START:?};
+array [1..PREVIOUS_SIZE] of -1..MAX_DELAY: PREV_D23 = {PREVIOUS_D23:?};
+int: PREV_D01_START_LAST = {PREVIOUS_D01_START_LAST};
+int: PREV_D01_END_LAST = {PREVIOUS_D01_END_LAST};
+int: PREV_D23_START_LAST = {PREVIOUS_D23_START_LAST};
+int: PREV_D23_END_LAST = {PREVIOUS_D23_END_LAST};
 
 % memory characteristics 1:output, 2:input 
 array [1..2] of int: port_capacity = {MEMORY_PORT_CAPACITY:?};
@@ -194,27 +243,37 @@ int: comm_width_cost = {COMMUNICATION_COST};
 var 1..16: ob_cap_power;
 var 1..16: ib_cap_power;
 "#,
-        TOKEN_SIZE = number_of_tokens,
-        PRODUCING_CHANNELS = number_of_producers,
-        CONSUMING_CHANNELS = number_of_consumers,
-        MAXIMUM_CHANNEL_WIDTH = number_of_communications,
-        MAXIMUM_OUTPUT_BUFFER_SIZE = next_power_of_two(constraints.output_buffer_size),
-        MAXIMUM_INPUT_BUFFER_SIZE = next_power_of_two(constraints.input_buffer_size),
-        MAXIMUM_DELAY = maximum_delay,
-        PRODUCING_MATRIX = format_matrix(&producing_matrix),
-        CONSUMING_MATRIX = format_matrix(&consuming_matrix),
-        SORTED_OUTPUT_PATTERN_INDICES = sorted_producing_indices,
-        SORTED_INPUT_PATTERN_INDICES = sorted_consuming_indices,
-        WIRE_DELAY = constraints.routing_delay,
-        MEMORY_PORT_CAPACITY = vec![number_of_producers, number_of_consumers],
-        MEMORY_COST = memory_costs,
-        COMMUNICATION_COST = communication_cost,
-        COMM_CAP_VARIABLE = if !constraints.fixed { "var 1..MAX_K: comm_cap;" } else { "int: comm_cap = MAX_K;" },
-        OB_CAP_VARIABLE = if !constraints.fixed { "var 0..MAX_OB_SIZE: ob_cap;" } else { "int: ob_cap = MAX_OB_SIZE;" },
-        IB_CAP_VARIABLE = if !constraints.fixed { "var 0..MAX_IB_SIZE: ib_cap;" } else { "int: ib_cap = MAX_IB_SIZE;" },
-    );
+            WINDOW_SIZE = window_size,
+            PREVIOUS_SIZE = ret.t1.ncols(),
+            PRODUCING_CHANNELS = number_of_producers,
+            CONSUMING_CHANNELS = number_of_consumers,
+            MAXIMUM_CHANNEL_WIDTH = number_of_communications,
+            MAXIMUM_OUTPUT_BUFFER_SIZE = next_power_of_two(constraints.output_buffer_size),
+            MAXIMUM_INPUT_BUFFER_SIZE = next_power_of_two(constraints.input_buffer_size),
+            MAXIMUM_DELAY = maximum_delay,
+            WIRE_DELAY = constraints.routing_delay,
+            PRODUCING_MATRIX = format_matrix(&producing_matrix.slice(s![.., current_position..current_position+window_size]).to_owned()),
+            CONSUMING_MATRIX = format_matrix(&consuming_matrix.slice(s![.., current_position..current_position+window_size]).to_owned()),
+            SORTED_OUTPUT_PATTERN_INDICES = sorted_producing_indices,
+            SORTED_INPUT_PATTERN_INDICES = sorted_consuming_indices,
+            PREVIOUS_T1 = format_matrix(&ret.t1),
+            PREVIOUS_D01_START = prev_d01_start,
+            PREVIOUS_D01 = prev_d01,
+            PREVIOUS_D23_START = prev_d23_start,
+            PREVIOUS_D23 = prev_d23,
+            PREVIOUS_D01_START_LAST = prev_d01_start.iter().max().unwrap_or(&0),
+            PREVIOUS_D01_END_LAST = prev_d01_end_last,
+            PREVIOUS_D23_START_LAST = prev_d23_start.iter().max().unwrap_or(&0),
+            PREVIOUS_D23_END_LAST = prev_d23_end_last,
+            MEMORY_PORT_CAPACITY = vec![number_of_producers, number_of_consumers],
+            MEMORY_COST = memory_costs,
+            COMMUNICATION_COST = communication_cost,
+            COMM_CAP_VARIABLE = if !constraints.fixed { format!("var {}..MAX_K: comm_cap;", ret.comm_cap) } else { "int: comm_cap = MAX_K;".into() },
+            OB_CAP_VARIABLE = if !constraints.fixed { format!("var {}..MAX_OB_SIZE: ob_cap;", ret.ob_size) } else { "int: ob_cap = MAX_OB_SIZE;".into() },
+            IB_CAP_VARIABLE = if !constraints.fixed { format!("var {}..MAX_IB_SIZE: ib_cap;", ret.ib_size) } else { "int: ib_cap = MAX_IB_SIZE;".into() },
+        );
 
-    statements += &format!(r#"
+        statements += &format!(r#"
 % force the buffer to be 2 ** N size
 constraint (ob_cap = 2 ^ ob_cap_power);
 constraint (ib_cap = 2 ^ ib_cap_power);
@@ -224,33 +283,43 @@ var 1..MAX_K: ob_out_ports;
 var 1..MAX_K: ib_in_ports; 
 int: ib_out_ports = N;
 
-array [1..MAX_K,1..TOKEN_SIZE] of var -1..MAX_DELAY: T1;
-array [1..MAX_K,1..TOKEN_SIZE] of var -1..MAX_DELAY: T2;
+array [1..MAX_K,1..WINDOW_SIZE] of var -1..MAX_DELAY: T1;
+array [1..MAX_K,1..WINDOW_SIZE] of var -1..MAX_DELAY: T2;
 array [1..MAX_K] of var bool: comm_used;
 
-array [1..TOKEN_SIZE] of var 0..MAX_DELAY: D01_START;
-array [1..TOKEN_SIZE] of var 0..MAX_DELAY: D01_END;
-array [1..TOKEN_SIZE] of var 0..MAX_DELAY: D01;
-array [1..TOKEN_SIZE] of var 0..MAX_DELAY: D23_START;
-array [1..TOKEN_SIZE] of var 0..MAX_DELAY: D23_END;
-array [1..TOKEN_SIZE] of var 0..MAX_DELAY: D23;
+array [1..WINDOW_SIZE] of var 0..MAX_DELAY: D01_START;
+array [1..WINDOW_SIZE] of var 0..MAX_DELAY: D01_END;
+array [1..WINDOW_SIZE] of var 0..MAX_DELAY: D01;
+array [1..WINDOW_SIZE] of var 0..MAX_DELAY: D23_START;
+array [1..WINDOW_SIZE] of var 0..MAX_DELAY: D23_END;
+array [1..WINDOW_SIZE] of var 0..MAX_DELAY: D23;
 
 %%%%%%%%%%%%%%%%%%%
 % Constraints
 
 % Each column has one non -1 value
-constraint forall(j in 1..TOKEN_SIZE)(
+constraint forall(j in 1..WINDOW_SIZE)(
     sum(i in 1..MAX_K)(bool2int(T1[i,j] != -1)) = 1
 );
     
 % Each row has unique non -1 value
-constraint forall(i in 1..MAX_K, j1, j2 in 1..TOKEN_SIZE where j1 < j2)(
+constraint forall(i in 1..MAX_K, j1, j2 in 1..WINDOW_SIZE where j1 < j2)(
     (T1[i,j1] != -1 /\ T1[i,j2] != -1) -> T1[i,j1] != T1[i,j2]
 );
  
+% preserve the constraint where each channel can be used to send only one token at a time
+constraint if PREVIOUS_SIZE != 0 then 
+    forall(i in 1..MAX_K, j1 in 1..WINDOW_SIZE, j2 in 1..PREVIOUS_SIZE)(
+        (T1[i,j1] != -1 /\ PREV_T1[i,j2] != -1) -> T1[i,j1] != PREV_T1[i,j2]
+    )
+endif;
+
 % bind the variable to minimize the channel size 
 constraint forall(i in 1..MAX_K)(
-    comm_used[i] <-> exists(j in 1..TOKEN_SIZE)(T1[i,j] != -1)
+    comm_used[i] <-> (
+        exists(j in 1..WINDOW_SIZE)(T1[i,j] != -1) \/
+        exists(j in 1..PREVIOUS_SIZE)(PREV_T1[i,j] != -1) 
+    )
 );
 
 % geometry constraints - start placing transporters from position 0..K
@@ -268,7 +337,7 @@ constraint (
 );
 
 % bind T2 to T1
-constraint forall(i in 1..MAX_K, j in 1..TOKEN_SIZE)(
+constraint forall(i in 1..MAX_K, j in 1..WINDOW_SIZE)(
     if T1[i,j] != -1 then
         T2[i,j] = T1[i,j] + comm_delay
     else
@@ -280,7 +349,7 @@ constraint forall(i in 1..MAX_K, j in 1..TOKEN_SIZE)(
 % constraint that T1 > T0 and T3 > T2
 % bind the banking to all T
 
-constraint forall(j in 1..TOKEN_SIZE)(
+constraint forall(j in 1..WINDOW_SIZE)(
     let {{
         % i1 is a valid input channel and i2 is an output channel
         var int: selected_i1 = sum(i1 in 1..M, i2 in 1..MAX_K)(
@@ -303,7 +372,7 @@ constraint forall(j in 1..TOKEN_SIZE)(
 );
 
 
-constraint forall(j in 1..TOKEN_SIZE)(
+constraint forall(j in 1..WINDOW_SIZE)(
     let {{
         % i1 is a valid input channel and i2 is an output channel
         var int: selected_i1 = sum(i1 in 1..MAX_K, i2 in 1..N)(
@@ -325,26 +394,58 @@ constraint forall(j in 1..TOKEN_SIZE)(
     endif
 );
 
-constraint forall(j in 1..TOKEN_SIZE)(D01[j] != 0);
-constraint forall(j in 1..TOKEN_SIZE)(D23[j] != 0);
+constraint forall(j in 1..WINDOW_SIZE)(D01[j] != 0);
+constraint forall(j in 1..WINDOW_SIZE)(D23[j] != 0);
 
 % apply NDF ordering for each OB bank to pressure the OB
-constraint forall(k in 1..TOKEN_SIZE-1)(
+constraint forall(k in 1..WINDOW_SIZE-1)(
     D01_END[SORTED_T3[k]] <= D01_END[SORTED_T3[k + 1]]
 );
 
 % constraints for limiting the buffer size 
 constraint cumulative(
-    [D01_START[i] | i in 1..TOKEN_SIZE],
-    [D01[i] | i in 1..TOKEN_SIZE],
-    [1 | i in 1..TOKEN_SIZE],
+    [
+        if i <= PREVIOUS_SIZE then 
+            PREV_D01_START[i] 
+        else 
+            D01_START[i - PREVIOUS_SIZE] 
+        endif 
+        | i in 1..PREVIOUS_SIZE + WINDOW_SIZE
+    ],
+    [
+        if i <= PREVIOUS_SIZE then 
+            PREV_D01[i]  
+        else 
+            D01[i - PREVIOUS_SIZE]  
+        endif
+        | i in 1..PREVIOUS_SIZE + WINDOW_SIZE
+    ],
+    [
+        1 | i in 1..PREVIOUS_SIZE + WINDOW_SIZE
+    ],
     ob_cap
 );
 
 constraint cumulative(
-    [D23_START[i] | i in 1..TOKEN_SIZE],
-    [D23[i] | i in 1..TOKEN_SIZE],
-    [1 | i in 1..TOKEN_SIZE],
+    [
+        if i <= PREVIOUS_SIZE then 
+            PREV_D23_START[i] 
+        else 
+            D23_START[i - PREVIOUS_SIZE] 
+        endif 
+        | i in 1..PREVIOUS_SIZE + WINDOW_SIZE
+    ],
+    [
+        if i <= PREVIOUS_SIZE then 
+            PREV_D23[i]  
+        else 
+            D23[i - PREVIOUS_SIZE]  
+        endif
+        | i in 1..PREVIOUS_SIZE + WINDOW_SIZE
+    ],
+    [
+        1 | i in 1..PREVIOUS_SIZE + WINDOW_SIZE
+    ],
     ib_cap
 );
 
@@ -352,25 +453,45 @@ constraint cumulative(
 % Memory selection
 "#);
 
-    if constraints.output_memory_type == "fifo" {
-        statements += &format!(r#"
+        if constraints.output_memory_type == "fifo" {
+            statements += &format!(r#"
 % output fifo
-constraint forall(j in 1..TOKEN_SIZE-1)(
-    D01_END[SORTED_T0[j]] < D01_END[SORTED_T0[j + 1]] 
+constraint forall(j in 1..WINDOW_SIZE-1)(
+    D01_END[SORTED_T0[j]] < D01_END[SORTED_T0[j + 1]]
 );
-"#);
-    }
 
-    if constraints.input_memory_type == "fifo" {
-        statements += &format!(r#"
+% 1) constraint that previous final write time < current first wirte time 
+constraint if PREVIOUS_SIZE != 0 then
+    PREV_D01_START_LAST < D01_START[SORTED_T0[1]]
+endif;
+
+% 2) constraint that previous final read time < current first read time 
+constraint if PREVIOUS_SIZE != 0 then
+    PREV_D01_END_LAST < D01_END[SORTED_T0[1]]
+endif;
+"#);
+        }
+
+        if constraints.input_memory_type == "fifo" {
+            statements += &format!(r#"
 % input fifo
-constraint forall(j in 1..TOKEN_SIZE-1)(
+constraint forall(j in 1..WINDOW_SIZE-1)(
     D23_START[SORTED_T3[j]] < D23_START[SORTED_T3[j + 1]] 
 );
+
+% 1) constraint that previous final write time < current first wirte time 
+constraint if PREVIOUS_SIZE != 0 then
+    PREV_D23_START_LAST < D23_START[SORTED_T3[1]]
+endif;
+
+% 2) constraint that previous final read time < current first read time 
+constraint if PREVIOUS_SIZE != 0 then
+    PREV_D23_END_LAST < D23_END[SORTED_T0[1]]
+endif;
 "#);
-    }
+        }
     
-    statements += &format!(r#"
+        statements += &format!(r#"
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % objective
 % define costs of memory
@@ -388,79 +509,89 @@ solve minimize cost_function;
 % output
 output [
   "cost_function:\(cost_function), comm_cap:\(comm_cap), ob_cap:\(ob_cap), ib_cap:\(ib_cap), "
-  ++ "T0:\(T0), T1:\(T1), T2:\(T2), T3:\(T3)"
+  ++ "T0:\(T0), T1:\(T1), T2:\(T2), T3:\(T3), "
+  ++ "D01_START:\(D01_START), D01_END:\(D01_END), D01:\(D01), "
+  ++ "D23_START:\(D23_START), D23_END:\(D23_END), D23:\(D23)"
 ];
 "#);
 
-    /* solving the model */
-    let mut solver = Solver::new(format!("solve_{}_{}", constraints.edge_id, id), module_dir.clone());
-    solver.add(statements);
+        /* solving the model */
+        let mut solver = Solver::new(format!("solve_{}_{}_window-{}", constraints.edge_id, id, i), module_dir.clone());
+        solver.add(statements);
 
-    // define an empty struct to be returned
-    let mut ret = MemoryBankInfo {
-        cost: -1,
-        ob_type: String::new(),
-        ib_type: String::new(),
-        ob_size: -1,
-        ib_size: -1,
-        comm_cap: -1,
-        t0: Array2::zeros((0, 0)),
-        t1: Array2::zeros((0, 0)),
-        t2: Array2::zeros((0, 0)),
-        t3: Array2::zeros((0, 0)),
-    };
+        let (status, solutions) = solver.solve("cp-sat", 180, "-p 16")?;
+        match status.as_str() {
+            "OPTIMAL_SOLUTION" | "FEASIBLE" => {},
+            _ => { 
+                ret.cost = -1;
+                return Ok(ret); 
+            }
+        };
+        let parsed_json_value: serde_json::Value = serde_json::from_str(&solutions[0])?;
 
+        // formatting output 
+        let parse_vec_int_helper = |name: &str| -> Result<Vec<i32>, Box<dyn std::error::Error>> {
+            let json_array = parsed_json_value
+                .get(name)
+                .and_then(|v| v.as_array())
+                .ok_or_else(|| format!("{} not found or not an array", name))?;
+            
+            Ok(json_array
+                .iter()
+                .map(|v| v.as_i64().unwrap_or(0) as i32)
+                .collect()
+            )
+        };
 
-    let (status, solutions) = solver.solve("cp-sat", 120, "-p 16")?;
-    match status.as_str() {
-        "OPTIMAL_SOLUTION" | "FEASIBLE" => {},
-        _ => { return Ok(ret); }
-    };
-    let parsed_json_value: serde_json::Value = serde_json::from_str(&solutions[0])?;
+        let parse_int_helper = |name: &str| -> Result<i32, Box<dyn std::error::Error>> {
+            Ok(parsed_json_value
+                .get(name)
+                .and_then(|v| v.as_i64())
+                .map(|i| i as i32)
+                .ok_or_else(|| format!("{} not found or not an int", name))?
+            ) 
+        };
 
-    // formatting output 
-    let parse_vec_int_helper = |name: &str| -> Result<Vec<i32>, Box<dyn std::error::Error>> {
-        let json_array = parsed_json_value
-            .get(name)
-            .and_then(|v| v.as_array())
-            .ok_or_else(|| format!("{} not found or not an array", name))?;
+        ret.cost = parse_int_helper("cost_function")?;
+        ret.ob_size = parse_int_helper("ob_cap")?;
+        ret.ib_size = parse_int_helper("ib_cap")?;
+        ret.comm_cap = parse_int_helper("comm_cap")?;
+
+        let mut tmp_array: Vec<i32> = vec![];
+
+        tmp_array = parse_vec_int_helper("T1")?;
+        if i == 0 {
+            ret.t1 = Array2::from_shape_vec((number_of_communications as usize, window_size as usize), tmp_array)?;
+        } else {
+            ret.t1 = concatenate![Axis(1), ret.t1, Array2::from_shape_vec((number_of_communications as usize, window_size as usize), tmp_array)?];
+        }
+
+        tmp_array = parse_vec_int_helper("T2")?;
+        if i == 0 {
+            ret.t2 = Array2::from_shape_vec((number_of_communications as usize, window_size as usize), tmp_array)?;
+        } else {
+            ret.t2 = concatenate![Axis(1), ret.t2, Array2::from_shape_vec((number_of_communications as usize, window_size as usize), tmp_array)?];
+        }
+
+        tmp_array = parse_vec_int_helper("D01")?;
+        prev_d01.extend(&tmp_array);       
+
+        tmp_array = parse_vec_int_helper("D01_START")?;
+        prev_d01_start.extend(&tmp_array);
+
+        tmp_array = parse_vec_int_helper("D01_END")?;
+        prev_d01_end_last = tmp_array.iter().copied().max().unwrap_or(0);
         
-        Ok(json_array
-            .iter()
-            .map(|v| v.as_i64().unwrap_or(0) as i32)
-            .collect()
-        )
-    };
+        tmp_array = parse_vec_int_helper("D23")?;
+        prev_d23.extend(&tmp_array);
+        
+        tmp_array = parse_vec_int_helper("D23_START")?;
+        prev_d23_start.extend(&tmp_array);
+ 
+        tmp_array = parse_vec_int_helper("D23_END")?;
+        prev_d23_end_last = tmp_array.iter().copied().max().unwrap_or(0);   
 
-    let parse_int_helper = |name: &str| -> Result<i32, Box<dyn std::error::Error>> {
-        Ok(parsed_json_value
-            .get(name)
-            .and_then(|v| v.as_i64())
-            .map(|i| i as i32)
-            .ok_or_else(|| format!("{} not found or not an int", name))?
-        ) 
-    };
-
-    ret.cost = parse_int_helper("cost_function")?;
-    ret.ob_type = constraints.output_memory_type.clone(); 
-    ret.ib_type = constraints.input_memory_type.clone();
-    ret.ob_size = parse_int_helper("ob_cap")?;
-    ret.ib_size = parse_int_helper("ib_cap")?;
-    ret.comm_cap = parse_int_helper("comm_cap")?;
-
-    let mut tmp_array: Vec<i32> = vec![];
-
-    tmp_array = parse_vec_int_helper("T0")?;
-    ret.t0 = Array2::from_shape_vec((number_of_producers as usize, number_of_tokens as usize), tmp_array)?;
-
-    tmp_array = parse_vec_int_helper("T1")?;
-    ret.t1 = Array2::from_shape_vec((number_of_communications as usize, number_of_tokens as usize), tmp_array)?;
-
-    tmp_array = parse_vec_int_helper("T2")?;
-    ret.t2 = Array2::from_shape_vec((number_of_communications as usize, number_of_tokens as usize), tmp_array)?;
-
-    tmp_array = parse_vec_int_helper("T3")?;
-    ret.t3 = Array2::from_shape_vec((number_of_consumers as usize, number_of_tokens as usize), tmp_array)?;
+    }
 
     Ok(ret)
 }
@@ -499,6 +630,41 @@ fn generate_partition(
 }
 
 
+/// Select up to 5 representative partitions:
+/// - Always include the first and last partitions.
+/// - Evenly sample the middle ones if there are more than 5.
+/// - Handle cases with fewer than 5 or just one partition.
+fn select_partitions(
+    partitions: &mut Vec<Vec<Vec<i32>>>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let n = partitions.len();
+
+    // handle 0 partition
+    if n == 0 {
+        return Err(format!("no partition is provided for memory synthesis").into());
+    // if we have fewer than 5 partitions, return them all
+    } else if n <= 5 {
+        return Ok(());
+    }
+
+    // otherwise, pick 5 evenly spaced partitions (including first & last)
+    let mut selected = Vec::new();
+    selected.push(partitions[0].clone()); // always include first
+
+    // compute evenly spaced indices for middle partitions
+    let step = (n - 1) as f64 / 4.0;
+    for i in 1..4 {
+        let idx = (i as f64 * step).round() as usize;
+        selected.push(partitions[idx].clone());
+    }
+
+    selected.push(partitions[n - 1].clone()); // always include last
+    
+    *partitions = selected;
+    
+    Ok(())
+}
+
 
 // we break down the problem into two steps:
 // 1) configurations - finding what banking and memory types are best
@@ -520,9 +686,15 @@ pub fn explore_memory_space(
     // get all possible partitions
     generate_partition(&initial_indices, Vec::new(), &mut partitions);
 
+    // the number of partitions can grow exponentially, 
+    // so we pick up only some of them.
+    // This number is now limited to 5 possible partitions
+    // where the first and last ones are always be picked
+    select_partitions(&mut partitions)?;
+
     debug!("src_groups = {:?}", src_groups);
     debug!("dst_groups = {:?}", dst_groups);
-    debug!("print all partitions = {:?}", partitions);
+    debug!("selected partitions = {:?}", partitions);
 
     // In the optimisation, we should be able to determine, which partitions
     // are definitely not gonna reduce the cost function, and have them removed 
@@ -616,6 +788,11 @@ pub fn explore_memory_space(
                     best_cost = info.cost;
                     best_config = (src_type.to_string(), dst_type.to_string());
                     best_size = (info.ob_size, info.ib_size, info.comm_cap);
+                    
+                    // fifo-to-fifo should be optimal 
+                    if *src_type == "fifo" && *dst_type == "fifo" {
+                        break; 
+                    }
                 } 
             }
             
@@ -641,7 +818,7 @@ pub fn explore_memory_space(
     let (optimal_index, _) = all_costs
         .iter()
         .enumerate()
-        .filter(|(_, costs)| !costs.iter().any(|&c| c == -1))
+        .filter(|(_, costs)| !costs.iter().any(|&c| c == i32::MAX))
         .min_by_key(|(_, costs)| costs.iter().sum::<i32>())
         .ok_or("cannot find minimal partition")?;
 
