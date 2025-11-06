@@ -75,7 +75,7 @@ pub fn sobel(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
                 input_addr_time_patterns:  (0..3200)
                     .map(|i| AddressPatterns {
                         address: i,
-                        channel: (i + 2) % 4,
+                        channel: if i % 4 == 0 { 0 } else if i % 4 == 1 { 2 } else if i % 4 == 2 { 1 } else { 3 },
                         time: i / 2,
                     })
                     .collect(), 
@@ -102,7 +102,7 @@ pub fn sobel(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
                 input_addr_time_patterns:  (0..3200)
                     .map(|i| AddressPatterns {
                         address: i,
-                        channel: (i + 3) % 4,
+                        channel: if i % 4 == 0 { 1 } else if i % 4 == 1 { 3 } else if i % 4 == 2 { 0 } else { 2 },
                         time: i / 2,
                     })
                     .collect(), 
@@ -156,8 +156,8 @@ pub fn sobel(db: &mut DataBase) -> Result<(), Box <dyn std::error::Error>> {
                 input_addr_time_patterns:  (0..3200)
                     .map(|i| AddressPatterns {
                         address: i,
-                        channel: i % 4,
-                        time: i / 2,
+                        channel: (i % 8) / 2,
+                        time: (i / 4) * 2 + (i % 4 % 2),
                     })
                     .collect(), 
                 output_addr_time_patterns: vec![],

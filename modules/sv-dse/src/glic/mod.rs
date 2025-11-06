@@ -100,28 +100,46 @@ fn verify_alimp_patterns(
 
         if is_verified {
             is_verified = all_address_unique(&in_patterns);
+            if !is_verified {
+                error!("fail to verify uniqueness of in_patterns of {}", node_id);
+            }
         }
 
         if is_verified {
             is_verified = all_address_unique(&out_patterns);
+            if !is_verified {
+                error!("fail to verify uniqueness of out_patterns of {}", node_id);
+            }
         }
 
         if is_verified {
             is_verified = channels_in_bound(&in_patterns, max_channels);
+            if !is_verified {
+                error!("fail to verify in-bound channels of in_patterns {}", node_id);
+            }
         }
 
         if is_verified {
             is_verified = channels_in_bound(&out_patterns, max_channels);
+            if !is_verified {
+                error!("fail to verify out-bound channels of out_patterns of {}", node_id);
+            }
         }
 
         if is_verified {
             is_verified = channels_consistency(&in_patterns, &node.input_ports);
-        }
-
+            if !is_verified {
+                error!("fail to verify channel consistency of in_patterns of {}", node_id);
+            }
+        }   
+        
         if is_verified {
             is_verified = channels_consistency(&out_patterns, &node.output_ports);
+            if !is_verified {
+                error!("fail to verify channel consistency of out_patterns of {}", node_id);
+            }
         }
-        
+
         if !is_verified {
             break;
         }

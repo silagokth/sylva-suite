@@ -122,10 +122,10 @@ fn dimension(
         if number_outputs != 0 { 2 * db.technology_constraint.grid_per_drra_height } else { 0 }, // transporter and output buffer
         if number_inputs != 0 { 1 * db.technology_constraint.grid_per_drra_height } else { 0 },  // input buffer 
         // ----------------------------------------------------------------------------
-        ((all_ports / 20) + 1) * routing_reserved_size, // left space   
-        ((all_ports / 10) + 1) * routing_reserved_size, // right space
+        ((all_ports / 10) + 1) * routing_reserved_size, // left space   
+        ((all_ports / 5) + 1) * routing_reserved_size, // right space
         ((number_outputs / 3) + 2) * routing_reserved_size, // top space
-        ((number_inputs / 4) + 1) * routing_reserved_size  // bottom space
+        ((number_inputs / 3) + 1) * routing_reserved_size  // bottom space
     ))
 }
 

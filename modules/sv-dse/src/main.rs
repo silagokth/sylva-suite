@@ -1,5 +1,6 @@
 use sv_lib::model::{DataBase};
 use sv_lib::{file_handler};
+use sv_lib::{setup};
 use log::{info, error};
 use clap::Parser;
 
@@ -37,7 +38,8 @@ struct Args {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    env_logger::init();
+    let log_file = format!("{}/log_dse.log", args.output);
+    setup::setup_logger(&log_file).unwrap();
     
     // create empty data structure 
     let mut db = DataBase::new();

@@ -180,8 +180,16 @@ fn evaluate_dependencies(
 
         'outer: for i in 0..dst_groups.len() {
             for j in (i + 1)..dst_groups.len() {
-                // check if groups i and j overlap
-                if dst_groups[i].iter().any(|x| dst_groups[j].contains(x)) {
+                // check if dst groups i and j overlap
+                let Some(dst_min_j) = dst_groups[j].iter().min() else { return Err("cannot extract dependency groups".into()) };
+                let Some(dst_max_j) = dst_groups[j].iter().max() else { return Err("cannot extract dependency groups".into()) };
+                
+                // check if src groups i and j overlap
+                let Some(src_min_j) = src_groups[j].iter().min() else { return Err("cannot extract dependency groups".into()) };
+                let Some(src_max_j) = src_groups[j].iter().max() else { return Err("cannot extract dependency groups".into()) };
+                
+                if dst_groups[i].iter().any(|x| x >= dst_min_j && x <= dst_max_j) || 
+                   src_groups[i].iter().any(|x| x >= src_min_j && x <= src_max_j) {
                     // merge group j into i
                     let mut merged_dst = dst_groups[i].clone();
                     merged_dst.extend(dst_groups[j].iter());
@@ -203,6 +211,8 @@ fn evaluate_dependencies(
                     changed = true;
                     break 'outer; // restart the outer loop
                 }
+
+
             }
         }
     }

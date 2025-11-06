@@ -629,7 +629,7 @@ fn generate_partition(
     }
 }
 
-
+/// More elegant algorithm is needed here
 /// Select up to 5 representative partitions:
 /// - Always include the first and last partitions.
 /// - Evenly sample the middle ones if there are more than 5.

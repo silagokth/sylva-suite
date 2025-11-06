@@ -253,11 +253,11 @@ fn create_routing_graph(
 
         let output_memories: &Vec<Vec<_>> = &db.synthesized_information.memory_synthesis
             .iter()
-            .find(|m| m.app_node_id == node.id && m.memory_direction == "out")
+            .filter(|m| m.app_node_id == node.id && m.memory_direction == "out")
             .map(|m| m.memory_structure.clone())
             .into_iter()
             .collect();
-
+        
         for memory in output_memories.iter() {
             for memory_structure in memory.iter() {
                 for output_channel in memory_structure.output_channels.iter() {
@@ -270,10 +270,11 @@ fn create_routing_graph(
    
         let input_memories: &Vec<Vec<_>> = &db.synthesized_information.memory_synthesis
             .iter()
-            .find(|m| m.app_node_id == node.id && m.memory_direction == "in")
+            .filter(|m| m.app_node_id == node.id && m.memory_direction == "in")
             .map(|m| m.memory_structure.clone())
             .into_iter()
             .collect();
+
     
         for memory in input_memories.iter() {
             for memory_structure in memory.iter() {
