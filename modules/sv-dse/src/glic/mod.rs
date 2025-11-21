@@ -1,4 +1,6 @@
-use sv_lib::model::{DataBase, ChunkAddressAssignment, TransportTable, TransportTableEntry, AddressPatterns};
+use sv_lib::model::{DataBase, AppNodePort, AddressTranslation, 
+                    TransporterTable, TransportTableEntry, AddressPatterns,
+                    MemorySynthesis, MemoryStructure, MemoryPlacement};
 use log::{info, debug, error};
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
@@ -25,7 +27,7 @@ fn select_alimp(
 
 fn verify_alimp_patterns(
     db: &DataBase,
-) -> (bool, String) {
+) -> Result<(bool, String), Box<dyn std::error::Error>> {
     let mut is_verified = true;
     let mut node_id = String::new();
 
@@ -47,26 +49,95 @@ fn verify_alimp_patterns(
         patterns.iter().all(|p| seen.insert((p.time, p.channel)))
     }
 
+    fn channels_consistency(patterns: &Vec<AddressPatterns>, ports: &Vec<AppNodePort>) -> bool {
+        let mut ret = true;
+        let mut graph: Vec<(i32, i32)> = vec![];
+        let mut address = 0;
+        
+        for port in ports {
+            let max_address = address + port.token_size;
+            
+            // get all patterns within [address, max_address)
+            let filtered_patterns: Vec<&AddressPatterns> = patterns
+                .iter()
+                .filter(|p| address <= p.address && p.address < max_address)
+                .collect();
+            
+            let channels: Vec<i32> = filtered_patterns.iter().map(|p| p.channel).collect();
+            let min_channel = *channels.iter().min().unwrap();
+            let max_channel = *channels.iter().max().unwrap();
+
+            // each port connection must have an individual set of continuous channels
+            for (checked_min, checked_max) in &graph {
+                if !(min_channel > *checked_max || max_channel < *checked_min) {
+                    ret = false;
+                    break;
+                } 
+            }
+
+            if !ret {
+                break;
+            }
+
+            graph.push((min_channel, max_channel));
+            address += port.token_size;
+        }
+        
+        ret 
+    }
+
+
     for binding in &db.synthesized_information.alimp_bindings {
         node_id = binding.app_node_id.clone();
         let max_channels = binding.alimp_instance.width;
         let in_patterns = &binding.alimp_instance.input_addr_time_patterns;
         let out_patterns = &binding.alimp_instance.output_addr_time_patterns;
         
+        let node = db.app_graph.nodes
+            .iter()
+            .find(|n| n.id == node_id)
+            .ok_or("Cannot find the node in app graph")?;
+
         if is_verified {
             is_verified = all_address_unique(&in_patterns);
+            if !is_verified {
+                error!("fail to verify uniqueness of in_patterns of {}", node_id);
+            }
         }
 
         if is_verified {
             is_verified = all_address_unique(&out_patterns);
+            if !is_verified {
+                error!("fail to verify uniqueness of out_patterns of {}", node_id);
+            }
         }
 
         if is_verified {
             is_verified = channels_in_bound(&in_patterns, max_channels);
+            if !is_verified {
+                error!("fail to verify in-bound channels of in_patterns {}", node_id);
+            }
         }
 
         if is_verified {
             is_verified = channels_in_bound(&out_patterns, max_channels);
+            if !is_verified {
+                error!("fail to verify out-bound channels of out_patterns of {}", node_id);
+            }
+        }
+
+        if is_verified {
+            is_verified = channels_consistency(&in_patterns, &node.input_ports);
+            if !is_verified {
+                error!("fail to verify channel consistency of in_patterns of {}", node_id);
+            }
+        }   
+        
+        if is_verified {
+            is_verified = channels_consistency(&out_patterns, &node.output_ports);
+            if !is_verified {
+                error!("fail to verify channel consistency of out_patterns of {}", node_id);
+            }
         }
 
         if !is_verified {
@@ -74,7 +145,7 @@ fn verify_alimp_patterns(
         }
     }
 
-    (is_verified, node_id)
+    Ok((is_verified, node_id))
 }
 
 
@@ -193,31 +264,64 @@ fn update_synthesized_information(
         let node = db.app_graph.nodes.iter().find(|n| n.id == *nid).unwrap();
 
         let input_port_names: Vec<_> = node.input_ports.iter().map(|p| p.id.clone()).collect();
-        let input_buffer_size: i32 = input_port_names.iter().map(|p| schedules.ib[p]).sum();
-        db.synthesized_information.input_buffer_size.insert(
-            nid.clone(),
-            input_buffer_size
-        );
+        for port in &input_port_names {
+            let new_memory = MemorySynthesis{
+                app_node_id: nid.clone(),
+                port_id: port.clone(),
+                memory_direction: "in".to_string(),
+                memory_structure: vec![
+                    MemoryStructure {
+                        memory_type: "None".to_string(),
+                        memory_size: schedules.ib[port] as u32,
+                        input_channels: vec![],
+                        output_channels: vec![],
+                        corresponding_channels: vec![],
+                        placement: MemoryPlacement {
+                           x: -1,
+                           y: -1,
+                           width: -1,
+                           height: -1,
+                        },
+                    }
+                ]
+            };
+            db.synthesized_information.memory_synthesis.push(new_memory);
+        }
 
         let output_port_names: Vec<_> = node.output_ports.iter().map(|p| p.id.clone()).collect();
-        let output_buffer_size: i32 = output_port_names.iter().map(|p| schedules.ob[p]).sum();
-        db.synthesized_information.output_buffer_size.insert(
-            nid.clone(),
-            output_buffer_size
-        );
+        for port in &output_port_names {
+            let new_memory = MemorySynthesis{
+                app_node_id: nid.clone(),
+                port_id: port.clone(),
+                memory_direction: "out".to_string(),
+                memory_structure: vec![
+                    MemoryStructure {
+                        memory_type: "None".to_string(),
+                        memory_size: schedules.ob[port] as u32,
+                        input_channels: vec![],
+                        output_channels: vec![],
+                        corresponding_channels: vec![],
+                        placement: MemoryPlacement {
+                           x: -1,
+                           y: -1,
+                           width: -1,
+                           height: -1,
+                        },
+                    }
+                ]
+            };
+            db.synthesized_information.memory_synthesis.push(new_memory);
+        }
     }
 
-    // fire_time, channel width
+    // channel width
     for eid in &edge_ids {
         // TODO: In case of fire time > 1, 
         // to figure out when each transporter fires, 
         // we should use the min value of all in T1
 
         let transporter_id = format!("transporter_{}", eid);
-        db.synthesized_information.node_fire_times.insert(
-            transporter_id.clone(),
-            0
-        );
+        
         db.synthesized_information.channel_width.insert(
             transporter_id.clone(),
             schedules.k[eid]
@@ -284,7 +388,7 @@ fn update_synthesized_information(
                 "out"
             );
             
-            let mut assignment = ChunkAddressAssignment {
+            let mut assignment = AddressTranslation {
                 app_node_id: nid.clone(),
                 port_id: out_port.clone(),
                 address_assignment: HashMap::new(),
@@ -293,11 +397,11 @@ fn update_synthesized_information(
             for i in 0..assigned_address.len() {
                 assignment.address_assignment.insert(
                     memory_address[i],
-                    assigned_address[i]
+                    (0, 0, assigned_address[i]) // from channel, to bank, physical address
                 );
             }
 
-            db.synthesized_information.chunk_address_assignments.push(assignment);
+            db.synthesized_information.address_translations.push(assignment);
             offset += schedules.ob[&out_port];
         } 
 
@@ -327,7 +431,7 @@ fn update_synthesized_information(
                 "in"
             );
             
-            let mut assignment = ChunkAddressAssignment {
+            let mut assignment = AddressTranslation {
                 app_node_id: nid.clone(),
                 port_id: in_port.clone(),
                 address_assignment: HashMap::new(),
@@ -336,11 +440,11 @@ fn update_synthesized_information(
             for i in 0..assigned_address.len() {
                 assignment.address_assignment.insert(
                     memory_address[i],
-                    assigned_address[i]
+                    (0, 0, assigned_address[i])
                 );
             }
 
-            db.synthesized_information.chunk_address_assignments.push(assignment);
+            db.synthesized_information.address_translations.push(assignment);
             offset += schedules.ib[&in_port];
         } 
 
@@ -349,14 +453,19 @@ fn update_synthesized_information(
     debug!("assigning transporter instructions");
     for edge in &db.app_graph.edges {
         let transporter_name = format!("transporter_{}", edge.id);
-        let fire_time = *db.synthesized_information.node_fire_times
-            .get(&transporter_name)
-            .expect("Missing transporter fire time");
  
         let mut time_array = schedules.t1
             .get(&edge.id)
             .expect("Missing t1 schedule for edge")
             .clone();
+        let fire_time = *time_array.iter().min().unwrap();
+ 
+        db.synthesized_information.node_fire_times.insert(
+            transporter_name.clone(),
+            fire_time
+        );       
+
+        // update time table 
         for val in time_array.iter_mut() {
             *val -= fire_time;
         }
@@ -369,7 +478,7 @@ fn update_synthesized_information(
             "out"
         );
 
-        let source_assignment = db.synthesized_information.chunk_address_assignments
+        let source_assignment = db.synthesized_information.address_translations
             .iter()
             .find(|c| c.app_node_id == edge.source_node && c.port_id == edge.source_port)
             .map(|c| &c.address_assignment)
@@ -383,8 +492,8 @@ fn update_synthesized_information(
             .map(|&vaddr| {
                 source_assignment
                     .get(&vaddr)
-                    .copied()
-                    .ok_or(format!(
+                    .map(|&(_, _, phy_addr)| phy_addr)
+                    .ok_or_else(|| format!(
                         "Cannot find source address for virtual address {} in node {}",
                         vaddr, edge.source_node
                     ))
@@ -399,7 +508,7 @@ fn update_synthesized_information(
             "in"
         );
 
-        let target_assignment = db.synthesized_information.chunk_address_assignments
+        let target_assignment = db.synthesized_information.address_translations
             .iter()
             .find(|c| c.app_node_id == edge.target_node && c.port_id == edge.target_port)
             .map(|c| &c.address_assignment)
@@ -413,8 +522,8 @@ fn update_synthesized_information(
             .map(|&vaddr| {
                 target_assignment
                     .get(&vaddr)
-                    .copied()
-                    .ok_or(format!(
+                    .map(|&(_, _, phy_addr)| phy_addr)
+                    .ok_or_else(|| format!(
                         "Cannot find target address for virtual address {} in node {}",
                         vaddr, edge.target_node
                     ))
@@ -429,16 +538,28 @@ fn update_synthesized_information(
             .zip(target_address.iter())
             .zip(time_array.iter())
             .map(|((&src, &tgt), &t)| TransportTableEntry {
+                relative_time: t,
                 source_address: src,
                 target_address: tgt,
-                time: t,
             })
             .collect();
        
-        db.synthesized_information.transport_tables
-            .entry(edge.id.clone())
-            .or_insert_with(|| TransportTable { app_edge_id: edge.id.clone(), entries: Vec::new() })
-            .entries = entries;
+        db.synthesized_information.transporter_tables.push(
+            TransporterTable {
+                transporter_id: transporter_name.clone(),
+                fire_time: fire_time,
+                end_time: fire_time + time_array.iter().max().unwrap(),
+                entries: entries,
+                from: 0,
+                to: 0,
+                placement: MemoryPlacement {
+                    x: -1,
+                    y: -1,
+                    width: -1,
+                    height: -1,
+                }
+            }
+        );
     }
 
 
@@ -463,7 +584,7 @@ pub fn run(
 
     info!("Stage 1: optimise channel width and delay");
     select_alimp(db)?;
-    let (status, node_id) = verify_alimp_patterns(db);
+    let (status, node_id) = verify_alimp_patterns(db)?;
     if !status {
         return Err(format!("{} alimp fails to verify the patterns", node_id).into());
     }

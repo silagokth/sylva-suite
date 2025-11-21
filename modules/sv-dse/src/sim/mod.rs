@@ -142,13 +142,13 @@ fn generate_files(
             let file = format!("{}/{}_inTT.json", module_dir, node.id);
             let mut j = TranslationTableList { list: Vec::new() };
 
-            for chunk in &db.synthesized_information.chunk_address_assignments {
+            for chunk in &db.synthesized_information.address_translations {
                 if chunk.app_node_id == node.id && node.input_ports.iter().any(|p| p.id == chunk.port_id) {
-                    for (&addr_in, &addr_out) in &chunk.address_assignment {
+                    for (&addr_in, (_, _, addr_out)) in &chunk.address_assignment {
                         j.list.push(
                             TranslationTable { 
                                 addr_in: addr_in as i64, 
-                                addr_out: addr_out as i64, 
+                                addr_out: *addr_out as i64, 
                             }
                         );
                     }
@@ -163,13 +163,13 @@ fn generate_files(
             let file = format!("{}/{}_outTT.json", module_dir, node.id);
             let mut j = TranslationTableList { list: Vec::new() };
 
-            for chunk in &db.synthesized_information.chunk_address_assignments {
+            for chunk in &db.synthesized_information.address_translations {
                 if chunk.app_node_id == node.id && node.output_ports.iter().any(|p| p.id == chunk.port_id) {
-                    for (&addr_in, &addr_out) in &chunk.address_assignment {
+                    for (&addr_in, (_, _, addr_out)) in &chunk.address_assignment {
                         j.list.push(
                             TranslationTable { 
                                 addr_in: addr_in as i64, 
-                                addr_out: addr_out as i64, 
+                                addr_out: *addr_out as i64, 
                             }
                         );
                     }
@@ -186,18 +186,20 @@ fn generate_files(
         let file = format!("{}/transporter_{}_TransInst.json", module_dir, edge.id);
         let mut j = TransporterInstructionList { inst_list: Vec::new() };
         
-        if let Some(table) = db.synthesized_information.transport_tables.get(&edge.id) {
-            for t in &table.entries {
-                j.inst_list.push(
-                    TransporterInstruction {
-                        cycle: t.time as i64,
-                        addr_rd: t.source_address as i64,
-                        addr_wr: t.target_address as i64, 
-                    }
-                );
-            }
-        } else {
-            return Err(format!("No transport table found for edge {}", edge.id).into());
+        let time_table = db.synthesized_information.transporter_tables
+            .iter()
+            .find(|tt| tt.transporter_id == format!("transporter_{}", edge.id))
+            .map(|tt| &tt.entries)
+            .ok_or_else(|| format!("Cannot find {} in the transporter tables", edge.id))?;
+
+        for t in time_table {
+            j.inst_list.push(
+                TransporterInstruction {
+                    cycle: t.relative_time as i64,
+                    addr_rd: t.source_address as i64,
+                    addr_wr: t.target_address as i64, 
+                }
+            );
         }
         
         file_handler::write_json_file(&file, &j)?;

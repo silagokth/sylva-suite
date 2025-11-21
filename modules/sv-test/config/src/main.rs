@@ -7,6 +7,7 @@ mod copy;
 mod sobel;
 mod sobel_random;
 mod lenet5;
+mod sample;
 
 // Arguments 
 #[derive(Parser)]
@@ -15,6 +16,9 @@ struct Args {
     #[arg(short = 'n', long = "name", help="name of the generating example")]
     name: String,
 
+    #[arg(short = 'p', long = "parameter", help="sample selection")]
+    parameter: Option<i32>,
+    
     #[arg(short = 'o', long = "output", help="output directory")]
     dir: String,
 }
@@ -31,6 +35,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "sobel" => sobel::sobel(&mut db)?,
         "sobel-random" => sobel_random::sobel_random(&mut db)?,
         "lenet5" => lenet5::lenet5(&mut db)?,
+        "sample" => {
+            match args.parameter.unwrap() {
+                1 => sample::sample1(&mut db)?,
+                _ => {
+                    eprintln!("Unknown example name: {} with parameter {:?}", args.name, args.parameter);
+                    std::process::exit(1);
+                }
+            }
+        }
         _ => {
             eprintln!("Unknown example name: {}", args.name);
             std::process::exit(1);

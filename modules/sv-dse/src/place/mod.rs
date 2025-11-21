@@ -1,7 +1,8 @@
 use sv_lib::model::{DataBase, FloorPlan, RectangleShape, RectanglePosition, Placement};
-use crate::solver::Solver;
+use sv_lib::solver::{Solver};
 use log::{info, warn, error, debug};
 use serde_json;
+use std::collections::HashSet;
 use plotters::style::{Color, BLACK, FontStyle};
 use plotters::prelude::*;
 use rand::Rng;
@@ -89,15 +90,17 @@ fn dimension(
             as Box<dyn std::error::Error>
         })?;
    
-
-    let (number_inputs, number_outputs) = db.app_graph.nodes
+    let number_inputs = instance.input_addr_time_patterns
         .iter()
-        .find(|n| n.id == node_id)
-        .map(|n| (n.input_ports.len() as i32, n.output_ports.len() as i32))
-        .ok_or_else(|| {
-            Box::from(format!("Cannot find the app_graph {}", node_id))
-            as Box<dyn std::error::Error>
-        })?;
+        .map(|p| p.channel)
+        .collect::<HashSet<_>>()
+        .len() as i32;
+
+    let number_outputs = instance.output_addr_time_patterns
+        .iter()
+        .map(|p| p.channel)
+        .collect::<HashSet<_>>()
+        .len() as i32;
 
     // verify input and output ports
     if instance.width < number_inputs || instance.width < number_outputs {
@@ -111,6 +114,7 @@ fn dimension(
     let routing_reserved_size = &db.hyper_parameter.place_reserved_routing_size;
     let all_ports = number_inputs + number_outputs;
 
+    // This needs refinement to add some adjustable parameters for feedback optimization
     Ok((
         instance.width * db.technology_constraint.grid_per_drra_width,
         instance.height * db.technology_constraint.grid_per_drra_height,
@@ -118,10 +122,10 @@ fn dimension(
         if number_outputs != 0 { 2 * db.technology_constraint.grid_per_drra_height } else { 0 }, // transporter and output buffer
         if number_inputs != 0 { 1 * db.technology_constraint.grid_per_drra_height } else { 0 },  // input buffer 
         // ----------------------------------------------------------------------------
-        ((all_ports / 3) + 1) * routing_reserved_size, // left space   
-        ((all_ports / 3) + 1) * routing_reserved_size, // right space
-        ((number_outputs / 2) + 1) * routing_reserved_size, // top space
-        ((number_inputs / 2) + 1) * routing_reserved_size  // bottom space
+        ((all_ports / 10) + 1) * routing_reserved_size, // left space   
+        ((all_ports / 5) + 1) * routing_reserved_size, // right space
+        ((number_outputs / 3) + 2) * routing_reserved_size, // top space
+        ((number_inputs / 3) + 1) * routing_reserved_size  // bottom space
     ))
 }
 

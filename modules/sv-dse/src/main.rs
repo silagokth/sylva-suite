@@ -1,5 +1,6 @@
 use sv_lib::model::{DataBase};
 use sv_lib::{file_handler};
+use sv_lib::{setup};
 use log::{info, error};
 use clap::Parser;
 
@@ -10,7 +11,6 @@ mod noc;
 mod glic;
 mod sim;
 
-mod solver;
 
 /// Arguments to get the configuration files and output directory 
 #[derive(Parser, Debug)]
@@ -38,7 +38,8 @@ struct Args {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    env_logger::init();
+    let log_file = format!("{}/log_dse.log", args.output);
+    setup::setup_logger(&log_file).unwrap();
     
     // create empty data structure 
     let mut db = DataBase::new();
@@ -60,7 +61,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };    
 
     /* run the compilation */
-    info!("Sylva starts compilation!");
+    info!("Sylva DSE starts compilation!");
 
     bind::run(&mut db, &args.output)?;
     place::run(&mut db, &args.output)?;
@@ -79,6 +80,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(1);
     }
 
-    info!("Sylva finished successfully!");
+    info!("Sylva DSE finished successfully!");
     Ok(())
 }
