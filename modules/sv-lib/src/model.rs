@@ -1,5 +1,7 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeMap};
 use serde::{Deserialize, Serialize};
+use std::fmt;
+
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -324,6 +326,34 @@ pub struct MemoryStructure {
     pub placement: MemoryPlacement, 
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TransporterISAFunc {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    ShiftRight,
+    LogicShiftLeft,
+    ArithmeticShiftLeft,
+    And,
+    Or,
+    Xor,
+    Not,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TransporterISA {
+    OCCUPIED,
+    NOP { immediate: i32 },
+    NOPR { r0: u32, immediate: i32 },
+    LDI { r0: u32, immediate: i32 },
+    BRN { r0: u32, immediate: i32 },
+    MOVC { r2: u32, r1: u32, r0: u32, immediate: i32 },
+    MOV { r1: u32, r0: u32, immediate: i32 },
+    CAL { r2: u32, r1: u32, r0: u32, function: TransporterISAFunc },
+    CALI { r2: u32, r1: u32, r0: u32, function: TransporterISAFunc },
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TransporterTable {
@@ -333,6 +363,8 @@ pub struct TransporterTable {
     pub from: u32,
     pub to: u32,
     pub entries: Vec<TransportTableEntry>,
+    pub ir: BTreeMap<i32, TransporterISA>, // time index -> instruction
+    pub binary: Vec<String>, // final instruction code in binary
     pub placement: MemoryPlacement,
 }
 
@@ -453,6 +485,95 @@ impl DataBase {
         }
     }
 }
+
+
+fn fmt_reg(r: u32) -> String {
+    format!("R{}", r)
+}
+
+impl fmt::Display for TransporterISAFunc {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use TransporterISAFunc::*;
+        let s = match self {
+            Add => "ADD",
+            Sub => "SUB",
+            Mul => "MUL",
+            Div => "DIV",
+            ShiftRight => "SHR",
+            LogicShiftLeft => "LSL",
+            ArithmeticShiftLeft => "ASL",
+            And => "AND",
+            Or => "OR",
+            Xor => "XOR",
+            Not => "NOT",
+        };
+        write!(f, "{s}")
+    }
+}
+
+impl fmt::Display for TransporterISA {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use TransporterISA::*;
+
+        match self {
+            NOP { immediate } => {
+                write!(f, "NOP {}", immediate)
+            }
+            NOPR { r0, immediate } => {
+                write!(f, "NOPR {} {}", fmt_reg(*r0), immediate)
+            }
+            LDI { r0, immediate } => {
+                write!(f, "LDI {} {}", fmt_reg(*r0), immediate)
+            }
+            BRN { r0, immediate } => {
+                write!(f, "BRN {} {}", fmt_reg(*r0), immediate)
+            }
+            MOVC { r2, r1, r0, immediate } => {
+                write!(
+                    f,
+                    "MOVC {} {} {} {}",
+                    fmt_reg(*r2),
+                    fmt_reg(*r1),
+                    fmt_reg(*r0),
+                    immediate
+                )
+            }
+            MOV { r1, r0, immediate } => {
+                write!(
+                    f,
+                    "MOV {} {} {}",
+                    fmt_reg(*r1),
+                    fmt_reg(*r0),
+                    immediate
+                )
+            }
+            CAL { r2, r1, r0, function } => {
+                write!(
+                    f,
+                    "CAL {} {} {} {}",
+                    fmt_reg(*r2),
+                    fmt_reg(*r1),
+                    fmt_reg(*r0),
+                    function
+                )
+            }
+            CALI { r2, r1, r0, function } => {
+                write!(
+                    f,
+                    "CALI {} {} {} {}",
+                    fmt_reg(*r2),
+                    fmt_reg(*r1),
+                    fmt_reg(*r0),
+                    function
+                )
+            }
+        }
+    }
+}
+
+
+
+
 
 
 

@@ -6,6 +6,7 @@ use clap::Parser;
 mod memsyn;
 mod route;
 mod noc;
+mod transporter;
 
 
 /// Arguments to get the configuration files and output directory 
@@ -43,6 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     memsyn::run(&mut db, &args.output)?;
     route::run(&mut db, &args.output)?;
     noc::run(&mut db, &args.output)?;
+    transporter::run(&mut db, &args.output)?;
     // Transporter instructions:
     // Simulation
     // Assembler

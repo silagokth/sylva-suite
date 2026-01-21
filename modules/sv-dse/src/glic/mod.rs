@@ -3,7 +3,7 @@ use sv_lib::model::{DataBase, AppNodePort, AddressTranslation,
                     MemorySynthesis, MemoryStructure, MemoryPlacement};
 use log::{info, debug, error};
 use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, BTreeMap};
 
 mod optimiser;
 
@@ -550,6 +550,8 @@ fn update_synthesized_information(
                 fire_time: fire_time,
                 end_time: fire_time + time_array.iter().max().unwrap(),
                 entries: entries,
+                ir: BTreeMap::new(),
+                binary: Vec::new(),
                 from: 0,
                 to: 0,
                 placement: MemoryPlacement {

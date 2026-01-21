@@ -1,7 +1,7 @@
 use sv_lib::model::{DataBase, MemorySynthesis, MemoryStructure, MemoryPlacement,
                     TransporterTable, TransportTableEntry, AddressPatterns, AddressTranslation};
 use log::{info, error, debug};
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, BTreeMap};
 use std::collections::hash_map::Entry;
 use itertools::Itertools;
 use ndarray::{Axis};
@@ -698,6 +698,8 @@ fn memory_synthesis(
                         fire_time: fire_time,
                         end_time: end_time,
                         entries: entries,
+                        ir: BTreeMap::new(),
+                        binary: Vec::new(),
                         from: memory.output_channels[i],
                         to: memory.corresponding_channels[i],
                         placement: MemoryPlacement {
