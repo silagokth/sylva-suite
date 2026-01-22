@@ -516,6 +516,9 @@ impl fmt::Display for TransporterISA {
         use TransporterISA::*;
 
         match self {
+            OCCUPIED {} => {
+                write!(f, "OCCUPIED")
+            }
             NOP { immediate } => {
                 write!(f, "NOP {}", immediate)
             }
