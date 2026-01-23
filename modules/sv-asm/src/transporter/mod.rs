@@ -1,8 +1,10 @@
 use sv_lib::model::{DataBase, TransporterTable, TransporterISA}; 
 use sv_lib::file_handler;
 use log::{info, error};
-use std::collections::{HashMap, BTreeMap};
+use std::collections::{HashMap, HashSet, BTreeMap};
 
+mod liveness;
+mod colouring;
 
 pub fn pretty_format(
     insts: &BTreeMap<i32, TransporterISA>,
@@ -22,6 +24,73 @@ pub fn pretty_format(
     Ok(out)
 }
 
+fn format_set(set: &HashSet<u32>) -> String {
+    let mut elems: Vec<u32> = set.iter().copied().collect();
+    elems.sort_unstable();
+
+    let body = elems
+        .iter()
+        .map(|v| v.to_string())
+        .collect::<Vec<_>>()
+        .join(",");
+
+    format!("[{}]", body)
+}
+
+fn format_liveness(
+    vertices: &[i32],
+    live_in: &[HashSet<u32>],
+    live_out: &[HashSet<u32>],
+) -> String {
+    let mut out = String::new();
+    out.push_str("== LIVENESS ==\n");
+    out.push_str(format!("{:<8} {:<50} {:<50}\n", "time", "live_in", "live_out").as_str());
+
+    for i in 0..vertices.len() {
+        out.push_str(&format!(
+            "{:<8} {:<50} {:<50}\n",
+            vertices[i],
+            format_set(&live_in[i]),
+            format_set(&live_out[i]),
+        ));
+    }
+    out
+}
+
+fn format_interference_graph(
+    nodes: &[u32],
+    edges: &HashSet<(u32, u32)>,
+) -> String {
+    let mut out = String::new();
+    out.push_str("\n== INTERFERENCE GRAPH ==\n");
+    out.push_str("Nodes:\n");
+    out.push_str(&format!("{:?}\n", nodes));
+
+    out.push_str("Edges:\n");
+    for (a, b) in edges {
+        out.push_str(&format!("  r{} -- r{}\n", a, b));
+    }
+
+    out
+}
+
+fn format_colouring(colouring: &Option<HashMap<u32, u32>>) -> String {
+    let mut out = String::new();
+    out.push_str("\n== GRAPH COLOURING ==\n");
+
+    match colouring {
+        Some(map) => {
+            for (vreg, preg) in map {
+                out.push_str(&format!("  r{} -> p{}\n", vreg, preg));
+            }
+        }
+        None => {
+            out.push_str("  FAILED (spill required)\n");
+        }
+    }
+
+    out
+}
 
 
 fn find_free_times_before(
@@ -98,6 +167,31 @@ fn get_number_of_dependencies(
     Ok(dependency_count)
 }
 
+
+fn list_mov_indices_to_reg(
+    ir: &BTreeMap<i32, TransporterISA>,
+    mov_indices: &Vec<i32>,
+    reg_num: u32, 
+) -> Result<Vec<i32>, Box<dyn std::error::Error>> {
+    let mut list = Vec::new();
+
+    for index in mov_indices {
+        let (reg0, reg1, reg2): (u32, u32, Option<u32>) = match ir.get(&index) {
+            Some(TransporterISA::MOV { r0, r1, .. }) => (*r0, *r1, None),
+            Some(TransporterISA::MOVC { r0, r1, r2, ..}) => (*r0, *r1, Some(*r2)),
+            _ => return Err(format!("Expect MOV(C), found at {}", index).into()),
+        };
+        
+        if reg0 == reg_num ||
+            reg1 == reg_num ||
+            reg2 == Some(reg_num) 
+        {
+            list.push(*index)
+        }
+    }
+
+    Ok(list)
+}
 
 
 
@@ -544,11 +638,182 @@ fn pass3(
 // 4. check value bound 
 // 5. check/change/report fire time and latency
 fn pass_sanity(
-   transporter_table: &mut TransporterTable,
+    transporter_table: &mut TransporterTable,
+    module_dir: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
- 
+    
+    // define constraints
+    let maximum_number_of_registers: u32 = 16;
+
+
     let mut ir = transporter_table.ir.clone(); 
  
+    // 1. remove unused registers
+    let mut register_dependencies: HashMap<u32, u32> = HashMap::new();
+    
+    let mov_indices = list_all_mov_indices(&ir);
+    let reg_nums: Vec<u32> = list_all_registers(&ir)
+        .into_iter()
+        .map(|(r, _)| r)
+        .collect();
+
+    for &reg_num in &reg_nums {
+        let deps = get_number_of_dependencies(
+            &ir,
+            &mov_indices,
+            reg_num,
+        )?;
+
+        register_dependencies.insert(reg_num, deps);
+    }
+    
+    let unused_regs: Vec<u32> = register_dependencies
+        .iter()
+        .filter_map(|(&num, &deps)| {
+            if deps == 0 {
+                Some(num)
+            } else {
+                None
+            }
+        })
+        .collect();
+    
+    for reg_num in unused_regs {
+        if let Some((index, _)) = find_load_register_with_number(&ir, reg_num) {
+            ir.remove(&index);
+        } else {
+            return Err(format!("Expect LDI for r{}", reg_num).into());
+        }
+        
+        register_dependencies.remove(&reg_num);
+    }
+
+    // 2. tighten the timing 
+    let mut reg_deps_list: Vec<(u32, u32)> = register_dependencies
+        .iter()
+        .map(|(&idx, &deps)| (idx, deps))
+        .collect();
+
+    reg_deps_list.sort_by_key(|&(_, deps)| deps);
+
+    let sorted_reg_deps: Vec<u32> = 
+        reg_deps_list.iter().map(|&(r, _)| r).collect(); 
+
+    // map: reg -> MOV/MOVC dependency times
+    let mut mov_deps_times: HashMap<u32, Vec<i32>> = HashMap::new();
+    
+    for &reg_num in &sorted_reg_deps {
+        let times = list_mov_indices_to_reg(&ir, &mov_indices, reg_num)?;
+        if times.is_empty() {
+            return Err(format!("Expect MOV(C) dependencies").into());
+        }
+
+        mov_deps_times.insert(reg_num, times);
+    }
+
+    // iterative tightening
+    let mut improvement = true;
+    
+    while improvement {    
+        improvement = false;
+
+        for &reg_num in &sorted_reg_deps {
+            let time_indices = &mov_deps_times[&reg_num];
+            let min_time = *time_indices.iter().min().unwrap();
+
+            let current_time = match find_load_register_with_number(&ir, reg_num) {
+                Some((time, _)) => time,
+                None => return Err(format!("Expect LDI for r{}", reg_num).into()),
+            };
+
+            let new_slots = find_free_times_before(&ir, min_time, 1); 
+            let new_time = new_slots[0];
+            
+            if new_time > current_time {
+                let inst = ir
+                    .get(&current_time)
+                    .ok_or_else(|| format!("No instruction at {}", current_time))?
+                    .clone();
+
+                ir.insert(new_time, inst);
+                ir.remove(&current_time);
+                
+                improvement = true;
+            } 
+        }
+    }
+
+    // 3. actual register allocation
+    let (live_in, live_out) = liveness::liveness(&ir);
+    let (graph_nodes, graph_edges) = liveness::interference_graph_construction(
+        &ir,
+        &live_out,
+    );
+    let colouring: Option<HashMap<u32, u32>> = colouring::graph_colouring(
+        &graph_nodes, 
+        &graph_edges,
+        maximum_number_of_registers,
+    );
+
+    // For debug purpose
+    {
+        let mut debug_text = String::new();
+        let _vertices: Vec<i32> = ir.keys().cloned().collect();
+        debug_text.push_str(&format_liveness(&_vertices, &live_in, &live_out));
+        debug_text.push_str(&format_interference_graph(&graph_nodes, &graph_edges));
+        debug_text.push_str(&format_colouring(&colouring));
+        
+        let path = format!(
+            "{}/{}_pass_sanity_debug_algo.txt",
+            module_dir,
+            transporter_table.transporter_id,
+        );
+        file_handler::write_file(&path, debug_text)?;
+    }
+
+    let register_mapping: HashMap<u32, u32> = match colouring {
+        Some(a) => a,
+        None => {
+            transporter_table.ir = ir;
+            let _ = dump_transporter_ir(
+                &transporter_table, 
+                &module_dir,
+                "pass_sanity_debug_ir",
+                false,
+            );
+            return Err("Fail to allocate registers, please look at debug files".into())
+        },
+    }; 
+
+
+    for inst in ir.values_mut() {
+        match inst {
+            TransporterISA::LDI { r0, .. } => {
+                *r0 = register_mapping[r0];
+            }
+            TransporterISA::MOV { r0, r1, .. } => {
+                *r0 = register_mapping[r0];
+                *r1 = register_mapping[r1];
+            }
+            TransporterISA::MOVC { r0, r1, r2, .. } => {
+                *r0 = register_mapping[r0];
+                *r1 = register_mapping[r1];
+                *r2 = register_mapping[r2];
+            }
+            TransporterISA::CAL { r0, r1, r2, .. }
+            | TransporterISA::CALI { r0, r1, r2, .. } => {
+                *r0 = register_mapping[r0];
+                *r1 = register_mapping[r1];
+                *r2 = register_mapping[r2];
+            }
+            TransporterISA::BRN { r0, .. }
+            | TransporterISA::NOPR { r0, .. } => {
+                *r0 = register_mapping[r0];
+            }
+            _ => {}
+        }
+    }
+
     transporter_table.ir = ir;
     Ok(())
 }
@@ -631,7 +896,10 @@ pub fn run(
             false, // print
         )?;
 
-        pass_sanity(transporter)?;
+        pass_sanity(
+            transporter,
+            &module_dir,
+        )?;
         dump_transporter_ir(
             transporter,
             &module_dir,
