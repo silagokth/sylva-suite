@@ -93,6 +93,15 @@ fn format_colouring(colouring: &Option<HashMap<u32, u32>>) -> String {
 }
 
 
+fn fits_signed_n_bit(n: u32, val: i32) -> bool {
+    val >= -(1 << (n - 1)) && val <= (1 << (n - 1)) - 1
+}
+
+fn fits_unsigned_n_bit(n: u32, val: i32) -> bool {
+    val >= 0 && val <= (1 << n) - 1
+}
+
+
 fn find_free_times_before(
     ir: &BTreeMap<i32, TransporterISA>,
     before: i32,
@@ -212,6 +221,11 @@ fn find_load_register_with_number(
     ir: &BTreeMap<i32, TransporterISA>,
     number: u32,
 ) -> Option<(i32, i32)> { // (time, value)
+    // special r0
+    if number == 0 {
+        return Some((i32::MIN, 0));
+    }
+
     ir.iter()
         .find_map(|(time, inst)| {
             if let TransporterISA::LDI { r0, immediate } = inst {
@@ -220,7 +234,7 @@ fn find_load_register_with_number(
                 }
             }
             None
-        })
+    })
 }
 
 
@@ -257,10 +271,10 @@ fn pass0(
         let (source, target) = tmp_regs.remove(&time_index).unwrap();
 
         register_allocs.push(source);
-        let reg_source = (register_allocs.len() - 1) as u32;
+        let reg_source = register_allocs.len() as u32; // preserving r0 for zero value 
         
         register_allocs.push(target);
-        let reg_target = (register_allocs.len() - 1) as u32;
+        let reg_target = register_allocs.len() as u32; // preserving r0 for zero value
 
         if ir.contains_key(&time_index) {
             return Err(format!("Time slot {} already occupied", time_index).into());
@@ -270,8 +284,8 @@ fn pass0(
         ir.insert(
             time_index,
             TransporterISA::MOV {
-                r0: reg_source,
-                r1: reg_target,
+                r0: reg_target,
+                r1: reg_source,
                 immediate: 0,
             },
         );
@@ -287,16 +301,16 @@ fn pass0(
         ir.insert(
             t1,
             TransporterISA::LDI {
-                r0: reg_target,
-                immediate: target,
+                r0: reg_source,
+                immediate: source,
             },
         );
 
         ir.insert(
             t2,
             TransporterISA::LDI {
-                r0: reg_source,
-                immediate: source,
+                r0: reg_target,
+                immediate: target,
             },
         );
     }
@@ -346,9 +360,20 @@ fn pass1(
             find_load_register_with_number(&ir, reg1_number)
                 .ok_or_else(|| format!("No LDI found for r{}", reg1_number))?;
 
+        // zero-value optimisation
+        if reg0_value == 0 {
+            new_reg0_number = 0;
+            remove_reg0 = true;
+        }    
+    
+        if reg1_value == 0 {
+            new_reg1_number = 0;
+            remove_reg1 = true;
+        }
+
         // same immediate optimisation 
         if reg0_value == reg1_value {
-            new_reg1_number = reg0_number;
+            new_reg1_number = new_reg0_number;
             remove_reg1 = true;
         } 
         
@@ -482,7 +507,11 @@ fn pass2(
             // find or create register holding c
             let mut reg2 = None;
             for (r, v) in list_all_registers(&ir) {
-                if v == c {
+                if c == 0 {
+                    reg2 = Some(0);
+                    break;
+                }
+                if c == v {
                     reg2 = Some(r);
                     break;
                 }
@@ -597,11 +626,11 @@ fn pass3(
             Some(TransporterISA::MOV { r0, r1, .. }) => (*r0, *r1),
             _ => return Err(format!("Expect MOV, found at {}", index).into()),
         };
-     
+    
         let (_, reg0_value) =
             find_load_register_with_number(&ir, reg0)
                 .ok_or_else(|| format!("No LDI for r{}", reg0))?;
-
+        
         let (_, reg1_value) =
             find_load_register_with_number(&ir, reg1)
                 .ok_or_else(|| format!("No LDI for r{}", reg1))?;
@@ -625,17 +654,20 @@ fn pass3(
                     .ok_or_else(|| format!("No LDI for r{}", reg3))?;
             
             if reg3_value - reg2_value == reg1_value - reg0_value {
-                
-                if let Some(TransporterISA::MOV { r0, r1, immediate }) = ir.get_mut(&index) {
-                    *r0 = reg2;
-                    *r1 = reg3;
-                    *immediate = reg1_value - reg3_value;
+                let immediate_value = reg1_value - reg3_value;            
+    
+                if fits_signed_n_bit(7, immediate_value) {
+                    if let Some(TransporterISA::MOV { r0, r1, immediate }) = ir.get_mut(&index) {
+                        *r0 = reg2;
+                        *r1 = reg3;
+                        *immediate = reg1_value - reg3_value;
+                    }
+                    
+                    mov_reg_deps.get_mut(&index).unwrap().1 = true;
+                    mov_reg_deps.get_mut(&match_index).unwrap().1 = true;
+
+                    break;
                 }
-
-                mov_reg_deps.get_mut(&index).unwrap().1 = true;
-                mov_reg_deps.get_mut(&match_index).unwrap().1 = true;
-
-                break;
             }
         }
     }
@@ -658,14 +690,6 @@ fn pass_sanity(
     
     // define constraints
     let maximum_number_of_registers: u32 = 16;
-
-    fn fits_signed_n_bit(n: u32, val: i32) -> bool {
-        val >= -(1 << (n - 1)) && val <= (1 << (n - 1)) - 1
-    }
-
-    fn fits_unsigned_n_bit(n: u32, val: i32) -> bool {
-        val >= 0 && val <= (1 << n) - 1
-    }
 
     fn dump_error_debug(
         transporter_table: &mut TransporterTable,
@@ -788,11 +812,23 @@ fn pass_sanity(
         &ir,
         &live_out,
     );
-    let colouring: Option<HashMap<u32, u32>> = colouring::graph_colouring(
+    let mut colouring: Option<HashMap<u32, u32>> = colouring::graph_colouring(
         &graph_nodes, 
         &graph_edges,
-        maximum_number_of_registers,
+        maximum_number_of_registers - 1, // r0 is reserved
     );
+
+    colouring = colouring.map(|map| {
+        let mut new_map: HashMap<u32, u32> = map
+            .into_iter()
+            .map(|(k, v)| (k, v + 1)) // shift physical regs
+            .collect();
+    
+        // add special register r0
+        new_map.insert(0, 0);
+    
+        new_map
+    });
 
     {
         // For debug purpose
@@ -825,6 +861,7 @@ fn pass_sanity(
 
 
     for inst in ir.values_mut() {
+        // all register number is to +1 because r0 is exclusive
         match inst {
             TransporterISA::LDI { r0, .. } => {
                 *r0 = register_mapping[r0];

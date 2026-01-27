@@ -18,6 +18,9 @@ fn _def(inst: &TransporterISA) -> HashSet<u32> {
         _ => {}
     }
 
+    // r0 is a special register - not to be included
+    set.remove(&0);
+
     set
 }
 
@@ -45,6 +48,9 @@ fn _use(inst: &TransporterISA) -> HashSet<u32> {
         _ => {}
     }
 
+    // r0 is a special register - not to be included
+    set.remove(&0);
+    
     set
 }
 
