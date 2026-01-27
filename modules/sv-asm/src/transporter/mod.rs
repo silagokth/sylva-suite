@@ -541,7 +541,7 @@ fn pass2(
                     r0: reg0,
                     r1: reg1,
                     r2: reg2,
-                    immediate: iter_count as i32,
+                    immediate: (iter_count + 1) as i32,
                 },
             );
 
