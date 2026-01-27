@@ -697,9 +697,11 @@ fn memory_synthesis(
                         transporter_id: transporter_id.clone(),
                         fire_time: fire_time,
                         end_time: end_time,
+                        latency: (end_time - fire_time) as u32,
                         entries: entries,
                         ir: BTreeMap::new(),
                         binary: Vec::new(),
+                        size: 0,
                         from: memory.output_channels[i],
                         to: memory.corresponding_channels[i],
                         placement: MemoryPlacement {

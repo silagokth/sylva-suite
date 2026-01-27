@@ -549,9 +549,11 @@ fn update_synthesized_information(
                 transporter_id: transporter_name.clone(),
                 fire_time: fire_time,
                 end_time: fire_time + time_array.iter().max().unwrap(),
+                latency: *time_array.iter().max().unwrap() as u32,
                 entries: entries,
                 ir: BTreeMap::new(),
                 binary: Vec::new(),
+                size: 0,
                 from: 0,
                 to: 0,
                 placement: MemoryPlacement {

@@ -126,6 +126,19 @@ fn list_all_mov_indices(
         .collect()
 }
 
+fn list_all_nop_indices(
+    ir: &BTreeMap<i32, TransporterISA>,
+) -> Vec<i32> {
+    ir.iter()
+        .filter(|(_, inst)| {
+            matches!(
+                inst,
+                TransporterISA::NOP { .. }
+            )
+        })
+        .map(|(time, _)| *time)
+        .collect()
+}
 
 fn list_all_registers(
     ir: &BTreeMap<i32, TransporterISA>,
@@ -257,8 +270,8 @@ fn pass0(
         ir.insert(
             time_index,
             TransporterISA::MOV {
-                r1: reg_source,
-                r0: reg_target,
+                r0: reg_source,
+                r1: reg_target,
                 immediate: 0,
             },
         );
@@ -635,8 +648,9 @@ fn pass3(
 // 1. remove unused registers
 // 2. tighten the timing 
 // 3. actual register allocation
-// 4. check value bound 
-// 5. check/change/report fire time and latency
+// 4. fill NOPs
+// 5. check value bound 
+// 6. check/change/report fire time and latency
 fn pass_sanity(
     transporter_table: &mut TransporterTable,
     module_dir: &str,
@@ -644,6 +658,31 @@ fn pass_sanity(
     
     // define constraints
     let maximum_number_of_registers: u32 = 16;
+
+    fn fits_signed_n_bit(n: u32, val: i32) -> bool {
+        val >= -(1 << (n - 1)) && val <= (1 << (n - 1)) - 1
+    }
+
+    fn fits_unsigned_n_bit(n: u32, val: i32) -> bool {
+        val >= 0 && val <= (1 << n) - 1
+    }
+
+    fn dump_error_debug(
+        transporter_table: &mut TransporterTable,
+        ir: &BTreeMap<i32, TransporterISA>,
+        module_dir: &str,
+        error_text: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        transporter_table.ir = ir.clone();
+        let _ = dump_transporter_ir(
+                &transporter_table, 
+                &module_dir,
+                "pass_sanity_debug_ir",
+                false,
+        );
+        return Err(error_text.into())
+    }
+    
 
 
     let mut ir = transporter_table.ir.clone(); 
@@ -755,8 +794,8 @@ fn pass_sanity(
         maximum_number_of_registers,
     );
 
-    // For debug purpose
     {
+        // For debug purpose
         let mut debug_text = String::new();
         let _vertices: Vec<i32> = ir.keys().cloned().collect();
         debug_text.push_str(&format_liveness(&_vertices, &live_in, &live_out));
@@ -774,15 +813,14 @@ fn pass_sanity(
     let register_mapping: HashMap<u32, u32> = match colouring {
         Some(a) => a,
         None => {
-            transporter_table.ir = ir;
-            let _ = dump_transporter_ir(
-                &transporter_table, 
-                &module_dir,
-                "pass_sanity_debug_ir",
-                false,
-            );
-            return Err("Fail to allocate registers, please look at debug files".into())
-        },
+            dump_error_debug(
+                transporter_table, 
+                &ir, 
+                &module_dir, 
+                "Fail to allocate registers, please look at debug files",
+            )?;
+            return Err("Register allocation failed".into());
+        }
     }; 
 
 
@@ -814,11 +852,234 @@ fn pass_sanity(
         }
     }
 
+    // 4. fill NOPs 
+    let mut gap_count = 0;
+    let mut cursor = *ir.keys().next().unwrap();
+    let max_index = *ir.keys().next_back().unwrap();
+
+    while cursor <= max_index {
+        if !ir.contains_key(&cursor) {
+            gap_count += 1;
+        } else {
+            if gap_count > 0 {
+                let nop_pos = cursor - gap_count;
+                ir.insert(
+                    nop_pos,
+                    TransporterISA::NOP {
+                        immediate: gap_count,
+                    }
+                );
+                gap_count = 0;
+            }
+        }
+        cursor += 1;
+    }
+
+    if gap_count > 0 {
+        return Err("Failed to fill NOP instructions because of trailing gap".into());
+    }
+
+    // fill wait forever at the end
+    ir.insert(
+        max_index + 1,
+        TransporterISA::NOP {
+            immediate: 0,
+        }
+    );
+
+    // 5. check value bound 
+    let all_registers: Vec<(u32, i32)> = list_all_registers(&ir);
+    
+    for (_, value) in &all_registers {
+        if !fits_signed_n_bit(10, *value) {
+            dump_error_debug(
+                transporter_table,
+                &ir,
+                &module_dir,
+                "Transporter code: LDI immediate out of signed 10-bit range",
+            )?;
+        }
+    }
+
+    let all_nop_indices = list_all_nop_indices(&ir);
+
+    for &index in &all_nop_indices {
+        let immediate = match ir.get(&index) {
+            Some(TransporterISA::NOP { immediate }) => *immediate,
+            _ => {
+                return Err(format!(
+                    "Expected NOP at index {}, found something else",
+                    index
+                )
+                .into())
+            }
+        };
+
+        if !fits_unsigned_n_bit(13, immediate) {
+            dump_error_debug(
+                transporter_table,
+                &ir,
+                &module_dir,
+                "Transporter code: NOP immediate out of unsigned 13-bit range",
+            )?;
+        }
+    }
+
+    let all_mov_indices = list_all_mov_indices(&ir);
+    let mut movc_indices = Vec::new();
+   
+    for &index in &all_mov_indices {
+        match ir.get(&index) {
+            Some(TransporterISA::MOV { immediate, .. }) => {
+                if !fits_signed_n_bit(7, *immediate) {
+                    dump_error_debug(
+                        transporter_table,
+                        &ir,
+                        &module_dir,
+                        "Transporter code: MOV immediate out of signed 7-bit range",
+                    )?;
+                }
+            }
+            Some(TransporterISA::MOVC { .. }) => {
+                movc_indices.push(index);
+            }
+            Some(other) => {
+                return Err(format!(
+                    "Expected MOV or MOVC at {}, found {:?}",
+                    index, other
+                ).into());
+            }
+            None => {
+                return Err(format!(
+                    "No instruction at MOV index {}",
+                    index
+                ).into());
+            }
+        }
+    }
+
+    let max_movc_range = (1 << 4) - 1; 
+    
+    for &movc_index in &movc_indices {
+        // spilling for MOVC
+        let (r0, r1, r2, immediate) = match ir.get(&movc_index) {
+            Some(TransporterISA::MOVC { r0, r1, r2, immediate }) => {
+                (*r0, *r1, *r2, *immediate)
+            }
+            _ => continue,
+        };
+    
+        if immediate <= max_movc_range {
+            continue; // already legal
+        }
+    
+        let loop_count = immediate / max_movc_range;
+        let last_iter = immediate % max_movc_range;
+    
+        // Remove original instruction
+        ir.remove(&movc_index);
+    
+        let mut cursor = movc_index;
+    
+        for i in 0..loop_count {
+            let iter_imm = if i == loop_count - 1 && last_iter != 0 {
+                last_iter
+            } else {
+                max_movc_range
+            };
+    
+            ir.insert(
+                cursor,
+                TransporterISA::MOVC {
+                    r0,
+                    r1,
+                    r2,
+                    immediate: iter_imm,
+                },
+            );
+    
+            cursor += iter_imm;
+        }
+    }
+
+
+    // 6. check/change/report fire time and latency
+    let current_fire_time = transporter_table.fire_time;
+
+    let mut new_ir = BTreeMap::new();
+
+    for (time_index, inst) in ir.into_iter() {
+        new_ir.insert(time_index + current_fire_time, inst);
+    }
+    
+    ir = new_ir;
+
+    let min_time_index = *ir.keys().next().unwrap();
+    let max_time_index = *ir.keys().next_back().unwrap();
+
+    if min_time_index < 0 {
+        return Err("Failed to generate transport code with the current time constraints, needed optimisation".into());
+    }
+
+    // update transporter metadata
+    transporter_table.fire_time = min_time_index;
+    transporter_table.end_time = max_time_index;
+    transporter_table.latency = (max_time_index - min_time_index) as u32;
+
     transporter_table.ir = ir;
     Ok(())
 }
 
 
+fn generate_code(
+    transporter: &mut TransporterTable,
+) -> Result<(), Box<dyn std::error::Error>> {
+    
+   let mut code: Vec<u16> = Vec::new();
+
+   for (_, inst_isa) in &transporter.ir {
+        let inst: u16 = match inst_isa {
+            TransporterISA::NOP { immediate } => {
+                (0b000 << 13) | 
+                ((*immediate as u16) & 0x1FFF)
+            }
+
+            TransporterISA::LDI { r0, immediate } => {
+                (0b010 << 13) | 
+                ((*r0 as u16 & 0x7) << 10) |
+                ((*immediate as u16) & 0x03FF)
+            }
+
+            TransporterISA::MOV { r0, r1, immediate } => {
+                (0b101 << 13) | 
+                ((*r0 as u16 & 0x7) << 10) |
+                ((*r1 as u16 & 0x7) << 7) |
+                ((*immediate as u16) & 0x007F)
+            }
+
+            TransporterISA::MOVC { r0, r1, r2, immediate } => {
+                (0b100 << 13) | 
+                ((*r0 as u16 & 0x7) << 10) |
+                ((*r1 as u16 & 0x7) << 7) |
+                ((*r2 as u16 & 0x7) << 4) |
+                ((*immediate as u16) & 0x000F)
+            }
+
+            TransporterISA::OCCUPIED => {
+                continue;
+            }
+
+            _ => return Err("Failed to generate transporter code".into())
+        };
+
+        code.push(inst);
+   }
+
+   transporter.size = code.len() as u32;
+   transporter.binary = code;
+
+   Ok(())
+}
 
 fn dump_transporter_ir(
     transporter: &TransporterTable,
@@ -907,9 +1168,16 @@ pub fn run(
             false, // print
         )?;
 
-        return Err("Test stop!!!".into())
-    }
+        generate_code(transporter)?;
 
+        // information report 
+        info!("[{}] report - fire_time = {}, latency = {}, code size = {}", 
+            transporter.transporter_id,
+            transporter.fire_time,
+            transporter.latency,
+            transporter.size,
+        );
+    }
 
     info!("Finish: transporter code generation");
     Ok(())

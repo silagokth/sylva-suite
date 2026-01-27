@@ -360,11 +360,13 @@ pub struct TransporterTable {
     pub transporter_id: String,
     pub fire_time: i32,
     pub end_time: i32,
+    pub latency: u32,
     pub from: u32,
     pub to: u32,
     pub entries: Vec<TransportTableEntry>,
     pub ir: BTreeMap<i32, TransporterISA>, // time index -> instruction
-    pub binary: Vec<String>, // final instruction code in binary
+    pub binary: Vec<u16>, // final instruction code in binary
+    pub size: u32, // code size 
     pub placement: MemoryPlacement,
 }
 
