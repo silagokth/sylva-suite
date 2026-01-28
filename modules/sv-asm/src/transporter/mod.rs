@@ -1,241 +1,10 @@
 use sv_lib::model::{DataBase, TransporterTable, TransporterISA}; 
 use sv_lib::file_handler;
 use log::{info, error};
-use std::collections::{HashMap, HashSet, BTreeMap};
+use std::collections::{HashMap, BTreeMap};
 
-mod liveness;
-mod colouring;
-
-pub fn pretty_format(
-    insts: &BTreeMap<i32, TransporterISA>,
-) -> Result<String, String> {
-    let mut out = String::new();
-
-    out.push_str(&format!("{:<12}{}\n", "time", "code"));
-
-    for (time, inst) in insts.iter() {
-        out.push_str(&format!(
-            "{:<12}{}\n",
-            time,
-            inst
-        ));
-    }
-
-    Ok(out)
-}
-
-fn format_set(set: &HashSet<u32>) -> String {
-    let mut elems: Vec<u32> = set.iter().copied().collect();
-    elems.sort_unstable();
-
-    let body = elems
-        .iter()
-        .map(|v| v.to_string())
-        .collect::<Vec<_>>()
-        .join(",");
-
-    format!("[{}]", body)
-}
-
-fn format_liveness(
-    vertices: &[i32],
-    live_in: &[HashSet<u32>],
-    live_out: &[HashSet<u32>],
-) -> String {
-    let mut out = String::new();
-    out.push_str("== LIVENESS ==\n");
-    out.push_str(format!("{:<8} {:<50} {:<50}\n", "time", "live_in", "live_out").as_str());
-
-    for i in 0..vertices.len() {
-        out.push_str(&format!(
-            "{:<8} {:<50} {:<50}\n",
-            vertices[i],
-            format_set(&live_in[i]),
-            format_set(&live_out[i]),
-        ));
-    }
-    out
-}
-
-fn format_interference_graph(
-    nodes: &[u32],
-    edges: &HashSet<(u32, u32)>,
-) -> String {
-    let mut out = String::new();
-    out.push_str("\n== INTERFERENCE GRAPH ==\n");
-    out.push_str("Nodes:\n");
-    out.push_str(&format!("{:?}\n", nodes));
-
-    out.push_str("Edges:\n");
-    for (a, b) in edges {
-        out.push_str(&format!("  r{} -- r{}\n", a, b));
-    }
-
-    out
-}
-
-fn format_colouring(colouring: &Option<HashMap<u32, u32>>) -> String {
-    let mut out = String::new();
-    out.push_str("\n== GRAPH COLOURING ==\n");
-
-    match colouring {
-        Some(map) => {
-            for (vreg, preg) in map {
-                out.push_str(&format!("  r{} -> p{}\n", vreg, preg));
-            }
-        }
-        None => {
-            out.push_str("  FAILED (spill required)\n");
-        }
-    }
-
-    out
-}
-
-
-fn fits_signed_n_bit(n: u32, val: i32) -> bool {
-    val >= -(1 << (n - 1)) && val <= (1 << (n - 1)) - 1
-}
-
-fn fits_unsigned_n_bit(n: u32, val: i32) -> bool {
-    val >= 0 && val <= (1 << n) - 1
-}
-
-
-fn find_free_times_before(
-    ir: &BTreeMap<i32, TransporterISA>,
-    before: i32,
-    count: usize,
-) -> Vec<i32> {
-    let mut result = Vec::with_capacity(count);
-    let mut t = before - 1;
-
-    while result.len() < count {
-        if !ir.contains_key(&t) {
-            result.push(t);
-        }
-        t -= 1;
-    }
-
-    result
-}
-
-
-fn list_all_mov_indices(
-    ir: &BTreeMap<i32, TransporterISA>,
-) -> Vec<i32> {
-    ir.iter()
-        .filter(|(_, inst)| {
-            matches!(
-                inst,
-                TransporterISA::MOV { .. } | TransporterISA::MOVC { .. }
-            )
-        })
-        .map(|(time, _)| *time)
-        .collect()
-}
-
-fn list_all_nop_indices(
-    ir: &BTreeMap<i32, TransporterISA>,
-) -> Vec<i32> {
-    ir.iter()
-        .filter(|(_, inst)| {
-            matches!(
-                inst,
-                TransporterISA::NOP { .. }
-            )
-        })
-        .map(|(time, _)| *time)
-        .collect()
-}
-
-fn list_all_registers(
-    ir: &BTreeMap<i32, TransporterISA>,
-) -> Vec<(u32, i32)> { // (reg_num, reg_value)
-    ir.iter()
-        .filter_map(|(_, inst)| {
-            if let TransporterISA::LDI { r0, immediate } = inst {
-                Some((*r0, *immediate))
-            } else {
-                None
-            }
-        })
-        .collect()
-}
-
-
-fn get_number_of_dependencies(
-    ir: &BTreeMap<i32, TransporterISA>,
-    mov_indices: &Vec<i32>,
-    reg_num: u32, 
-) -> Result<u32, Box<dyn std::error::Error>> {
-    let mut dependency_count = 0;
-
-    for index in mov_indices {
-        let (reg0, reg1, reg2): (u32, u32, Option<u32>) = match ir.get(&index) {
-            Some(TransporterISA::MOV { r0, r1, .. }) => (*r0, *r1, None),
-            Some(TransporterISA::MOVC { r0, r1, r2, ..}) => (*r0, *r1, Some(*r2)),
-            _ => return Err(format!("Expect MOV(C), found at {}", index).into()),
-        };
-        
-        if reg0 == reg_num ||
-            reg1 == reg_num ||
-            reg2 == Some(reg_num) 
-        {
-            dependency_count += 1;
-        }
-    }
-
-    Ok(dependency_count)
-}
-
-
-fn list_mov_indices_to_reg(
-    ir: &BTreeMap<i32, TransporterISA>,
-    mov_indices: &Vec<i32>,
-    reg_num: u32, 
-) -> Result<Vec<i32>, Box<dyn std::error::Error>> {
-    let mut list = Vec::new();
-
-    for index in mov_indices {
-        let (reg0, reg1, reg2): (u32, u32, Option<u32>) = match ir.get(&index) {
-            Some(TransporterISA::MOV { r0, r1, .. }) => (*r0, *r1, None),
-            Some(TransporterISA::MOVC { r0, r1, r2, ..}) => (*r0, *r1, Some(*r2)),
-            _ => return Err(format!("Expect MOV(C), found at {}", index).into()),
-        };
-        
-        if reg0 == reg_num ||
-            reg1 == reg_num ||
-            reg2 == Some(reg_num) 
-        {
-            list.push(*index)
-        }
-    }
-
-    Ok(list)
-}
-
-
-
-fn find_load_register_with_number(
-    ir: &BTreeMap<i32, TransporterISA>,
-    number: u32,
-) -> Option<(i32, i32)> { // (time, value)
-    // special r0
-    if number == 0 {
-        return Some((i32::MIN, 0));
-    }
-
-    ir.iter()
-        .find_map(|(time, inst)| {
-            if let TransporterISA::LDI { r0, immediate } = inst {
-                if *r0 == number {
-                    return Some((*time, *immediate));
-                }
-            }
-            None
-    })
-}
+pub mod utils;
+mod register_allocation;
 
 
 // map a sequence of data patterns to assembly
@@ -290,7 +59,7 @@ fn pass0(
             },
         );
 
-        let free_times = find_free_times_before(&ir, 0, 2);
+        let free_times = utils::find_free_times_before(&ir, 0, 2);
         let t1 = free_times[0];
         let t2 = free_times[1];
         
@@ -327,7 +96,7 @@ fn pass1(
             
     let mut ir = transporter_table.ir.clone(); 
     
-    let mov_indices: Vec<i32> = list_all_mov_indices(&ir);
+    let mov_indices: Vec<i32> = utils::list_all_mov_indices(&ir);
     let mut allocated_regs: HashMap<u32, i32> = HashMap::new(); // number to value
 
     for index in mov_indices.iter() {
@@ -353,11 +122,11 @@ fn pass1(
 
         // find LDI for both registers
         let (reg0_time, reg0_value) =
-            find_load_register_with_number(&ir, reg0_number)
+            utils::find_load_register_with_number(&ir, reg0_number)
                 .ok_or_else(|| format!("No LDI found for r{}", reg0_number))?;
 
         let (reg1_time, reg1_value) =
-            find_load_register_with_number(&ir, reg1_number)
+            utils::find_load_register_with_number(&ir, reg1_number)
                 .ok_or_else(|| format!("No LDI found for r{}", reg1_number))?;
 
         // zero-value optimisation
@@ -421,7 +190,7 @@ fn pass2(
             
     let mut ir = transporter_table.ir.clone(); 
     
-    let mov_indices: Vec<i32> = list_all_mov_indices(&ir);
+    let mov_indices: Vec<i32> = utils::list_all_mov_indices(&ir);
     let mut cursor = 0;
 
     while cursor < mov_indices.len() {
@@ -437,11 +206,11 @@ fn pass2(
         };
 
         let (_, reg0_value) =
-            find_load_register_with_number(&ir, reg0)
+            utils::find_load_register_with_number(&ir, reg0)
                 .ok_or_else(|| format!("No LDI for r{}", reg0))?;
 
         let (_, reg1_value) =
-            find_load_register_with_number(&ir, reg1)
+            utils::find_load_register_with_number(&ir, reg1)
                 .ok_or_else(|| format!("No LDI for r{}", reg1))?;
 
         // objective: 
@@ -468,11 +237,11 @@ fn pass2(
             };
 
             let (_, r0v) =
-                find_load_register_with_number(&ir, r0n)
+                utils::find_load_register_with_number(&ir, r0n)
                     .ok_or_else(|| format!("No LDI for r{}", r0n))?;
 
             let (_, r1v) =
-                find_load_register_with_number(&ir, r1n)
+                utils::find_load_register_with_number(&ir, r1n)
                     .ok_or_else(|| format!("No LDI for r{}", r1n))?;
 
             if iter_count == 0 {
@@ -506,7 +275,7 @@ fn pass2(
             
             // find or create register holding c
             let mut reg2 = None;
-            for (r, v) in list_all_registers(&ir) {
+            for (r, v) in utils::list_all_registers(&ir) {
                 if c == 0 {
                     reg2 = Some(0);
                     break;
@@ -520,13 +289,13 @@ fn pass2(
             let reg2 = if let Some(r) = reg2 {
                 r
             } else {
-                let new_reg = list_all_registers(&ir)
+                let new_reg = utils::list_all_registers(&ir)
                     .iter()
                     .map(|(r, _)| *r)
                     .max()
                     .unwrap_or(0) + 1;
 
-                let time_index = find_free_times_before(&ir, 0, 1);     
+                let time_index = utils::find_free_times_before(&ir, 0, 1);     
                 ir.insert(time_index[0], TransporterISA::LDI {
                     r0: new_reg,
                     immediate: c,
@@ -566,14 +335,14 @@ fn pass3(
     // with the number of register dependency counts
     let mut register_dependencies: HashMap<u32, u32> = HashMap::new();
     
-    let mov_indices = list_all_mov_indices(&ir);
-    let reg_nums: Vec<u32> = list_all_registers(&ir)
+    let mov_indices = utils::list_all_mov_indices(&ir);
+    let reg_nums: Vec<u32> = utils::list_all_registers(&ir)
         .into_iter()
         .map(|(r, _)| r)
         .collect();
 
     for &reg_num in &reg_nums {
-        let deps = get_number_of_dependencies(
+        let deps = utils::get_number_of_dependencies(
             &ir,
             &mov_indices,
             reg_num,
@@ -628,11 +397,11 @@ fn pass3(
         };
     
         let (_, reg0_value) =
-            find_load_register_with_number(&ir, reg0)
+            utils::find_load_register_with_number(&ir, reg0)
                 .ok_or_else(|| format!("No LDI for r{}", reg0))?;
         
         let (_, reg1_value) =
-            find_load_register_with_number(&ir, reg1)
+            utils::find_load_register_with_number(&ir, reg1)
                 .ok_or_else(|| format!("No LDI for r{}", reg1))?;
        
         for &match_index in &sorted_high_to_low_indices {
@@ -646,17 +415,17 @@ fn pass3(
             };
      
             let (_, reg2_value) =
-                find_load_register_with_number(&ir, reg2)
+                utils::find_load_register_with_number(&ir, reg2)
                     .ok_or_else(|| format!("No LDI for r{}", reg2))?;
 
             let (_, reg3_value) =
-                find_load_register_with_number(&ir, reg3)
+                utils::find_load_register_with_number(&ir, reg3)
                     .ok_or_else(|| format!("No LDI for r{}", reg3))?;
             
             if reg3_value - reg2_value == reg1_value - reg0_value {
                 let immediate_value = reg1_value - reg3_value;            
     
-                if fits_signed_n_bit(7, immediate_value) {
+                if utils::fits_signed_n_bit(7, immediate_value) {
                     if let Some(TransporterISA::MOV { r0, r1, immediate }) = ir.get_mut(&index) {
                         *r0 = reg2;
                         *r1 = reg3;
@@ -714,14 +483,14 @@ fn pass_sanity(
     // 1. remove unused registers
     let mut register_dependencies: HashMap<u32, u32> = HashMap::new();
     
-    let mov_indices = list_all_mov_indices(&ir);
-    let reg_nums: Vec<u32> = list_all_registers(&ir)
+    let mov_indices = utils::list_all_mov_indices(&ir);
+    let reg_nums: Vec<u32> = utils::list_all_registers(&ir)
         .into_iter()
         .map(|(r, _)| r)
         .collect();
 
     for &reg_num in &reg_nums {
-        let deps = get_number_of_dependencies(
+        let deps = utils::get_number_of_dependencies(
             &ir,
             &mov_indices,
             reg_num,
@@ -742,7 +511,7 @@ fn pass_sanity(
         .collect();
     
     for reg_num in unused_regs {
-        if let Some((index, _)) = find_load_register_with_number(&ir, reg_num) {
+        if let Some((index, _)) = utils::find_load_register_with_number(&ir, reg_num) {
             ir.remove(&index);
         } else {
             return Err(format!("Expect LDI for r{}", reg_num).into());
@@ -766,7 +535,7 @@ fn pass_sanity(
     let mut mov_deps_times: HashMap<u32, Vec<i32>> = HashMap::new();
     
     for &reg_num in &sorted_reg_deps {
-        let times = list_mov_indices_to_reg(&ir, &mov_indices, reg_num)?;
+        let times = utils::list_mov_indices_to_reg(&ir, &mov_indices, reg_num)?;
         if times.is_empty() {
             return Err(format!("Expect MOV(C) dependencies").into());
         }
@@ -784,12 +553,12 @@ fn pass_sanity(
             let time_indices = &mov_deps_times[&reg_num];
             let min_time = *time_indices.iter().min().unwrap();
 
-            let current_time = match find_load_register_with_number(&ir, reg_num) {
+            let current_time = match utils::find_load_register_with_number(&ir, reg_num) {
                 Some((time, _)) => time,
                 None => return Err(format!("Expect LDI for r{}", reg_num).into()),
             };
 
-            let new_slots = find_free_times_before(&ir, min_time, 1); 
+            let new_slots = utils::find_free_times_before(&ir, min_time, 1); 
             let new_time = new_slots[0];
             
             if new_time > current_time {
@@ -807,36 +576,62 @@ fn pass_sanity(
     }
 
     // 3. actual register allocation
-    let (live_in, live_out) = liveness::liveness(&ir);
-    let (graph_nodes, graph_edges) = liveness::interference_graph_construction(
-        &ir,
-        &live_out,
-    );
-    let mut colouring: Option<HashMap<u32, u32>> = colouring::graph_colouring(
-        &graph_nodes, 
-        &graph_edges,
-        maximum_number_of_registers - 1, // r0 is reserved
-    );
+    let mut live_in; 
+    let mut live_out;
+    let mut graph_nodes; 
+    let mut graph_edges;
+    let mut colouring;
+    {
+        (live_in, live_out) = register_allocation::liveness(&ir);
+        (graph_nodes, graph_edges) = register_allocation::interference_graph_construction(
+            &ir,
+            &live_out,
+        );
+        
+        let colouring_result = register_allocation::graph_colouring(
+            &ir,
+            &graph_nodes,
+            &graph_edges,
+            maximum_number_of_registers - 1,
+        );
 
-    colouring = colouring.map(|map| {
-        let mut new_map: HashMap<u32, u32> = map
-            .into_iter()
-            .map(|(k, v)| (k, v + 1)) // shift physical regs
-            .collect();
-    
-        // add special register r0
-        new_map.insert(0, 0);
-    
-        new_map
-    });
+        let mut spilled_register;
+        match colouring_result {
+            Ok(a) => {
+                colouring = a;
+            }
+            Err(utils::RegAllocError::SpilledRegister(reg)) => {
+                spilled_register = reg;
+                return Err(format!("Need to spill r{}", reg).into());
+            }
+            Err(utils::RegAllocError::InvalidGraph) => {
+                dump_error_debug(
+                    transporter_table,
+                    &ir,
+                    &module_dir,
+                    "Fail to allocate registers, please look at debug files",
+                )?;
+                return Err("Register allocation failed".into());
+            }
+        }
+
+    }
+
+    let mut colouring: HashMap<u32, u32> = colouring
+    .into_iter()
+    .map(|(k, v)| (k, v + 1)) // shift physical registers
+    .collect();
+
+    // add special register r0
+    colouring.insert(0, 0);
 
     {
         // For debug purpose
         let mut debug_text = String::new();
         let _vertices: Vec<i32> = ir.keys().cloned().collect();
-        debug_text.push_str(&format_liveness(&_vertices, &live_in, &live_out));
-        debug_text.push_str(&format_interference_graph(&graph_nodes, &graph_edges));
-        debug_text.push_str(&format_colouring(&colouring));
+        debug_text.push_str(&utils::format_liveness(&_vertices, &live_in, &live_out));
+        debug_text.push_str(&utils::format_interference_graph(&graph_nodes, &graph_edges));
+        debug_text.push_str(&utils::format_colouring(&colouring));
         
         let path = format!(
             "{}/{}_pass_sanity_debug_algo.txt",
@@ -846,19 +641,7 @@ fn pass_sanity(
         file_handler::write_file(&path, debug_text)?;
     }
 
-    let register_mapping: HashMap<u32, u32> = match colouring {
-        Some(a) => a,
-        None => {
-            dump_error_debug(
-                transporter_table, 
-                &ir, 
-                &module_dir, 
-                "Fail to allocate registers, please look at debug files",
-            )?;
-            return Err("Register allocation failed".into());
-        }
-    }; 
-
+    let register_mapping: HashMap<u32, u32> = colouring;
 
     for inst in ir.values_mut() {
         // all register number is to +1 because r0 is exclusive
@@ -925,10 +708,10 @@ fn pass_sanity(
     );
 
     // 5. check value bound 
-    let all_registers: Vec<(u32, i32)> = list_all_registers(&ir);
+    let all_registers: Vec<(u32, i32)> = utils::list_all_registers(&ir);
     
     for (_, value) in &all_registers {
-        if !fits_signed_n_bit(10, *value) {
+        if !utils::fits_signed_n_bit(10, *value) {
             dump_error_debug(
                 transporter_table,
                 &ir,
@@ -938,7 +721,7 @@ fn pass_sanity(
         }
     }
 
-    let all_nop_indices = list_all_nop_indices(&ir);
+    let all_nop_indices = utils::list_all_nop_indices(&ir);
 
     for &index in &all_nop_indices {
         let immediate = match ir.get(&index) {
@@ -952,7 +735,7 @@ fn pass_sanity(
             }
         };
 
-        if !fits_unsigned_n_bit(13, immediate) {
+        if !utils::fits_unsigned_n_bit(13, immediate) {
             dump_error_debug(
                 transporter_table,
                 &ir,
@@ -962,13 +745,13 @@ fn pass_sanity(
         }
     }
 
-    let all_mov_indices = list_all_mov_indices(&ir);
+    let all_mov_indices = utils::list_all_mov_indices(&ir);
     let mut movc_indices = Vec::new();
    
     for &index in &all_mov_indices {
         match ir.get(&index) {
             Some(TransporterISA::MOV { immediate, .. }) => {
-                if !fits_signed_n_bit(7, *immediate) {
+                if !utils::fits_signed_n_bit(7, *immediate) {
                     dump_error_debug(
                         transporter_table,
                         &ir,
@@ -1124,7 +907,7 @@ fn dump_transporter_ir(
     suffix: &str,
     print: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let formatted = pretty_format(&transporter.ir)
+    let formatted = utils::pretty_format(&transporter.ir)
         .map_err(|e| format!("pretty_format failed: {}", e))?;
 
     let path = format!(
