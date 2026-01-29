@@ -519,7 +519,7 @@ output [
         let mut solver = Solver::new(format!("solve_{}_{}_window-{}", constraints.edge_id, id, i), module_dir.clone());
         solver.add(statements);
 
-        let (status, solutions) = solver.solve("cp-sat", 180, "-p 16")?;
+        let (status, solutions) = solver.solve("cp-sat", 300, "")?;
         match status.as_str() {
             "OPTIMAL_SOLUTION" | "FEASIBLE" => {},
             _ => { 

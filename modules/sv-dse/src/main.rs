@@ -1,6 +1,6 @@
 use sv_lib::model::{DataBase};
+use sv_lib::{utils};
 use sv_lib::{file_handler};
-use sv_lib::{setup};
 use log::{info, error};
 use clap::Parser;
 
@@ -16,6 +16,12 @@ mod sim;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
+    #[arg(long = "cpu", help="Set CPU limit")]
+    cpu_limit: Option<u64>,
+
+    #[arg(long = "memory", help="Set memory limit")]
+    memory_limit: Option<u64>,
+
     #[arg(short = 'g', long = "graph", help="SDF graph file")]
     graph: String,
 
@@ -39,8 +45,16 @@ struct Args {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let log_file = format!("{}/log_dse.log", args.output);
-    setup::setup_logger(&log_file).unwrap();
+    utils::setup_logger(&log_file).unwrap();
+  
+    if let Some(n) = args.cpu_limit {
+        utils::set_cpu_limit(n)?;
+    }
     
+    if let Some(n) = args.memory_limit {
+        utils::set_memory_limit(n)?;
+    }
+
     // create empty data structure 
     let mut db = DataBase::new();
 

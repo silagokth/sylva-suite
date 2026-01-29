@@ -1,5 +1,5 @@
 use sv_lib::{file_handler};
-use sv_lib::{setup};
+use sv_lib::{utils};
 use log::{info, error};
 use clap::Parser;
 
@@ -13,6 +13,12 @@ mod transporter;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
+    #[arg(long = "cpu", help="Set CPU limit")]
+    cpu_limit: Option<u64>,
+
+    #[arg(long = "memory", help="Set memory limit")]
+    memory_limit: Option<u64>,
+
     #[arg(short = 'i', long = "intermediate-representation", help="Input Intermediate Representation Object")]
     ir_object: String,
 
@@ -24,7 +30,15 @@ struct Args {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     let log_file = format!("{}/log_asm.log", args.output);
-    setup::setup_logger(&log_file).unwrap();
+    utils::setup_logger(&log_file).unwrap();
+ 
+    if let Some(n) = args.cpu_limit {
+        utils::set_cpu_limit(n)?;
+    }
+    
+    if let Some(n) = args.memory_limit {
+        utils::set_memory_limit(n)?;
+    }   
     
     // read configuration files and store the information in ds 
     let mut db = file_handler::load_json_file(&args.ir_object)?;

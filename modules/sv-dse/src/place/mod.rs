@@ -360,7 +360,7 @@ fn place_solve_optimal(
     }\"];")); 
 
     /* solving the model */
-    let (status, solutions) = solver.solve("cp-sat", 120, "-p 16")?;
+    let (status, solutions) = solver.solve("cp-sat", 180, "")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" => {}
         _ => return Err(format!("MiniZinc status: {}", status).into()),
@@ -509,7 +509,7 @@ fn place_solve_approx_optimal(
     }\"];")); 
 
     /* solving the model */
-    let (status, solutions) = solver.solve("cp-sat", 120, "-p 16")?;
+    let (status, solutions) = solver.solve("cp-sat", 180, "")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
         _ => return Err(format!("MiniZinc status: {}", status).into()),

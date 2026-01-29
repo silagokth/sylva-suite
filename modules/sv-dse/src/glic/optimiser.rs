@@ -78,7 +78,7 @@ pub fn solve_min_delay(
     }\"];")); 
 
     /* solving the model */
-    let (status, solutions) = solver.solve("cp-sat", 30, "-p 16")?;
+    let (status, solutions) = solver.solve("cp-sat", 30, "")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
         _ => return Ok(-1),
@@ -356,7 +356,7 @@ pub fn solve_channel_width(
 
 
     /* solving the model */
-    let (status, solutions) = solver.solve("cp-sat", 360, "-p 16")?;
+    let (status, solutions) = solver.solve("cp-sat", 360, "")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" => {}
         _ => return Err(format!("MiniZinc status: {}", status).into()),
@@ -585,10 +585,10 @@ fn solve_node_schedule(
     let time_limit = match problem_size {
         a if a > 20000 => 20 * 60,
         a if a > 10000 => 15 * 60,
-        a if a > 1000 => 8 * 60,
-        _ => 6 * 60,
+        a if a > 1000 => 10 * 60,
+        _ => 7 * 60,
     };
-    let (status, solutions) = solver.solve("cp-sat", time_limit, "-p 16")?;
+    let (status, solutions) = solver.solve("cp-sat", time_limit, "")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
         _ => return Err(format!("MiniZinc status: {}", status).into()),

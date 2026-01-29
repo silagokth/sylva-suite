@@ -1,7 +1,41 @@
 use std::sync::{Arc, atomic::AtomicBool};
 use std::sync::atomic::Ordering;
+use std::sync::Mutex;
 use colored::Colorize;
+use once_cell::sync::Lazy;
 use ctrlc;
+
+// Use Mutex so we can safely update them at program start
+pub static CPU_LIMIT: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(2)); // default 2 CPUs
+pub static MEMORY_LIMIT: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(4_000_000)); // default 4GB in KB
+
+pub fn set_cpu_limit(
+    cpu: u64, 
+) -> Result<(), Box<dyn std::error::Error>> {
+
+    if cpu > 32 {
+        return Err("Error: failed to set resource limit".into());
+    }
+
+    *CPU_LIMIT.lock().unwrap() = cpu;
+
+    Ok(())
+}
+
+pub fn set_memory_limit(
+    memory_gb: u64,
+) -> Result<(), Box<dyn std::error::Error>> {
+
+    if memory_gb > 64 {
+        return Err("Error: failed to set resource limit".into());
+
+    }
+
+    let memory_kb = memory_gb * 1024 * 1024;
+    *MEMORY_LIMIT.lock().unwrap() = memory_kb;
+
+    Ok(())
+}
 
 pub fn interrupt() -> Result<Arc<AtomicBool>, Box<dyn std::error::Error>> {
     let interrupted = Arc::new(AtomicBool::new(false));
