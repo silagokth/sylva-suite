@@ -29,6 +29,16 @@ struct Args {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
+
+    // This will create the output directory if it doesn't exist
+    match std::fs::create_dir_all(&args.output) {
+        Ok(_) => (),
+        Err(e) => {       
+            error!("Failed to create {} with {}", args.output, e);
+            std::process::exit(1);
+        },
+    };    
+
     let log_file = format!("{}/log_asm.log", args.output);
     utils::setup_logger(&log_file).unwrap();
  
@@ -43,15 +53,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // read configuration files and store the information in ds 
     let mut db = file_handler::load_json_file(&args.ir_object)?;
     
-    // This will create the output directory if it doesn't exist
-    match std::fs::create_dir_all(&args.output) {
-        Ok(_) => (),
-        Err(e) => {       
-            error!("Failed to create {} with {}", args.output, e);
-            std::process::exit(1);
-        },
-    };    
-
     /* run the compilation */
     info!("Sylva Assembly starts compilation!");
 

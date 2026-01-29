@@ -16,6 +16,7 @@ use regex::Regex;
 enum MiniZincStreamEntry {
     Solution(SolutionEntry),
     Status(StatusEntry),
+    Comment(CommentEntry), // to support minizinc legacy
     Unknown(HashMap<String, serde_json::Value>),
 }
 
@@ -47,6 +48,15 @@ struct StatusEntry {
     status: String, // E.g., "OPTIMAL_SOLUTION", "UNSATISFIABLE", "UNKNOWN"
     #[serde(default)]
     time: u64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+struct CommentEntry {
+    #[serde(rename = "type")]
+    entry_type: String,
+    comment: String,
 }
 
 
@@ -180,6 +190,7 @@ impl Solver {
                 MiniZincStreamEntry::Status(status_entry) => {
                     status = status_entry.status;
                 },
+                MiniZincStreamEntry::Comment(_) => {},
                 MiniZincStreamEntry::Unknown(map) => {
                     error!("Unknown minizinc entry type: {:?}", map);
                     return Err(format!("Unknown MiniZinc entry type: {:?}", map).into());

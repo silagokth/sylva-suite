@@ -44,6 +44,16 @@ struct Args {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
+    
+    // This will create the output directory if it doesn't exist
+    match std::fs::create_dir_all(&args.output) {
+        Ok(_) => (),
+        Err(e) => {       
+            error!("Failed to create {} with {}", args.output, e);
+            std::process::exit(1);
+        },
+    };
+
     let log_file = format!("{}/log_dse.log", args.output);
     utils::setup_logger(&log_file).unwrap();
   
@@ -64,15 +74,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     db.alimp_lib = file_handler::load_json_file(&args.alimp_lib)?;
     db.hyper_parameter = file_handler::load_json_file(&args.hyper_parameter)?;
     db.technology_constraint = file_handler::load_json_file(&args.technology_constraint)?;
-    
-    // This will create the output directory if it doesn't exist
-    match std::fs::create_dir_all(&args.output) {
-        Ok(_) => (),
-        Err(e) => {       
-            error!("Failed to create {} with {}", args.output, e);
-            std::process::exit(1);
-        },
-    };    
+        
 
     /* run the compilation */
     info!("Sylva DSE starts compilation!");
