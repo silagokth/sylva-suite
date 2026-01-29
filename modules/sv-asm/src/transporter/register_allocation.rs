@@ -205,6 +205,65 @@ fn neighbours(
 }
 
 
+
+fn spilling_analysis(
+    ir: &BTreeMap<i32, TransporterISA>,
+    number: u32,
+) -> Result<(Vec<i32>, Vec<u32>), utils::RegAllocError> {
+
+    let mov_indices = utils::list_all_mov_indices(ir);
+
+    let use_times = 
+        utils::list_mov_indices_to_reg(ir, &mov_indices, number)
+        .map_err(|_| utils::RegAllocError::InvalidGraph)?;
+    
+    if use_times.len() < 2 {
+        return Err(utils::RegAllocError::SpillingFail);
+    }
+
+    let mut load_times: Vec<i32> = Vec::new();
+    let mut scores: Vec<u32> = Vec::new();
+
+    for i in 0..use_times.len() - 1 {
+        let interval = use_times[i + 1] - use_times[i];
+
+        let occupied = ir
+            .keys()
+            .filter(|&&idx| use_times[i] < idx && idx < use_times[i + 1])
+            .count() as i32;
+
+        let free = interval - occupied;
+        
+        if free > 0 {
+            let time_slots = utils::find_free_times_before(ir, use_times[i + 1], 1);
+            
+            let reload_time = time_slots[0];
+            load_times.push(reload_time);
+
+            let mov_occupied = ir
+                .iter()
+                .filter(|(idx, inst)| {
+                    let idx = **idx;
+                    use_times[i] < idx && idx < reload_time &&
+                    matches!(inst,
+                        TransporterISA::MOV { .. } |
+                        TransporterISA::MOVC { .. } 
+                    )
+                })
+                .count() as u32;
+            
+            scores.push(mov_occupied);
+        } else {
+            load_times.push(-1);
+            scores.push(0);
+        }
+    }
+
+    Ok((load_times, scores))
+}
+
+
+
 pub fn graph_colouring(
     ir: &BTreeMap<i32, TransporterISA>,
     nodes: &Vec<u32>, 
@@ -212,9 +271,10 @@ pub fn graph_colouring(
     k: u32,
 ) -> Result<HashMap<u32, u32>, utils::RegAllocError> { // virtual registers to physical registers
 
-    let alpha = 1;
-    let beta = 2;
-    let gamma = 4;
+    let alpha = 10;
+    let beta = 1;
+    let gamma = 2;
+    let delta = 4;
 
     // ---------- Build graph ----------
     let mut graph: HashMap<u32, HashSet<u32>> = HashMap::new();
@@ -260,11 +320,20 @@ pub fn graph_colouring(
             let mut best_score = i32::MIN;
 
             for &n in graph.keys() {
-                let score =
-                    utils::live_range(&ir, n)? * alpha
-                  + degree(&graph, n) * beta
-                  - (utils::use_count(&ir, n)? as i32) * gamma;
+                let base_score: i32 = match spilling_analysis(&ir, n) {
+                    Ok((_, scores)) => scores.iter().map(|&s| s as i32).sum(),
+                    Err(_) => 0,
+                };
 
+                
+                let score = match base_score {
+                    0 => 0,
+                    _ => base_score * alpha
+                        + utils::live_range(&ir, n)? * beta
+                        + degree(&graph, n) * gamma
+                        - (utils::use_count(&ir, n)? as i32) * delta,
+                };
+                                    
                 if score > best_score {
                     best_score = score;
                     best_node = Some(n);
@@ -315,4 +384,90 @@ pub fn graph_colouring(
 
     Ok(colouring)
 }
+
+
+
+pub fn transforming_ir(
+    ir: &mut BTreeMap<i32, TransporterISA>,
+    spilled_register: u32,
+) -> Result<(), utils::RegAllocError> {
+
+    let (reload_times, scores) = spilling_analysis(&ir, spilled_register)?;
+    
+    // no viable spill point
+    if scores.iter().all(|&s| s == 0) {
+        return Err(utils::RegAllocError::SpillingFail);
+    }
+
+    // pick best reload point 
+    let (best_idx, _) = scores
+        .iter()
+        .enumerate()
+        .max_by_key(|(_, s)| *s)
+        .ok_or(utils::RegAllocError::SpillingFail)?;
+    
+    let reload_time = reload_times[best_idx];
+    
+    // MOVs that use this register
+    let all_mov_indices = utils::list_all_mov_indices(ir);
+    let mut mov_indices = utils::list_mov_indices_to_reg(ir, &all_mov_indices, spilled_register)
+        .map_err(|_| utils::RegAllocError::InvalidGraph)?;
+
+    // only those after reload
+    mov_indices.retain(|idx| *idx > reload_time);
+    
+    if mov_indices.is_empty() {
+        return Err(utils::RegAllocError::SpillingFail);
+    }
+
+    let new_register_number = utils::find_unused_register(ir);
+    
+    let (_, value) = utils::find_load_register_with_number(ir, spilled_register)
+        .ok_or(utils::RegAllocError::InvalidGraph)?;
+    
+    // insert reload
+    ir.insert(
+        reload_time,
+        TransporterISA::LDI { 
+            r0: new_register_number, 
+            immediate: value,
+        },
+    );
+
+    // rewrite uses after reload
+    for (&idx, inst) in ir.iter_mut() {
+        if idx > reload_time {
+            match inst {
+                TransporterISA::MOV { r0, r1, .. } => {
+                    if *r0 == spilled_register {
+                        *r0 = new_register_number;
+                    }
+                    if *r1 == spilled_register {
+                        *r1 = new_register_number;
+                    }
+                }
+                TransporterISA::MOVC { r0, r1, r2, .. } => {
+                    if *r0 == spilled_register {
+                        *r0 = new_register_number;
+                    }
+                    if *r1 == spilled_register {
+                        *r1 = new_register_number;
+                    }
+                    if *r2 == spilled_register {
+                        *r2 = new_register_number;
+                    }
+                }
+                TransporterISA::LDI { r0, .. } => {
+                    if *r0 == spilled_register {
+                        return Err(utils::RegAllocError::SpillingFail);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    Ok(())
+}
+
 

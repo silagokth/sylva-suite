@@ -576,59 +576,64 @@ fn pass_sanity(
     }
 
     // 3. actual register allocation
+    let mut number_of_spills = 0;
     let mut live_in; 
     let mut live_out;
     let mut graph_nodes; 
     let mut graph_edges;
-    let mut colouring;
-    {
+    let mut colouring_result;
+    let mut spilled_register;
+    let mut colouring: Option<HashMap<u32, u32>> = None;
+    loop {
         (live_in, live_out) = register_allocation::liveness(&ir);
         (graph_nodes, graph_edges) = register_allocation::interference_graph_construction(
             &ir,
             &live_out,
         );
         
-        let colouring_result = register_allocation::graph_colouring(
+        colouring_result = register_allocation::graph_colouring(
             &ir,
             &graph_nodes,
             &graph_edges,
             maximum_number_of_registers - 1,
         );
 
-        let mut spilled_register;
-        match colouring_result {
+        match &colouring_result {
             Ok(a) => {
-                colouring = a;
+                colouring = Some(a.clone());
+                break;
             }
             Err(utils::RegAllocError::SpilledRegister(reg)) => {
-                spilled_register = reg;
-                return Err(format!("Need to spill r{}", reg).into());
+                spilled_register = *reg;
             }
-            Err(utils::RegAllocError::InvalidGraph) => {
-                dump_error_debug(
-                    transporter_table,
-                    &ir,
-                    &module_dir,
-                    "Fail to allocate registers, please look at debug files",
-                )?;
-                return Err("Register allocation failed".into());
+            Err(_) => {       
+                break;
             }
         }
 
+        match register_allocation::transforming_ir(&mut ir, spilled_register) {
+            Ok(_) => {},
+            Err(e) => {
+                colouring_result = Err(e);
+                break;
+            },
+        }
+        number_of_spills += 1;
     }
 
-    let mut colouring: HashMap<u32, u32> = colouring
-    .into_iter()
-    .map(|(k, v)| (k, v + 1)) // shift physical registers
-    .collect();
+    let mut colouring = colouring
+        .ok_or("Register allocation failed")?
+        .into_iter()
+        .map(|(k, v)| (k, v + 1)) // shift physical registers
+        .collect::<HashMap<_, _>>();
 
-    // add special register r0
-    colouring.insert(0, 0);
+    colouring.insert(0, 0); // r0 is special
 
     {
         // For debug purpose
         let mut debug_text = String::new();
         let _vertices: Vec<i32> = ir.keys().cloned().collect();
+        debug_text.push_str(&format!("Number of spills = {}", number_of_spills));
         debug_text.push_str(&utils::format_liveness(&_vertices, &live_in, &live_out));
         debug_text.push_str(&utils::format_interference_graph(&graph_nodes, &graph_edges));
         debug_text.push_str(&utils::format_colouring(&colouring));
@@ -639,6 +644,19 @@ fn pass_sanity(
             transporter_table.transporter_id,
         );
         file_handler::write_file(&path, debug_text)?;
+    }
+
+    match colouring_result {
+        Err(e) => {
+            dump_error_debug(
+                transporter_table,
+                &ir,
+                &module_dir,
+                "Fail to allocate registers, please look at debug files",
+            )?;
+            return Err(format!("Register allocation failed - {}", e).into());
+        },
+        _ => {},
     }
 
     let register_mapping: HashMap<u32, u32> = colouring;

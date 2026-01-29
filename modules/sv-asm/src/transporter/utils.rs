@@ -6,6 +6,7 @@ use std::fmt;
 pub enum RegAllocError {
     SpilledRegister(u32),
     InvalidGraph,
+    SpillingFail,
 }
 
 
@@ -16,6 +17,8 @@ impl fmt::Display for RegAllocError {
                 write!(f, "spilled register (needed {n})"),
             RegAllocError::InvalidGraph =>
                 write!(f, "invalid graph"),
+            RegAllocError::SpillingFail =>
+                write!(f, "failed spilling"),
         }
     }
 }
@@ -135,6 +138,16 @@ pub fn find_free_times_before(
     result
 }
 
+pub fn find_unused_register(
+    ir: &BTreeMap<i32, TransporterISA>, 
+) -> u32 {
+    list_all_registers(ir)
+        .iter()
+        .map(|(reg, _)| *reg)
+        .max()
+        .map(|max_reg| max_reg + 1)
+        .unwrap_or(u32::MAX)
+}
 
 pub fn list_all_mov_indices(
     ir: &BTreeMap<i32, TransporterISA>,
@@ -287,3 +300,5 @@ pub fn live_range(
 
     Ok(last_use_time - def_time)
 }
+
+
