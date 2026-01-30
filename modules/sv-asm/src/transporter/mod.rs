@@ -458,7 +458,7 @@ fn pass_sanity(
 ) -> Result<(), Box<dyn std::error::Error>> {
     
     // define constraints
-    let maximum_number_of_registers: u32 = 16;
+    let maximum_number_of_registers: u32 = 8;
 
     fn dump_error_debug(
         transporter_table: &mut TransporterTable,
