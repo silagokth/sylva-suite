@@ -633,7 +633,7 @@ fn pass_sanity(
         // For debug purpose
         let mut debug_text = String::new();
         let _vertices: Vec<i32> = ir.keys().cloned().collect();
-        debug_text.push_str(&format!("Number of spills = {}", number_of_spills));
+        debug_text.push_str(&format!("Number of spills = {}\n\n", number_of_spills));
         debug_text.push_str(&utils::format_liveness(&_vertices, &live_in, &live_out));
         debug_text.push_str(&utils::format_interference_graph(&graph_nodes, &graph_edges));
         debug_text.push_str(&utils::format_colouring(&colouring));
