@@ -620,14 +620,18 @@ fn pass_sanity(
         }
         number_of_spills += 1;
     }
-
-    let mut colouring = colouring
-        .ok_or("Register allocation failed")?
-        .into_iter()
-        .map(|(k, v)| (k, v + 1)) // shift physical registers
-        .collect::<HashMap<_, _>>();
-
-    colouring.insert(0, 0); // r0 is special
+    
+    colouring = colouring.map(|a| {
+        let mut new_map: HashMap<u32, u32> = a
+            .into_iter()
+            .map(|(k, v)| (k, v + 1)) // shift physical registers
+            .collect();
+    
+        // add special register r0
+        new_map.insert(0, 0);
+    
+        new_map
+    });
 
     {
         // For debug purpose
@@ -659,7 +663,7 @@ fn pass_sanity(
         _ => {},
     }
 
-    let register_mapping: HashMap<u32, u32> = colouring;
+    let register_mapping: HashMap<u32, u32> = colouring.ok_or("Register allocation failed")?;
 
     for inst in ir.values_mut() {
         // all register number is to +1 because r0 is exclusive

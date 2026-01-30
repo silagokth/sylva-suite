@@ -99,12 +99,19 @@ pub fn format_interference_graph(
 }
 
 
-pub fn format_colouring(colouring: &HashMap<u32, u32>) -> String {
+pub fn format_colouring(colouring: &Option<HashMap<u32, u32>>) -> String {
     let mut out = String::new();
     out.push_str("\n== GRAPH COLOURING ==\n");
 
-    for (vreg, preg) in colouring {
-        out.push_str(&format!("  r{} -> p{}\n", vreg, preg));
+    match colouring {
+        Some(colour) => {
+            for (vreg, preg) in colour {
+                out.push_str(&format!("  r{} -> p{}\n", vreg, preg));
+            }
+        }, 
+        None => {
+            out.push_str("Failed to spill registers - number of physical registers isn't enough\n");
+        }
     }
 
     out
