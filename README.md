@@ -1,4 +1,4 @@
-# sylva &emsp; [![Rustc Version 1.88+]][rustc] [![MiniZinc Version 2.9.3+]][minizinc]
+# sylva &emsp; [![Rustc Version 1.88+]][rustc] [![MiniZinc Version 2.9.0+]][minizinc]
 
 [Rustc Version 1.88+]: https://img.shields.io/badge/rustc-1.88+-lightgray.svg?e&logo=rust&logoColor=white
 [rustc]: https://blog.rust-lang.org/2025/06/26/Rust-1.88.0/
