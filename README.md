@@ -2,8 +2,8 @@
 
 [Rustc Version 1.88+]: https://img.shields.io/badge/rustc-1.88+-lightgray.svg?e&logo=rust&logoColor=white
 [rustc]: https://blog.rust-lang.org/2025/06/26/Rust-1.88.0/
-[MiniZinc Version 2.9.3+]: https://img.shields.io/badge/minizinc-2.9.3+-lightgray.svg?e&logo=minizinc&logoColor=white
-[minizinc]: https://www.python.org/downloads/release/python-360/
+[MiniZinc Version 2.9.0+]: https://img.shields.io/badge/minizinc-2.9.0+-lightgray.svg?e&logo=minizinc&logoColor=white
+[minizinc]: https://www.minizinc.org/
 
 Tool suite for Application Level Synthesis.
 
@@ -34,10 +34,11 @@ Tool suite for Application Level Synthesis.
 ```shell
 Arguments to get the configuration files and output directory
 
-
-Usage: sv-dse --graph <GRAPH> --constraint <CONSTRAINT_FILE> --library <ALIMP_LIB> --parameter <HYPER_PARAMETER> --technology <TECHNOLOGY_CONSTRAINT> --output <OUTPUT>
+Usage: sv-dse [OPTIONS] --graph <GRAPH> --constraint <CONSTRAINT_FILE> --library <ALIMP_LIB> --parameter <HYPER_PARAMETER> --technology <TECHNOLOGY_CONSTRAINT> --output <OUTPUT>
 
 Options:
+      --cpu <CPU_LIMIT>                     Set CPU limit
+      --memory <MEMORY_LIMIT>               Set memory limit in GB
   -g, --graph <GRAPH>                       SDF graph file
   -c, --constraint <CONSTRAINT_FILE>        global constraint file
   -l, --library <ALIMP_LIB>                 alimp library file
@@ -66,9 +67,11 @@ Options:
 ```shell
 Arguments to get the configuration files and output directory
 
-Usage: sv-asm --intermediate-representation <IR_OBJECT> --binary <OUTPUT>
+Usage: sv-asm [OPTIONS] --intermediate-representation <IR_OBJECT> --binary <OUTPUT>
 
 Options:
+      --cpu <CPU_LIMIT>                          Set CPU limit
+      --memory <MEMORY_LIMIT>                    Set memory limit in GB
   -i, --intermediate-representation <IR_OBJECT>  Input Intermediate Representation Object
   -o, --binary <OUTPUT>                          output directory
   -h, --help                                     Print help

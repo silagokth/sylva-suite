@@ -19,7 +19,7 @@ struct Args {
     #[arg(long = "cpu", help="Set CPU limit")]
     cpu_limit: Option<u64>,
 
-    #[arg(long = "memory", help="Set memory limit")]
+    #[arg(long = "memory", help="Set memory limit in GB")]
     memory_limit: Option<u64>,
 
     #[arg(short = 'g', long = "graph", help="SDF graph file")]
