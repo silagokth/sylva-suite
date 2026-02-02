@@ -533,7 +533,7 @@ impl fmt::Display for TransporterISA {
             BRN { r0, immediate } => {
                 write!(f, "BRN {} {}", fmt_reg(*r0), immediate)
             }
-            MOVC { r2, r1, r0, immediate } => {
+            MOVC { r0, r1, r2, immediate } => {
                 write!(
                     f,
                     "MOVC {} {} {} {}",
@@ -543,7 +543,7 @@ impl fmt::Display for TransporterISA {
                     immediate
                 )
             }
-            MOV { r1, r0, immediate } => {
+            MOV { r0, r1, immediate } => {
                 write!(
                     f,
                     "MOV {} {} {}",
@@ -552,7 +552,7 @@ impl fmt::Display for TransporterISA {
                     immediate
                 )
             }
-            CAL { r2, r1, r0, function } => {
+            CAL { r0, r1, r2, function } => {
                 write!(
                     f,
                     "CAL {} {} {} {}",
@@ -562,7 +562,7 @@ impl fmt::Display for TransporterISA {
                     function
                 )
             }
-            CALI { r2, r1, r0, function } => {
+            CALI { r0, r1, r2, function } => {
                 write!(
                     f,
                     "CALI {} {} {} {}",
