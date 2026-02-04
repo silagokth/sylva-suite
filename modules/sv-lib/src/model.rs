@@ -365,7 +365,7 @@ pub struct TransporterTable {
     pub to: u32,
     pub entries: Vec<TransportTableEntry>,
     pub ir: BTreeMap<i32, TransporterISA>, // time index -> instruction
-    pub binary: Vec<u16>, // final instruction code in binary
+    pub binary: Vec<u32>, // final instruction code in binary
     pub size: u32, // code size 
     pub placement: MemoryPlacement,
 }

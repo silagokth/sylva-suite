@@ -1,6 +1,6 @@
 use sv_lib::model::{DataBase, TransporterTable, TransporterISA}; 
 use sv_lib::file_handler;
-use log::{info, error};
+use log::{info, warn, error};
 use std::collections::{HashMap, BTreeMap};
 
 pub mod utils;
@@ -721,19 +721,12 @@ fn pass_sanity(
         return Err("Failed to fill NOP instructions because of trailing gap".into());
     }
 
-    // fill wait forever at the end
-    ir.insert(
-        max_index + 1,
-        TransporterISA::NOP {
-            immediate: 0,
-        }
-    );
-
     // 5. check value bound 
+    // ISA is updated - some of the following sections may not be utilised
     let all_registers: Vec<(u32, i32)> = utils::list_all_registers(&ir);
     
     for (_, value) in &all_registers {
-        if !utils::fits_signed_n_bit(10, *value) {
+        if !utils::fits_signed_n_bit(16, *value) {
             dump_error_debug(
                 transporter_table,
                 &ir,
@@ -757,12 +750,12 @@ fn pass_sanity(
             }
         };
 
-        if !utils::fits_unsigned_n_bit(13, immediate) {
+        if !utils::fits_unsigned_n_bit(16, immediate) || immediate == 0 {
             dump_error_debug(
                 transporter_table,
                 &ir,
                 &module_dir,
-                "Transporter code: NOP immediate out of unsigned 13-bit range",
+                "Transporter code: NOP immediate out of unsigned 16-bit range",
             )?;
         }
     }
@@ -773,7 +766,7 @@ fn pass_sanity(
     for &index in &all_mov_indices {
         match ir.get(&index) {
             Some(TransporterISA::MOV { immediate, .. }) => {
-                if !utils::fits_signed_n_bit(7, *immediate) {
+                if !utils::fits_signed_n_bit(16, *immediate) {
                     dump_error_debug(
                         transporter_table,
                         &ir,
@@ -800,8 +793,7 @@ fn pass_sanity(
         }
     }
 
-    let max_movc_range = (1 << 4) - 1; 
-    
+    let max_movc_range = (1 << 16) - 1; 
     for &movc_index in &movc_indices {
         // spilling for MOVC
         let (r0, r1, r2, immediate) = match ir.get(&movc_index) {
@@ -844,7 +836,14 @@ fn pass_sanity(
         }
     }
 
-
+    // [NECESSARY]fill wait forever at the end 
+    ir.insert(
+        max_index + 1,
+        TransporterISA::NOP {
+            immediate: 0,
+        }
+    );
+    
     // 6. check/change/report fire time and latency
     let current_fire_time = transporter_table.fire_time;
 
@@ -860,7 +859,8 @@ fn pass_sanity(
     let max_time_index = *ir.keys().next_back().unwrap();
 
     if min_time_index < 0 {
-        return Err("Failed to generate transport code with the current time constraints, needed optimisation".into());
+        // now, we allow to have negative fire times. We'll have to adjust the whole system leter
+        warn!("timing constraints for {} are strict - generating negative fire time", transporter_table.transporter_id);
     }
 
     // update transporter metadata
@@ -877,34 +877,34 @@ fn generate_code(
     transporter: &mut TransporterTable,
 ) -> Result<(), Box<dyn std::error::Error>> {
     
-   let mut code: Vec<u16> = Vec::new();
+   let mut code: Vec<u32> = Vec::new();
 
    for (_, inst_isa) in &transporter.ir {
-        let inst: u16 = match inst_isa {
+        let inst: u32 = match inst_isa {
             TransporterISA::NOP { immediate } => {
-                (0b000 << 13) | 
-                ((*immediate as u16) & 0x1FFF)
+                (0b0000 << 28) | 
+                ((*immediate as u32) & 0xFFFF)
             }
 
             TransporterISA::LDI { r0, immediate } => {
-                (0b010 << 13) | 
-                ((*r0 as u16 & 0x7) << 10) |
-                ((*immediate as u16) & 0x03FF)
+                (0b0010 << 28) | 
+                ((*r0 as u32 & 0xF) << 24) |
+                ((*immediate as u32) & 0xFFFF)
             }
 
             TransporterISA::MOV { r0, r1, immediate } => {
-                (0b101 << 13) | 
-                ((*r0 as u16 & 0x7) << 10) |
-                ((*r1 as u16 & 0x7) << 7) |
-                ((*immediate as u16) & 0x007F)
+                (0b1000 << 28) | 
+                ((*r0 as u32 & 0xF) << 24) |
+                ((*r1 as u32 & 0xF) << 20) |
+                ((*immediate as u32) & 0xFFFF)
             }
 
             TransporterISA::MOVC { r0, r1, r2, immediate } => {
-                (0b100 << 13) | 
-                ((*r0 as u16 & 0x7) << 10) |
-                ((*r1 as u16 & 0x7) << 7) |
-                ((*r2 as u16 & 0x7) << 4) |
-                ((*immediate as u16) & 0x000F)
+                (0b1001 << 28) | 
+                ((*r0 as u32 & 0xF) << 24) |
+                ((*r1 as u32 & 0xF) << 20) |
+                ((*r2 as u32 & 0xF) << 16) |
+                ((*immediate as u32) & 0xFFFF)
             }
 
             TransporterISA::OCCUPIED => {
