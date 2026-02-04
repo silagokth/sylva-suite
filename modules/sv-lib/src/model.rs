@@ -537,9 +537,9 @@ impl fmt::Display for TransporterISA {
                 write!(
                     f,
                     "MOVC {} {} {} {}",
-                    fmt_reg(*r2),
-                    fmt_reg(*r1),
                     fmt_reg(*r0),
+                    fmt_reg(*r1),
+                    fmt_reg(*r2),
                     immediate
                 )
             }
@@ -547,8 +547,8 @@ impl fmt::Display for TransporterISA {
                 write!(
                     f,
                     "MOV {} {} {}",
-                    fmt_reg(*r1),
                     fmt_reg(*r0),
+                    fmt_reg(*r1),
                     immediate
                 )
             }
@@ -556,9 +556,9 @@ impl fmt::Display for TransporterISA {
                 write!(
                     f,
                     "CAL {} {} {} {}",
-                    fmt_reg(*r2),
-                    fmt_reg(*r1),
                     fmt_reg(*r0),
+                    fmt_reg(*r1),
+                    fmt_reg(*r2),
                     function
                 )
             }
@@ -566,9 +566,9 @@ impl fmt::Display for TransporterISA {
                 write!(
                     f,
                     "CALI {} {} {} {}",
-                    fmt_reg(*r2),
-                    fmt_reg(*r1),
                     fmt_reg(*r0),
+                    fmt_reg(*r1),
+                    fmt_reg(*r2),
                     function
                 )
             }
