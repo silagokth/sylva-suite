@@ -304,6 +304,20 @@ pub struct AddressTranslation {
     pub app_node_id: String,
     pub port_id: String,
     pub address_assignment: HashMap<i32, (i32, i32, i32)>, // virtual address -> (from channel, bank index, physical address)
+    pub translation_table: HashMap<i32, TranslationTable>, // channel -> info    
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TLBImplementation {
+    AGU { value: u32, i: u32, j: u32, k: u32, stride_i: i32, stride_j: i32, stride_k: i32 },
+    TLB { size: u32, offset: u32, map: Vec<u32> }, 
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TranslationTable {
+    pub implementation: TLBImplementation,
+    pub program_code: Vec<u32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -578,6 +592,26 @@ impl fmt::Display for TransporterISA {
 
 
 
+impl fmt::Display for TLBImplementation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TLBImplementation::AGU { 
+                value, i, j, k, stride_i, stride_j, stride_k 
+            } => {
+                write!(f, 
+                    "AGU value={}, i={}, stride_i={}, j={}, stride_j={}, k={}, stride_k={}",
+                    value, i, stride_i, j, stride_j, k, stride_k
+                )
+            }
+            TLBImplementation::TLB { size, offset, map } => {
+                write!(f, 
+                    "TLB size={}, offset={}, map={:?}",
+                    size, offset, map
+                )
+            } 
+        }
+    }
+}
 
 
 

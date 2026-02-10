@@ -1,6 +1,7 @@
 use sv_lib::model::{TransporterISA}; 
 use std::collections::{HashMap, HashSet, BTreeMap};
 use crate::transporter::utils;
+use std::cmp::min;
 
 fn _def(inst: &TransporterISA) -> HashSet<u32> {
     let mut set = HashSet::new();
@@ -459,7 +460,7 @@ pub fn transforming_ir(
                 }
                 TransporterISA::LDI { r0, .. } => {
                     if *r0 == spilled_register {
-                        return Err(utils::RegAllocError::SpillingFail);
+                        return Err(utils::RegAllocError::InvalidGraph);
                     }
                 }
                 _ => {}
@@ -470,4 +471,42 @@ pub fn transforming_ir(
     Ok(())
 }
 
+
+
+pub fn retiming_ir(
+    ir: &mut BTreeMap<i32, TransporterISA>,
+) -> Result<(), utils::RegAllocError> {
+
+    // move all LDIs to before zero time 
+    let ldis: Vec<(i32, TransporterISA)> = ir.iter()
+        .filter(|(_t, inst)| {
+            matches!(
+                inst,
+                TransporterISA::LDI { .. }
+            )
+        })
+        .map(|(t, inst)| (*t, inst.clone()))
+        .collect();
+
+    if ldis.is_empty() {
+        return Err(utils::RegAllocError::InvalidGraph);
+    }
+
+    for (t, _) in &ldis {
+        ir.remove(t);
+    }
+
+    let earliest_time = ir.keys().min().copied().unwrap_or(0);
+    let before_time = min(0, earliest_time);
+    let time_slots = utils::find_free_times_before(ir, before_time, ldis.len());
+    
+    for ((_, inst), new_t) in ldis.into_iter().zip(time_slots.into_iter()) {
+        ir.insert(new_t, inst);
+    }
+ 
+    utils::tighten_ir_timing(ir)
+        .map_err(|_| utils::RegAllocError::InvalidGraph)?;
+    
+    Ok(())
+}
 

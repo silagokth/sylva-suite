@@ -392,6 +392,7 @@ fn update_synthesized_information(
                 app_node_id: nid.clone(),
                 port_id: out_port.clone(),
                 address_assignment: HashMap::new(),
+                translation_table: HashMap::new(),
             };
 
             for i in 0..assigned_address.len() {
@@ -435,6 +436,7 @@ fn update_synthesized_information(
                 app_node_id: nid.clone(),
                 port_id: in_port.clone(),
                 address_assignment: HashMap::new(),
+                translation_table: HashMap::new(),
             };
 
             for i in 0..assigned_address.len() {

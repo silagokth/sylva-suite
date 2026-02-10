@@ -491,12 +491,14 @@ fn memory_synthesis(
             app_node_id: edge.source_node.clone(),
             port_id: edge.source_port.clone(),
             address_assignment: HashMap::new(),
+            translation_table: HashMap::new(),
         };
        
         let mut target_assignment = AddressTranslation {
             app_node_id: edge.target_node.clone(),
             port_id: edge.target_port.clone(),
             address_assignment: HashMap::new(),
+            translation_table: HashMap::new(),
         };
 
         // To keep the information about transporter tables 

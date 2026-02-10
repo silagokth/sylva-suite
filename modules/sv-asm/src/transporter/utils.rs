@@ -309,3 +309,83 @@ pub fn live_range(
 }
 
 
+pub fn tighten_ir_timing(
+    ir: &mut BTreeMap<i32, TransporterISA>,
+) -> Result<(), Box<dyn std::error::Error>> {
+
+    let mut register_dependencies: HashMap<u32, u32> = HashMap::new();
+    
+    let mov_indices = list_all_mov_indices(&ir);
+    let reg_nums: Vec<u32> = list_all_registers(&ir)
+        .into_iter()
+        .map(|(r, _)| r)
+        .collect();
+
+    for &reg_num in &reg_nums {
+        let deps = get_number_of_dependencies(
+            &ir,
+            &mov_indices,
+            reg_num,
+        )?;
+
+        register_dependencies.insert(reg_num, deps);
+    }
+
+    let mut reg_deps_list: Vec<(u32, u32)> = register_dependencies
+        .iter()
+        .map(|(&idx, &deps)| (idx, deps))
+        .collect();
+
+    reg_deps_list.sort_by(|a, b| b.1.cmp(&a.1));
+
+    let sorted_reg_deps: Vec<u32> = 
+        reg_deps_list.iter().map(|&(r, _)| r).collect(); 
+
+    // map: reg -> MOV/MOVC dependency times
+    let mut mov_deps_times: HashMap<u32, Vec<i32>> = HashMap::new();
+    
+    for &reg_num in &sorted_reg_deps {
+        let times = list_mov_indices_to_reg(&ir, &mov_indices, reg_num)?;
+        if times.is_empty() {
+            return Err(format!("Expect MOV(C) dependencies").into());
+        }
+
+        mov_deps_times.insert(reg_num, times);
+    }
+
+    // iterative tightening
+    let mut improvement = true;
+    
+    while improvement {    
+        improvement = false;
+
+        for &reg_num in &sorted_reg_deps {
+            let time_indices = &mov_deps_times[&reg_num];
+            let min_time = *time_indices.iter().min().unwrap();
+
+            let current_time = match find_load_register_with_number(&ir, reg_num) {
+                Some((time, _)) => time,
+                None => return Err(format!("Expect LDI for r{}", reg_num).into()),
+            };
+
+            let new_slots = find_free_times_before(&ir, min_time, 1); 
+            let new_time = new_slots[0];
+            
+            if new_time > current_time {
+                let inst = ir
+                    .get(&current_time)
+                    .ok_or_else(|| format!("No instruction at {}", current_time))?
+                    .clone();
+
+                ir.insert(new_time, inst);
+                ir.remove(&current_time);
+                
+                improvement = true;
+            } 
+        }
+    }
+    
+    Ok(())
+}
+
+

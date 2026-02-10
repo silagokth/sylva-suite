@@ -477,7 +477,6 @@ fn pass_sanity(
     }
     
 
-
     let mut ir = transporter_table.ir.clone(); 
  
     // 1. remove unused registers
@@ -521,61 +520,11 @@ fn pass_sanity(
     }
 
     // 2. tighten the timing 
-    let mut reg_deps_list: Vec<(u32, u32)> = register_dependencies
-        .iter()
-        .map(|(&idx, &deps)| (idx, deps))
-        .collect();
-
-    reg_deps_list.sort_by_key(|&(_, deps)| deps);
-
-    let sorted_reg_deps: Vec<u32> = 
-        reg_deps_list.iter().map(|&(r, _)| r).collect(); 
-
-    // map: reg -> MOV/MOVC dependency times
-    let mut mov_deps_times: HashMap<u32, Vec<i32>> = HashMap::new();
-    
-    for &reg_num in &sorted_reg_deps {
-        let times = utils::list_mov_indices_to_reg(&ir, &mov_indices, reg_num)?;
-        if times.is_empty() {
-            return Err(format!("Expect MOV(C) dependencies").into());
-        }
-
-        mov_deps_times.insert(reg_num, times);
-    }
-
-    // iterative tightening
-    let mut improvement = true;
-    
-    while improvement {    
-        improvement = false;
-
-        for &reg_num in &sorted_reg_deps {
-            let time_indices = &mov_deps_times[&reg_num];
-            let min_time = *time_indices.iter().min().unwrap();
-
-            let current_time = match utils::find_load_register_with_number(&ir, reg_num) {
-                Some((time, _)) => time,
-                None => return Err(format!("Expect LDI for r{}", reg_num).into()),
-            };
-
-            let new_slots = utils::find_free_times_before(&ir, min_time, 1); 
-            let new_time = new_slots[0];
-            
-            if new_time > current_time {
-                let inst = ir
-                    .get(&current_time)
-                    .ok_or_else(|| format!("No instruction at {}", current_time))?
-                    .clone();
-
-                ir.insert(new_time, inst);
-                ir.remove(&current_time);
-                
-                improvement = true;
-            } 
-        }
-    }
+    utils::tighten_ir_timing(&mut ir)?; 
 
     // 3. actual register allocation
+    let mut try_retiming = true;
+    let mut number_of_retimes = 0;
     let mut number_of_spills = 0;
     let mut live_in; 
     let mut live_out;
@@ -612,13 +561,27 @@ fn pass_sanity(
         }
 
         match register_allocation::transforming_ir(&mut ir, spilled_register) {
-            Ok(_) => {},
+            Ok(_) => {
+                number_of_spills += 1;
+                if number_of_retimes < 10 {
+                    try_retiming = true;
+                }
+            },
+            Err(utils::RegAllocError::SpillingFail) => {
+                if try_retiming {  
+                    register_allocation::retiming_ir(&mut ir)?;
+                    try_retiming = false;
+                    number_of_retimes += 1;
+                } else {
+                    colouring_result = Err(utils::RegAllocError::SpillingFail);
+                    break;
+                }
+            },
             Err(e) => {
                 colouring_result = Err(e);
                 break;
             },
         }
-        number_of_spills += 1;
     }
     
     colouring = colouring.map(|a| {
@@ -638,6 +601,7 @@ fn pass_sanity(
         let mut debug_text = String::new();
         let _vertices: Vec<i32> = ir.keys().cloned().collect();
         debug_text.push_str(&format!("Number of spills = {}\n\n", number_of_spills));
+        debug_text.push_str(&format!("Number of retimes = {}\n\n", number_of_retimes));
         debug_text.push_str(&utils::format_liveness(&_vertices, &live_in, &live_out));
         debug_text.push_str(&utils::format_interference_graph(&graph_nodes, &graph_edges));
         debug_text.push_str(&utils::format_colouring(&colouring));
