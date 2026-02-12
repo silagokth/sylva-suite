@@ -187,7 +187,7 @@ fn apply_buffer(
 
         buffer_size <<= 1;
 
-        if buffer_size > 1 << 16 {
+        if buffer_size > (1 << 10) {
             return Err("Buffer size exploded; mapping likely sparse or invalid");
         }
     }
@@ -263,6 +263,7 @@ fn build_translation_table(
             TranslationTable {
                 implementation: chosen_impl,
                 program_code: Vec::new(), 
+                program_addr: Vec::new(),
             },
         );
     }
@@ -284,12 +285,13 @@ pub fn generate_code(
     }
 
     for (&col, table) in address_translation.translation_table.iter_mut() {
-        if col < 0 || col > ((1 << 5) - 1) {
-            return Err("Column exceeds 5-bit code field".into());
+        if col < 0 || col > ((1 << 4) - 1) {
+            return Err("Column exceeds 4-bit code field".into());
         }
 
         let col_u32 = col as u32;
     
+        let mut addr: Vec<u32> = Vec::new();
         let mut code: Vec<u32> = Vec::new();
 
         match &table.implementation {
@@ -308,34 +310,51 @@ pub fn generate_code(
                     }
                 }
             
-                code.push((col_u32 << 16) | (*value & 0xFFFF));
-                code.push((col_u32 << 16) | (*i & 0xFFFF));
-                code.push((col_u32 << 16) | (*j & 0xFFFF));
-                code.push((col_u32 << 16) | (*k & 0xFFFF));
+                addr.push((col_u32 << 12) | 0);
+                code.push(0); // reset 
+                
+                addr.push((col_u32 << 12) | 1);
+                code.push(*value & 0xFFFF);
+                addr.push((col_u32 << 12) | 2);
+                code.push(*i & 0xFFFF);
+                addr.push((col_u32 << 12) | 3);
+                code.push(*j & 0xFFFF);
+                addr.push((col_u32 << 12) | 4);
+                code.push(*k & 0xFFFF);
+                addr.push((col_u32 << 12) | 5);
+                code.push((*stride_i as i32 as u32) & 0xFFFF);
+                addr.push((col_u32 << 12) | 6);
+                code.push((*stride_j as i32 as u32) & 0xFFFF);
+                addr.push((col_u32 << 12) | 7);
+                code.push((*stride_k as i32 as u32) & 0xFFFF);
             
-                // pack signed 16-bit using two’s complement
-                code.push((col_u32 << 16) | ((*stride_i as i32 as u32) & 0xFFFF));
-                code.push((col_u32 << 16) | ((*stride_j as i32 as u32) & 0xFFFF));
-                code.push((col_u32 << 16) | ((*stride_k as i32 as u32) & 0xFFFF));
+                addr.push((col_u32 << 12) | 0);
+                code.push(1); // activate 
             }
             TLBImplementation::TLB { size, offset, map } => {
                 if !fits_u16(*size) || !fits_u16(*offset) {
                     return Err("TLB size/offset exceeds 16-bit unsigned range".into());
                 }
 
-                code.push((col_u32 << 16) | *offset);
+                addr.push((col_u32 << 12) | (1 << 11));
+                code.push(*offset);
 
-                for &entry in map.iter().take(*size as usize) {
+                for (i, &entry) in map.iter().enumerate().take(*size as usize) {
                     if !fits_u16(entry) {
                         return Err("TLB map entry exceeds 16-bit unsigned range".into());
                     }
-                    code.push((col_u32 << 16) | entry);
+                    if i >= (1 << 11) {
+                        return Err("TLB size exceeds 11-bit limit".into());
+                    }
+                    addr.push((col_u32 << 12) | (i & 0x3FF) as u32);
+                    code.push(entry & 0xFFFF);
                 }
             }
         }
 
         // store code per channel if needed
         table.program_code = code.clone();
+        table.program_addr = addr.clone();
     }
 
     Ok(())

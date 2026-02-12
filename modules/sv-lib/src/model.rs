@@ -318,6 +318,7 @@ pub enum TLBImplementation {
 pub struct TranslationTable {
     pub implementation: TLBImplementation,
     pub program_code: Vec<u32>,
+    pub program_addr: Vec<u32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
