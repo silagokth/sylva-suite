@@ -1,0 +1,152 @@
+/* AUTO-GENERATED DRRA CONFIGURATION C PROGRAM BY SYLVA EDA SUITE: DO NOT EDIT */
+
+#include <stdint.h>
+#include "drra_config.h"
+/* Define DRRA configured parameters */
+#define ROWS                    ((uint32_t) {{ROWS}})
+#define COLS                    ((uint32_t) {{COLS}})
+#define NUM_IN_TLBS             ((uint32_t) {{NUM_IN_TLBS}})
+#define NUM_OUT_TLBS            ((uint32_t) {{NUM_OUT_TLBS}})
+#define NUM_OUT_TPS             ((uint32_t) {{NUM_OUT_TPS}})
+
+
+#define MMIO32(addr)            (*(volatile uint32_t *)(addr))
+
+#define DRRA_CONFIG_LOADER      MMIO32(0x10000000)
+#define DRRA_START_ADDR_LOADER  MMIO32(0x10000004)
+#define DRRA_NUM_INSTR_LOADER   MMIO32(0x10000008)
+#define DRRA_INSTR_LOADER       MMIO32(0x1000000C)
+
+#define IB_TRANSLATION_BASE     0x10100000u
+#define OB_TRANSLATION_BASE     0x10200000u
+#define TRANSPORTER_BASE        0x10300000u
+
+
+
+typedef struct {
+    uint32_t insts_raw[{{DRRA_INSTS_RAW_LENGTH}}];
+    uint32_t inst_offset_cells[ROWS][COLS];
+    uint32_t num_insts_cells[ROWS][COLS];
+    uint32_t start_addr_cells[ROWS][COLS];
+} drra_config_t;
+
+const drra_config_t drra_cfg = {
+    .insts_raw = { {{DRRA_INSTS_RAW}} },
+    .inst_offset_cells = { {{DRRA_OFFSET_CELLS}} },
+    .num_insts_cells = { {{DRRA_NUM_INSTS}} },
+    .start_addr_cells = { {{DRRA_START_ADDRS}} }
+};
+
+
+static void load_instructions(
+    uint32_t start_addr, 
+    uint32_t num_insts, 
+    uint32_t row, 
+    uint32_t col,
+    volatile uint32_t *instructions
+) {
+
+    DRRA_CONFIG_LOADER = 
+        ((col & 0xFFFF) << 16) | 
+        ((row & 0xFF) << 8) | 
+        1;
+    
+    DRRA_START_ADDR_LOADER = start_addr;
+    DRRA_NUM_INSTR_LOADER  = num_insts;
+   
+    for (uint32_t i = 0; i < num_insts; i++) {
+        DRRA_INSTR_LOADER = instructions[i];
+    }
+
+    DRRA_CONFIG_LOADER = 0;
+}
+
+
+void drra_inst_loader(void) {
+    for (uint32_t i = 0; i < ROWS; i++) {
+        for (uint32_t j = 0; j < COLS; j++) {
+            load_instructions(
+                drra_cfg.start_addr_cells[i][j], 
+                drra_cfg.num_insts_cells[i][j], 
+                i, j, 
+                &drra_cfg.insts_raw[drra_cfg.inst_offset_cells[i][j]]
+            );
+        }
+    } 
+}
+
+
+const uint32_t in_tlb_pre_ptrs[NUM_IN_TLBS] = { {{IN_TLB_PRE_PTRS}} };
+const uint32_t in_tlb_pres[NUM_IN_TLBS]     = { {{IN_TLB_PRES}} };
+
+const uint32_t in_tlb_offsets[NUM_IN_TLBS]  = { {{IN_TLB_OFFSETS}} };
+const uint32_t in_tlb_lengths[NUM_IN_TLBS]  = { {{IN_TLB_LENGTHS}} };
+
+const uint32_t in_tlb_code[] = {
+    {{IN_TLB_CODE_FLAT}}
+};
+
+void initial_in_tlb(void) {
+    for (uint32_t id = 0; id < NUM_IN_TLBS; id++) {
+        volatile uint32_t * base =
+            (volatile uint32_t *)(IB_TRANSLATION_BASE | (id << 16));
+    
+        *(base + in_tlb_pre_ptrs[id]) = in_tlb_pres[id];
+    
+        uint32_t offset = in_tlb_offsets[id];
+        uint32_t len    = in_tlb_lengths[id];
+    
+        for (uint32_t i = 0; i < len; i++) {
+            *(base + i) = in_tlb_code[offset + i];
+        }
+    }
+}
+
+
+const uint32_t out_tlb_pre_ptrs[NUM_OUT_TLBS] = { {{OUT_TLB_PRE_PTRS}} };
+const uint32_t out_tlb_pres[NUM_OUT_TLBS]     = { {{OUT_TLB_PRES}} };
+
+const uint32_t out_tlb_offsets[NUM_OUT_TLBS]  = { {{OUT_TLB_OFFSETS}} };
+const uint32_t out_tlb_lengths[NUM_OUT_TLBS]  = { {{OUT_TLB_LENGTHS}} };
+
+const uint32_t out_tlb_code[] = {
+    {{OUT_TLB_CODE_FLAT}}
+};
+
+void initial_out_tlb(void) {
+    for (uint32_t id = 0; id < NUM_OUT_TLBS; id++) {
+        volatile uint32_t * base =
+            (volatile uint32_t *)(OB_TRANSLATION_BASE | (id << 16));
+    
+        *(base + out_tlb_pre_ptrs[id]) = out_tlb_pres[id];
+    
+        uint32_t offset = out_tlb_offsets[id];
+        uint32_t len    = out_tlb_lengths[id];
+    
+        for (uint32_t i = 0; i < len; i++) {
+            *(base + i) = out_tlb_code[offset + i];
+        }
+    }    
+}
+
+
+const uint32_t out_tp_offsets[NUM_OUT_TPS]  = { {{OUT_TP_OFFSETS}} };
+const uint32_t out_tp_lengths[NUM_OUT_TPS]  = { {{OUT_TP_LENGTHS}} };
+
+const uint32_t out_tp_code[] = {
+    {{OUT_TP_CODE_FLAT}}
+};
+
+void initial_tp(void) {
+    for (uint32_t id = 0; id < NUM_OUT_TPS; id++) {
+        volatile uint32_t * base =
+            (volatile uint32_t *)(TRANSPORTER_BASE | (id << 16));
+     
+        uint32_t offset = out_tp_offsets[id];
+        uint32_t len    = out_tp_lengths[id];
+
+        for (uint32_t i = 0; i < len; i++) {
+            *(base + i) = out_tp_code[offset + i];
+        }
+    }
+}

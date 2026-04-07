@@ -8,6 +8,7 @@ mod route;
 mod noc;
 mod tlb;
 mod transporter;
+mod control;
 
 
 /// Arguments to get the configuration files and output directory 
@@ -62,9 +63,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     noc::run(&mut db, &args.output)?;
     tlb::run(&mut db, &args.output)?;
     transporter::run(&mut db, &args.output)?;
-    // Transporter instructions:
-    // Simulation
-    // Assembler
+    control::run(&mut db, &args.output)?;
 
     /* save synthesized information */
     let bin_file = format!("{}/db_asm.bin", args.output);

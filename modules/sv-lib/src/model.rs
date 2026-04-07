@@ -97,6 +97,8 @@ pub struct AlimpEntry {
     pub instances: Vec<AlimpInstance>,
 }
 
+
+
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AlimpInstance {
@@ -122,8 +124,15 @@ pub struct AlimpInstance {
     pub input_addr_time_patterns: Vec<AddressPatterns>,
     #[serde(default)]
     pub output_addr_time_patterns: Vec<AddressPatterns>,
+    #[serde(default)]
+    pub instruction_code: Vec<u32>, 
+    #[serde(default)]
+    pub instruction_offsets: Vec<Vec<u32>>, 
+    #[serde(default)]
+    pub number_of_instructions: Vec<Vec<u32>>,
+    #[serde(default)]
+    pub start_address_cells: Vec<Vec<u32>>,
 }
-
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -272,6 +281,7 @@ pub struct SynthesizedInformation {
     pub address_translations: Vec<AddressTranslation>,
     pub memory_synthesis: Vec<MemorySynthesis>,
     pub transporter_tables: Vec<TransporterTable>,
+    pub control_synthesis: ControlSynthesis,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -412,6 +422,57 @@ pub struct AddressPatterns {
     #[serde(default)]
     pub time: i32,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TlbBlock {
+    pub pre_ptr: u32,       
+    pub pre: u32,           
+    pub code: Vec<u32>,     
+    pub offset: usize,      
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TpBlock {
+    pub code: Vec<u32>,
+    pub offset: usize,  
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct DrraConfig {
+    pub insts_raw: Vec<u32>, 
+    pub inst_offset_cells: Vec<Vec<usize>>, 
+    pub num_insts_cells: Vec<Vec<usize>>,
+    pub start_addr_cells: Vec<Vec<u32>>,
+    pub in_tlbs: Vec<TlbBlock>,
+    pub out_tlbs: Vec<TlbBlock>,
+    pub tps: Vec<TpBlock>,
+}
+
+
+
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ControlSynthesis {
+    pub ir_drra_config: HashMap<String, DrraConfig>, 
+//    pub hardware_configs: HashMap<String, HardwareConfig>,
+//    pub firmware_bin: HashMap<String, Vec<u32>>,
+//  host
+}
+
+
+
+
+
+
+
+
+
+
+
 
 impl DataBase {
     pub fn new() -> Self {

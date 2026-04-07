@@ -310,25 +310,25 @@ pub fn generate_code(
                     }
                 }
             
-                addr.push((col_u32 << 12) | 0);
+                addr.push((col_u32 << 16) | (0 << 2));
                 code.push(0); // reset 
                 
-                addr.push((col_u32 << 12) | 1);
+                addr.push((col_u32 << 16) | (1 << 2));
                 code.push(*value & 0xFFFF);
-                addr.push((col_u32 << 12) | 2);
+                addr.push((col_u32 << 16) | (2 << 2));
                 code.push(*i & 0xFFFF);
-                addr.push((col_u32 << 12) | 3);
+                addr.push((col_u32 << 16) | (3 << 2));
                 code.push(*j & 0xFFFF);
-                addr.push((col_u32 << 12) | 4);
+                addr.push((col_u32 << 16) | (4 << 2));
                 code.push(*k & 0xFFFF);
-                addr.push((col_u32 << 12) | 5);
+                addr.push((col_u32 << 16) | (5 << 2));
                 code.push((*stride_i as i32 as u32) & 0xFFFF);
-                addr.push((col_u32 << 12) | 6);
+                addr.push((col_u32 << 16) | (6 << 2));
                 code.push((*stride_j as i32 as u32) & 0xFFFF);
-                addr.push((col_u32 << 12) | 7);
+                addr.push((col_u32 << 16) | (7 << 2));
                 code.push((*stride_k as i32 as u32) & 0xFFFF);
             
-                addr.push((col_u32 << 12) | 0);
+                addr.push((col_u32 << 16) | (0 << 2));
                 code.push(1); // activate 
             }
             TLBImplementation::TLB { size, offset, map } => {
@@ -336,17 +336,17 @@ pub fn generate_code(
                     return Err("TLB size/offset exceeds 16-bit unsigned range".into());
                 }
 
-                addr.push((col_u32 << 12) | (1 << 11));
+                addr.push((col_u32 << 16) | (1 << 15));
                 code.push(*offset);
 
                 for (i, &entry) in map.iter().enumerate().take(*size as usize) {
                     if !fits_u16(entry) {
                         return Err("TLB map entry exceeds 16-bit unsigned range".into());
                     }
-                    if i >= (1 << 11) {
-                        return Err("TLB size exceeds 11-bit limit".into());
+                    if i >= (1 << 12) {
+                        return Err("TLB size exceeds 12bit limit".into());
                     }
-                    addr.push((col_u32 << 12) | (i & 0x3FF) as u32);
+                    addr.push((col_u32 << 16) | (i << 2) as u32);
                     code.push(entry & 0xFFFF);
                 }
             }
