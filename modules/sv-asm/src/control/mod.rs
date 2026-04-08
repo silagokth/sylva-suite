@@ -1,16 +1,16 @@
 use sv_lib::model::{DataBase}; 
-use sv_lib::file_handler;
+//use sv_lib::file_handler;
 use log::{info, error};
-use std::collections::{HashMap};
+//use std::collections::{HashMap};
 use std::process::Command;
 use std::path::{Path, PathBuf};
 use std::fs;
 
-/*
-pub mod utils;
+
+//pub mod utils;
 mod alimp_syn;
-mod glocal_syn;
-*/
+//mod glocal_syn;
+
 
 fn runc(
     cmd: &mut Command
@@ -46,7 +46,7 @@ fn copy_dir_all(
 fn get_alimp_sys(
     dir: &String,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let token = env::var("GITHUB_TOKEN").map_err(|e| {
+    let token = std::env::var("GITHUB_TOKEN").map_err(|e| {
         error!("GITHUB_TOKEN is not present or invalid: {}", e);
         e
     })?;
@@ -119,21 +119,21 @@ pub fn run(
     };
    
     /* Create an Alimp system environment */
-    get_alimp_sys(&module_dir)?;
+    //get_alimp_sys(&module_dir)?;
     info!("Complete creating AlImp system");
 
-    /*
+    
     /* AlImp local control synthesis */
     let node_ids: Vec<String> = db.synthesized_information.alimp_bindings
         .iter()
-        .map(|b| b.app_node_id)
+        .map(|b| b.app_node_id.clone())
         .collect();
 
     for node_id in node_ids {
         info!("running AlImp Synthesis for {}", node_id);
-        alimp_syn::main(db, node_id, module_dir);
+        alimp_syn::main(db, &node_id, &module_dir)?;
     }
-
+/*
     /* Glocal Control synthesis */
     info!("running global control synthesis");
     global_syn::main(db, module_dir);

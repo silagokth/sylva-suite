@@ -63,6 +63,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     noc::run(&mut db, &args.output)?;
     tlb::run(&mut db, &args.output)?;
     transporter::run(&mut db, &args.output)?;
+    let bin_file0 = format!("{}/db_asm_before_control.bin", args.output);
+    file_handler::write_json_file(&bin_file0, &db)?;
     control::run(&mut db, &args.output)?;
 
     /* save synthesized information */

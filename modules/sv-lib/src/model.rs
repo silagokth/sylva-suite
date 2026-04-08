@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct DataBase {
     pub app_graph: AppGraph,
@@ -19,7 +19,7 @@ pub struct DataBase {
 }
 
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AppGraph{
     pub nodes: Vec<AppNode>,
@@ -73,7 +73,7 @@ pub struct AppEdge {
 }
 
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct GlobalConstraint {
     pub max_width: i32,
@@ -84,13 +84,13 @@ pub struct GlobalConstraint {
 }
 
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AlimpLibrary {
     pub entries: Vec<AlimpEntry>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AlimpEntry {
     pub func: String,
@@ -134,7 +134,7 @@ pub struct AlimpInstance {
     pub start_address_cells: Vec<Vec<u32>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct HyperParameter {
     pub bind_w_area: i32,
@@ -146,7 +146,7 @@ pub struct HyperParameter {
 }
  
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TechConstraint {
     pub width_grid: f64, // um
@@ -165,14 +165,14 @@ pub struct TechConstraint {
     pub timing_table: Vec<TimingRow>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TimingRow {
     pub rows: Vec<f64>,
 }
  
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct RoutingGraph {
     pub nodes: Vec<Node>,
@@ -180,14 +180,14 @@ pub struct RoutingGraph {
     pub channels: Vec<Channel>,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Node {
     pub id: String,
     pub weight: f64,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Edge {
     pub source: String,
@@ -195,7 +195,7 @@ pub struct Edge {
     pub weight: f64,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Channel {
     pub app_edge_id: String,
@@ -205,7 +205,7 @@ pub struct Channel {
     pub path: Vec<Vec<String>>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FloorPlan {
     pub app_node_ids: Vec<String>,
@@ -225,14 +225,14 @@ pub struct FloorPlan {
     pub conn: Vec<u32>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct RectanglePosition {
     pub x: i32,
     pub y: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct RectangleShape {
     pub width: i32,
@@ -240,7 +240,7 @@ pub struct RectangleShape {
 }
 
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct CostMetric {
     pub width: i32,
@@ -252,13 +252,13 @@ pub struct CostMetric {
 }
  
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AlimpBindingOption {
     pub alimp_bindings: Vec<AlimpBinding>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AlimpBinding {
     pub app_node_id: String,
@@ -266,7 +266,7 @@ pub struct AlimpBinding {
 }
 
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct SynthesizedInformation {
     pub alimp_bindings: Vec<AlimpBinding>,
@@ -284,7 +284,7 @@ pub struct SynthesizedInformation {
     pub control_synthesis: ControlSynthesis,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Placement {
     pub app_node_id: String,
@@ -292,7 +292,7 @@ pub struct Placement {
     pub y: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct RoutingPath {
     pub app_edge_id: String,
@@ -300,7 +300,7 @@ pub struct RoutingPath {
     pub delay: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Coordinate {
     pub x: u32,
@@ -308,7 +308,7 @@ pub struct Coordinate {
     pub port: u32, // 0: normal, 1: output, 2: input
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AddressTranslation {
     pub app_node_id: String,
@@ -331,7 +331,7 @@ pub struct TranslationTable {
     pub program_addr: Vec<u32>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct MemorySynthesis {
     pub app_node_id: String,
@@ -340,7 +340,7 @@ pub struct MemorySynthesis {
     pub memory_structure: Vec<MemoryStructure>, 
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct MemoryStructure {
     pub memory_type: String,
@@ -379,7 +379,7 @@ pub enum TransporterISA {
     CALI { r2: u32, r1: u32, r0: u32, function: TransporterISAFunc },
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TransporterTable {
     pub transporter_id: String,
@@ -395,7 +395,7 @@ pub struct TransporterTable {
     pub placement: MemoryPlacement,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TransportTableEntry {
     pub relative_time: i32,
@@ -403,7 +403,7 @@ pub struct TransportTableEntry {
     pub target_address: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct MemoryPlacement {
     pub x: i32,
@@ -412,7 +412,7 @@ pub struct MemoryPlacement {
     pub height: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AddressPatterns {
     #[serde(default)]
@@ -423,28 +423,30 @@ pub struct AddressPatterns {
     pub time: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TlbBlock {
     pub pre_ptr: u32,       
     pub pre: u32,           
     pub code: Vec<u32>,     
-    pub offset: usize,      
+    pub offset: u32,      
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TpBlock {
     pub code: Vec<u32>,
-    pub offset: usize,  
+    pub offset: u32,  
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct DrraConfig {
+    pub rows: u32,
+    pub cols: u32,
     pub insts_raw: Vec<u32>, 
-    pub inst_offset_cells: Vec<Vec<usize>>, 
-    pub num_insts_cells: Vec<Vec<usize>>,
+    pub insts_offset_cells: Vec<Vec<u32>>, 
+    pub num_insts_cells: Vec<Vec<u32>>,
     pub start_addr_cells: Vec<Vec<u32>>,
     pub in_tlbs: Vec<TlbBlock>,
     pub out_tlbs: Vec<TlbBlock>,
@@ -454,7 +456,7 @@ pub struct DrraConfig {
 
 
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ControlSynthesis {
     pub ir_drra_config: HashMap<String, DrraConfig>, 
@@ -545,7 +547,9 @@ impl DataBase {
                 latency: 0,
                 period: 0,
             },
-            alimp_binding_options: vec![] ,
+            alimp_binding_options: vec![],
+            synthesized_information: SynthesizedInformation::default(),
+            /*
             synthesized_information: SynthesizedInformation {
                 alimp_bindings: vec![],
                 placements: vec![],
@@ -559,7 +563,7 @@ impl DataBase {
                 address_translations: vec![],
                 memory_synthesis: vec![],
                 transporter_tables: vec![],
-            },
+            },*/
         }
     }
 }
