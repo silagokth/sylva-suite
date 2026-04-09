@@ -1,0 +1,108 @@
+/* AUTO-GENERATED LINKER FILE BY SYLVA EDA SUITE: DO NOT EDIT */
+
+
+ENTRY(_start)
+
+/* ========================================================= */
+/* Memory Regions */
+/* ========================================================= */
+
+MEMORY
+{
+    INST_MEM   (rx)  : ORIGIN = 0x00000000, LENGTH = {{INST_MEM_LENGTH}}      
+    DATA_MEM   (rwx) : ORIGIN = 0x00010000, LENGTH = {{DATA_MEM_LENGTH}} 
+    SHARED_MEM (rw)  : ORIGIN = 0x00020000, LENGTH = {{SHARE_MEM_LENGTH}}   
+}
+
+/* ========================================================= */
+/* Sections */
+/* ========================================================= */
+
+SECTIONS
+{
+
+/* --------------------------------------------------------- */
+/* Fixed Part 2 Blob */
+/* --------------------------------------------------------- */
+
+.part2 {{PART1_SIZE}} : /* PART2 STARTS AFTER PART1 */
+{
+    __part2_start = .;
+    KEEP(*(.text.part2))
+    KEEP(*(.text.part2.*))
+    . = ALIGN(4);
+    __part2_end = .;
+} > INST_MEM
+
+ASSERT(SIZEOF(.part2) <= {{PART2_SIZE}}, "ERROR: Part2 exceeds limit!")
+
+
+/* --------------------------------------------------------- */
+/* Part 1 (Initialization & Housekeeping) */
+/* --------------------------------------------------------- */
+
+.part1 0x00000000 :
+{
+    . = ALIGN(4);
+
+    KEEP(*(.init))
+    KEEP(*(.text.startup*))
+    KEEP(*(.text.part1*))
+
+    *(.text*)
+    *(.rodata*)
+
+    . = ALIGN(4);
+} > INST_MEM
+
+ASSERT(SIZEOF(.part1) <= {{PART1_SIZE}}, "ERROR: Part1 exceeds limit!")
+
+/* --------------------------------------------------------- */
+/* Data Section */
+/* --------------------------------------------------------- */
+
+.data :
+{
+    . = ALIGN(4);
+    __data_start = .;
+    *(.data*)
+    . = ALIGN(4);
+    __data_end = .;
+} > DATA_MEM AT > INST_MEM
+
+__data_load = LOADADDR(.data);
+
+/* --------------------------------------------------------- */
+/* BSS */
+/* --------------------------------------------------------- */
+
+.bss (NOLOAD) :
+{
+    . = ALIGN(4);
+    __bss_start = .;
+    *(.bss*)
+    *(COMMON)
+    . = ALIGN(4);
+    __bss_end = .;
+} > DATA_MEM
+
+/* --------------------------------------------------------- */
+/* Shared Memory */
+/* --------------------------------------------------------- */
+
+.shared (NOLOAD) :
+{
+    . = ALIGN(4);
+    __shared_start = .;
+    *(.shared*)
+    . = ALIGN(4);
+    __shared_end = .;
+} > SHARED_MEM
+
+/* --------------------------------------------------------- */
+/* Stack */
+/* --------------------------------------------------------- */
+
+__stack_top = ORIGIN(DATA_MEM) + LENGTH(DATA_MEM);
+
+}

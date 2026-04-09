@@ -24,8 +24,8 @@ where
 
 /// Writes a string to a file, with filename-aware error reporting.
 #[allow(dead_code)]
-pub fn write_file(filename: &str, string: String) -> Result<(), Box<dyn Error>> {
-    fs::write(filename, string)
+pub fn write_file<C: AsRef<[u8]>>(filename: &str, contents: C) -> Result<(), Box<dyn Error>> {
+    fs::write(filename, contents)
         .map_err(|e| -> Box<dyn Error> {format!("Error writing to file '{}': {}", filename, e).into()})
 }
 

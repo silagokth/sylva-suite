@@ -132,6 +132,8 @@ pub struct AlimpInstance {
     pub number_of_instructions: Vec<Vec<u32>>,
     #[serde(default)]
     pub start_address_cells: Vec<Vec<u32>>,
+    #[serde(default)]
+    pub kernel_object: ObjectFile,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -453,21 +455,53 @@ pub struct DrraConfig {
     pub tps: Vec<TpBlock>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ArchConfig {
+    pub inst_mem_length: u32,
+    pub data_mem_length: u32,
+    pub share_mem_length: u32,
+    pub part1_size: u32,
+    pub part2_size: u32, 
+}
 
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AlimpControlSynthesis {
+    pub ir_drra_config: DrraConfig,
+    pub arch_config: ArchConfig,
+    pub kernel_object: ObjectFile,
+    pub firmware_object: ObjectFile,
+}
 
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ControlSynthesis {
-    pub ir_drra_config: HashMap<String, DrraConfig>, 
-//    pub hardware_configs: HashMap<String, HardwareConfig>,
-//    pub firmware_bin: HashMap<String, Vec<u32>>,
+    pub alimp_control_synthesis: HashMap<String, AlimpControlSynthesis>, 
 //  host
 }
 
 
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub enum ObjectFormat {
+    Elf32Le,
+    Elf32Be,
+    Elf64Le,
+    Elf64Be,
+    #[default]
+    Binary,
+    Hex,
+}
 
 
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ObjectFile {
+    pub name: String,
+    pub format: ObjectFormat,
+    pub data: Vec<u8>,   // ALWAYS raw bytes
+}
 
 
 

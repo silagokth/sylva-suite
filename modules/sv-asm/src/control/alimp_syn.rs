@@ -1,5 +1,5 @@
-use sv_lib::model::{DataBase, DrraConfig, TlbBlock, TpBlock,
-                    TranslationTable}; 
+use sv_lib::model::{DataBase, AlimpControlSynthesis, DrraConfig,
+                    ArchConfig, TlbBlock, TpBlock, TranslationTable}; 
 use sv_lib::{file_handler};
 use std::collections::{HashMap};
 use log::{error};
@@ -11,7 +11,11 @@ static TERA: Lazy<Tera> = Lazy::new(|| {
     let mut tera = Tera::default();
     tera.add_raw_template(
         "drra_config.c",
-        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/control/templates/drra_config.c.tmpl"))
+        include_str!("templates/drra_config.c.tmpl")
+    ).unwrap();
+    tera.add_raw_template(
+        "sections.lds",
+        include_str!("templates/sections.lds.tmpl")
     ).unwrap();
     tera
 });
@@ -62,21 +66,26 @@ fn get_drra_config(
             return Err(error_string.clone().into());
         }
     }
+    
+    if alimp.kernel_object.name.is_empty() {
+        return Err(format!("No kernel object available for node {}", node_id).into());
+    }
 
     // --- get mutable reference to config ---
     let cfg = db
         .synthesized_information
         .control_synthesis
-        .ir_drra_config
+        .alimp_control_synthesis
         .get_mut(node_id)
         .ok_or_else(|| format!("DRRA config for {} not initialized", node_id))?;
 
-    cfg.rows = rows as u32;
-    cfg.cols = cols as u32;
-    cfg.insts_raw = alimp.instruction_code.clone();
-    cfg.insts_offset_cells = alimp.instruction_offsets.clone();
-    cfg.num_insts_cells = alimp.number_of_instructions.clone();
-    cfg.start_addr_cells = alimp.start_address_cells.clone();
+    cfg.ir_drra_config.rows = rows as u32;
+    cfg.ir_drra_config.cols = cols as u32;
+    cfg.ir_drra_config.insts_raw = alimp.instruction_code.clone();
+    cfg.ir_drra_config.insts_offset_cells = alimp.instruction_offsets.clone();
+    cfg.ir_drra_config.num_insts_cells = alimp.number_of_instructions.clone();
+    cfg.ir_drra_config.start_addr_cells = alimp.start_address_cells.clone();
+    cfg.kernel_object = alimp.kernel_object.clone();
 
     Ok(())
 }
@@ -182,12 +191,12 @@ fn get_tlb_config(
     let cfg = db
         .synthesized_information
         .control_synthesis
-        .ir_drra_config
+        .alimp_control_synthesis
         .get_mut(node_id)
         .ok_or_else(|| format!("DRRA config for {} not initialized", node_id))?;
 
-    cfg.in_tlbs = in_blocks;
-    cfg.out_tlbs = out_blocks;
+    cfg.ir_drra_config.in_tlbs = in_blocks;
+    cfg.ir_drra_config.out_tlbs = out_blocks;
 
     Ok(())
 }
@@ -282,21 +291,17 @@ fn get_tp_config(
     let cfg = db
         .synthesized_information
         .control_synthesis
-        .ir_drra_config
+        .alimp_control_synthesis
         .get_mut(node_id)
         .ok_or_else(|| format!("DRRA config for {} not initialized", node_id))?;
 
-    cfg.tps = blocks;
+    cfg.ir_drra_config.tps = blocks;
 
     Ok(())
 }
 
-
-
-
 #[derive(Serialize)]
 struct DrraTemplateCtx {
-    // basic counts
     #[serde(rename = "ROWS")]
     rows: u32,
     #[serde(rename = "COLS")]
@@ -349,6 +354,25 @@ struct DrraTemplateCtx {
     out_tp_code_flat: String,
 }
 
+
+#[derive(Serialize)]
+struct LinkerTemplateCtx {
+    #[serde(rename = "INST_MEM_LENGTH")]
+    inst_mem_length: String,
+    #[serde(rename = "DATA_MEM_LENGTH")]
+    data_mem_length: String,
+    #[serde(rename = "SHARE_MEM_LENGTH")]
+    share_mem_length: String,
+    #[serde(rename = "PART1_SIZE")]
+    part1_size: String,
+    #[serde(rename = "PART2_SIZE")]
+    part2_size: String,
+}
+
+fn to_hex(u: u32) -> String {
+    format!("0x{:08X}", u)
+}
+
 fn vec_to_c_array(v: &[u32]) -> String {
     v.iter()
         .map(|x| format!("0x{:08X}", x))
@@ -369,12 +393,46 @@ fn vec2d_to_c(v: &[Vec<u32>]) -> String {
         .join(", ")
 }
 
-fn generate_config_firmware_code(
+fn estimate_drra_code_size(cfg: &DrraConfig) -> usize {
+    let mut size = 0;
+
+    // insts_raw
+    size += cfg.insts_raw.len() * 4;
+
+    // 2D arrays
+    let rc = (cfg.rows * cfg.cols) as usize;
+    size += 3 * rc * 4;
+
+    // in_tlbs
+    for b in &cfg.in_tlbs {
+        size += 12; 
+        size += b.code.len() * 4;
+    }
+
+    // out_tlbs
+    for b in &cfg.out_tlbs {
+        size += 12;
+        size += b.code.len() * 4;
+    }
+
+    // tps
+    for b in &cfg.tps {
+        size += 4; 
+        size += b.code.len() * 4;
+    }
+
+    size
+}
+
+
+
+fn generate_firmware_code(
     db: &mut DataBase, 
     node_id: &String, 
     dir: &String,
 ) -> Result<(), Box<dyn std::error::Error>> {
 
+    // ---------- getting config information ----------
     get_drra_config(db, node_id)?;
     get_tlb_config(db, node_id)?;
     get_tp_config(db, node_id)?;
@@ -382,40 +440,67 @@ fn generate_config_firmware_code(
     let cfg = db
         .synthesized_information
         .control_synthesis
-        .ir_drra_config
-        .get(node_id)
+        .alimp_control_synthesis
+        .get_mut(node_id)
         .ok_or("Missing config")?;
     
-    // ---------- helpers ----------
-    let in_tlb_pre_ptrs: Vec<u32> = cfg.in_tlbs.iter().map(|m| m.pre_ptr).collect();
-    let in_tlb_pres: Vec<u32> = cfg.in_tlbs.iter().map(|m| m.pre).collect();
-    let in_tlb_offsets: Vec<u32> = cfg.in_tlbs.iter().map(|m| m.offset).collect();
-    let in_tlb_lengths: Vec<u32> = cfg.in_tlbs.iter().map(|m| m.code.len() as u32).collect();
-    let in_tlb_code_flat: Vec<u32> = cfg.in_tlbs.iter().flat_map(|m| m.code.iter().copied()).collect();
+    // ---------- architecture config ----------
+    let mut architecture = ArchConfig {
+        inst_mem_length: 1024,  // FIXED
+        data_mem_length: 0,     // FLEXIBLE
+        share_mem_length: 128,  // FIXED
+        part1_size: 768,        // FIXED
+        part2_size: 256,        // FIXED
+    };
     
-    let out_tlb_pre_ptrs: Vec<u32> = cfg.out_tlbs.iter().map(|m| m.pre_ptr).collect();
-    let out_tlb_pres: Vec<u32> = cfg.out_tlbs.iter().map(|m| m.pre).collect();
-    let out_tlb_offsets: Vec<u32> = cfg.out_tlbs.iter().map(|m| m.offset).collect();
-    let out_tlb_lengths: Vec<u32> = cfg.out_tlbs.iter().map(|m| m.code.len() as u32).collect();
-    let out_tlb_code_flat: Vec<u32> = cfg.out_tlbs.iter().flat_map(|m| m.code.iter().copied()).collect();
+    let estimate_data_size = estimate_drra_code_size(&cfg.ir_drra_config);
     
-    let out_tp_offsets: Vec<u32> = cfg.tps.iter().map(|m| m.offset).collect();
-    let out_tp_lengths: Vec<u32> = cfg.tps.iter().map(|m| m.code.len() as u32).collect();
-    let out_tp_code_flat: Vec<u32> = cfg.tps.iter().flat_map(|m| m.code.iter().copied()).collect();
+    // ---------- decision ----------
+    architecture.data_mem_length = match estimate_data_size {
+        s if s < 512        => 1024,
+        s if s < 1024       => 2 * 1024,
+        s if s < 2 * 1024   => 4 * 1024,
+        s if s < 4 * 1024   => 8 * 1024,
+        s if s < 8 * 1024   => 16 * 1024,
+        _ => {
+            return Err(format!(
+                "AlImp {} data memory size explodes ({} bytes)",
+                node_id, estimate_data_size
+            ).into());
+        }
+    };
+
+    cfg.arch_config = architecture;
+
+    // ------------------ write drra_config.c --------------
+    let in_tlb_pre_ptrs: Vec<u32> = cfg.ir_drra_config.in_tlbs.iter().map(|m| m.pre_ptr).collect();
+    let in_tlb_pres: Vec<u32> = cfg.ir_drra_config.in_tlbs.iter().map(|m| m.pre).collect();
+    let in_tlb_offsets: Vec<u32> = cfg.ir_drra_config.in_tlbs.iter().map(|m| m.offset).collect();
+    let in_tlb_lengths: Vec<u32> = cfg.ir_drra_config.in_tlbs.iter().map(|m| m.code.len() as u32).collect();
+    let in_tlb_code_flat: Vec<u32> = cfg.ir_drra_config.in_tlbs.iter().flat_map(|m| m.code.iter().copied()).collect();
+    
+    let out_tlb_pre_ptrs: Vec<u32> = cfg.ir_drra_config.out_tlbs.iter().map(|m| m.pre_ptr).collect();
+    let out_tlb_pres: Vec<u32> = cfg.ir_drra_config.out_tlbs.iter().map(|m| m.pre).collect();
+    let out_tlb_offsets: Vec<u32> = cfg.ir_drra_config.out_tlbs.iter().map(|m| m.offset).collect();
+    let out_tlb_lengths: Vec<u32> = cfg.ir_drra_config.out_tlbs.iter().map(|m| m.code.len() as u32).collect();
+    let out_tlb_code_flat: Vec<u32> = cfg.ir_drra_config.out_tlbs.iter().flat_map(|m| m.code.iter().copied()).collect();
+    
+    let out_tp_offsets: Vec<u32> = cfg.ir_drra_config.tps.iter().map(|m| m.offset).collect();
+    let out_tp_lengths: Vec<u32> = cfg.ir_drra_config.tps.iter().map(|m| m.code.len() as u32).collect();
+    let out_tp_code_flat: Vec<u32> = cfg.ir_drra_config.tps.iter().flat_map(|m| m.code.iter().copied()).collect();
        
-    // ---------- build template ctx ----------
-    let ctx = DrraTemplateCtx {
-        rows: cfg.rows,
-        cols: cfg.cols,
-        num_in_tlbs: cfg.in_tlbs.len() as u32,
-        num_out_tlbs: cfg.out_tlbs.len() as u32,
-        num_out_tps: cfg.tps.len() as u32,
+    let drra_ctx = DrraTemplateCtx {
+        rows: cfg.ir_drra_config.rows,
+        cols: cfg.ir_drra_config.cols,
+        num_in_tlbs: cfg.ir_drra_config.in_tlbs.len() as u32,
+        num_out_tlbs: cfg.ir_drra_config.out_tlbs.len() as u32,
+        num_out_tps: cfg.ir_drra_config.tps.len() as u32,
     
-        drra_insts_raw_length: cfg.insts_raw.len(),
-        drra_insts_raw: vec_to_c_array(&cfg.insts_raw),
-        drra_offset_cells: vec2d_to_c(&cfg.insts_offset_cells),
-        drra_num_insts: vec2d_to_c(&cfg.num_insts_cells),
-        drra_start_addrs: vec2d_to_c(&cfg.start_addr_cells),
+        drra_insts_raw_length: cfg.ir_drra_config.insts_raw.len(),
+        drra_insts_raw: vec_to_c_array(&cfg.ir_drra_config.insts_raw),
+        drra_offset_cells: vec2d_to_c(&cfg.ir_drra_config.insts_offset_cells),
+        drra_num_insts: vec2d_to_c(&cfg.ir_drra_config.num_insts_cells),
+        drra_start_addrs: vec2d_to_c(&cfg.ir_drra_config.start_addr_cells),
     
         in_tlb_pre_ptrs: vec_to_c_array(&in_tlb_pre_ptrs),
         in_tlb_pres: vec_to_c_array(&in_tlb_pres),
@@ -434,14 +519,36 @@ fn generate_config_firmware_code(
         out_tp_code_flat: vec_to_c_array(&out_tp_code_flat),
     };
 
-    let context = Context::from_serialize(&ctx)?;
-    let rendered = TERA.render("drra_config.c", &context)
+    let drra_context = Context::from_serialize(&drra_ctx)?;
+    let drra_rendered = TERA.render("drra_config.c", &drra_context)
         .map_err(|e| {
         eprintln!("Tera error:\n{}", e);
         e
     })?;
-    let file_name = format!("{}/{}", dir, "drra_config.c");
-    file_handler::write_file(&file_name, rendered)?;
+    let drra_file_name = format!("{}/{}", dir, "drra_config.c");
+    file_handler::write_file(&drra_file_name, drra_rendered)?;
+
+    // ------------------ write kernel.o --------------
+    let kernel_file_name = format!("{}/{}", dir, cfg.kernel_object.name);
+    file_handler::write_file(&kernel_file_name, &cfg.kernel_object.data)?;
+
+    // ------------------ write sections.lds --------------
+    let linker_ctx = LinkerTemplateCtx {
+        inst_mem_length: to_hex(cfg.arch_config.inst_mem_length),
+        data_mem_length: to_hex(cfg.arch_config.data_mem_length),
+        share_mem_length: to_hex(cfg.arch_config.share_mem_length),
+        part1_size: to_hex(cfg.arch_config.part1_size),
+        part2_size: to_hex(cfg.arch_config.part2_size),
+    };
+
+    let linker_context = Context::from_serialize(&linker_ctx)?;
+    let linker_rendered = TERA.render("sections.lds", &linker_context)
+        .map_err(|e| {
+        eprintln!("Tera error:\n{}", e);
+        e
+    })?;
+    let linker_file_name = format!("{}/{}", dir, "sections.lds");
+    file_handler::write_file(&linker_file_name, linker_rendered)?;
 
     Ok(())
 }
@@ -460,17 +567,17 @@ pub fn main(
         },
     };
 
-    if db.synthesized_information.control_synthesis.ir_drra_config.is_empty() {
-        db.synthesized_information.control_synthesis.ir_drra_config = HashMap::new();
+    if db.synthesized_information.control_synthesis.alimp_control_synthesis.is_empty() {
+        db.synthesized_information.control_synthesis.alimp_control_synthesis = HashMap::new();
     }
     
     // Insert default DRRA config for this node
     db.synthesized_information
         .control_synthesis
-        .ir_drra_config
-        .insert(node_id.clone(), DrraConfig::default());
+        .alimp_control_synthesis
+        .insert(node_id.clone(), AlimpControlSynthesis::default());
 
-    generate_config_firmware_code(db, node_id, &module_dir)?;
+    generate_firmware_code(db, node_id, &module_dir)?;
 
     Ok(())
 }

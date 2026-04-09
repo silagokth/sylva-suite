@@ -16,6 +16,12 @@ pub fn minimum(db: &mut DataBase) -> Result<(), Box<dyn std::error::Error>> {
     db.hyper_parameter.place_relaxation_factor = 1.0;
     db.hyper_parameter.place_reserved_routing_size = 1;
 
+    let default_kernel = ObjectFile {
+       name: "kernel.o".to_string(),
+       format: ObjectFormat::Elf32Le,
+       data: include_bytes!("data/kernel.o").to_vec(),
+    };
+
     db.alimp_lib.entries.push(AlimpEntry {
         func: "FA".to_string(),
         instances: vec![
@@ -26,6 +32,7 @@ pub fn minimum(db: &mut DataBase) -> Result<(), Box<dyn std::error::Error>> {
                 instruction_offsets: vec![vec![0, 1], vec![2, 3]],
                 number_of_instructions: vec![vec![1, 1], vec![1, 1]],
                 start_address_cells: vec![vec![100, 200], vec![300, 400]],
+                kernel_object: default_kernel.clone(),
                 ..Default::default()
             },
         ],
@@ -41,6 +48,7 @@ pub fn minimum(db: &mut DataBase) -> Result<(), Box<dyn std::error::Error>> {
                 instruction_offsets: vec![vec![0]],
                 number_of_instructions: vec![vec![1]],
                 start_address_cells: vec![vec![50]],
+                kernel_object: default_kernel.clone(),
                 ..Default::default()
             },
         ],
@@ -56,6 +64,7 @@ pub fn minimum(db: &mut DataBase) -> Result<(), Box<dyn std::error::Error>> {
                 instruction_offsets: vec![vec![0, 2, 3, 6], vec![7, 8, 10, 11], vec![12, 14, 16, 17], vec![19, 20, 21, 22]],
                 number_of_instructions: vec![vec![2, 1, 3, 1], vec![1, 2, 1, 1], vec![2, 2, 1, 2], vec![1, 1, 1, 3]],
                 start_address_cells: vec![vec![100, 200, 300, 400], vec![500, 600, 700, 800], vec![900, 1000, 1100, 1200], vec![1300, 1400, 1500, 1600]],
+                kernel_object: default_kernel.clone(),
                 ..Default::default()
             },
         ],
