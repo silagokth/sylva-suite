@@ -21,6 +21,9 @@ struct Args {
     #[arg(long = "memory", help="Set memory limit in GB")]
     memory_limit: Option<u64>,
 
+    #[arg(long = "sylva-components", help="sylva-components directory")]
+    sylva_components: String,
+
     #[arg(short = 'i', long = "intermediate-representation", help="Input Intermediate Representation Object")]
     ir_object: String,
 
@@ -65,7 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     transporter::run(&mut db, &args.output)?;
     let bin_file0 = format!("{}/db_asm_before_control.bin", args.output);
     file_handler::write_json_file(&bin_file0, &db)?;
-    control::run(&mut db, &args.output)?;
+    control::run(&mut db, &args.sylva_components, &args.output)?;
 
     /* save synthesized information */
     let bin_file = format!("{}/db_asm.bin", args.output);

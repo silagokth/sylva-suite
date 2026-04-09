@@ -21,6 +21,27 @@ static TERA: Lazy<Tera> = Lazy::new(|| {
 });
 
 
+fn runc(
+    cmd: &mut std::process::Command
+) -> Result<(), Box<dyn std::error::Error>> {
+    
+    let output = cmd.output()?;  // capture stdout + stderr
+
+    if !output.status.success() {
+        error!("Command failed: {:?}", cmd);
+
+        error!("--- stdout ---");
+        error!("{}", String::from_utf8_lossy(&output.stdout));
+
+        error!("--- stderr ---");
+        error!("{}", String::from_utf8_lossy(&output.stderr));
+
+        return Err("Command execution failed".into());
+    }
+    
+    Ok(())
+}
+
 
 fn get_drra_config(
     db: &mut DataBase, 
@@ -429,6 +450,7 @@ fn estimate_drra_code_size(cfg: &DrraConfig) -> usize {
 fn generate_firmware_code(
     db: &mut DataBase, 
     node_id: &String, 
+    work_dir: &String,
     dir: &String,
 ) -> Result<(), Box<dyn std::error::Error>> {
 
@@ -446,11 +468,11 @@ fn generate_firmware_code(
     
     // ---------- architecture config ----------
     let mut architecture = ArchConfig {
-        inst_mem_length: 1024,  // FIXED
+        inst_mem_length: 2048,  // FIXED
         data_mem_length: 0,     // FLEXIBLE
         share_mem_length: 128,  // FIXED
-        part1_size: 768,        // FIXED
-        part2_size: 256,        // FIXED
+        part1_size: 1536,       // FIXED
+        part2_size: 512,        // FIXED
     };
     
     let estimate_data_size = estimate_drra_code_size(&cfg.ir_drra_config);
@@ -550,8 +572,92 @@ fn generate_firmware_code(
     let linker_file_name = format!("{}/{}", dir, "sections.lds");
     file_handler::write_file(&linker_file_name, linker_rendered)?;
 
+    // ----------------------------------------------------
+    // compilation
+    // ----------------------------------------------------
+    let work_path = std::path::Path::new(&work_dir);
+
+    // make clean
+    runc(
+        std::process::Command::new("make")
+            .arg("clean")
+            .current_dir(work_path)
+    )?;
+ 
+    // mkdir build
+    runc(
+        std::process::Command::new("mkdir")
+            .arg("build")
+            .current_dir(work_path)
+    )?;   
+
+    // copy drra_config.c → src/
+    let drra_src = std::path::Path::new(dir).join("drra_config.c");
+    let drra_dst = work_path.join("src").join("drra_config.c");
+    std::fs::copy(&drra_src, &drra_dst)?;
+    
+    // copy kernel.o → build/
+    let kernel_src = std::path::Path::new(dir).join("kernel.o");
+    let kernel_dst = work_path.join("build").join("kernel.o");
+    std::fs::copy(&kernel_src, &kernel_dst)?;
+
+    // copy sections.lds → ld/
+    let lds_src = std::path::Path::new(dir).join("sections.lds");
+    let lds_dst = work_path.join("ld").join("sections.lds");
+    std::fs::copy(&lds_src, &lds_dst)?;
+    
+    // make manager
+    runc(
+        std::process::Command::new("make")
+            .arg("manager")
+            .current_dir(work_path)
+    )?;
+    
+    // make link
+    runc(
+        std::process::Command::new("make")
+            .arg("link")
+            .current_dir(work_path)
+    )?;
+
+    // ----------------------------------------------------
+    // built outputs 
+    // ----------------------------------------------------
+    let work_build = work_path.join("build");
+    let out_build = std::path::Path::new(dir).join("build");
+    
+    // ensure destination exists
+    std::fs::create_dir_all(&out_build)?;
+    
+    // list of files to copy
+    let files = [
+        "firmware.elf",
+        "part1.bin",
+        "part2.bin",
+        "data.bin",
+        "sdata.bin",
+    ];
+    
+    for file in &files {
+        let src = work_build.join(file);
+        let dst = out_build.join(file);
+    
+        if !src.exists() {
+            return Err(format!("Missing build artifact: {:?}", src).into());
+        }
+    
+        std::fs::copy(&src, &dst)
+            .map_err(|e| format!("Failed to copy {:?} -> {:?}: {}", src, dst, e))?;
+    }
+
+
     Ok(())
 }
+
+
+
+
+
 
 pub fn main(
     db: &mut DataBase, 
@@ -577,7 +683,9 @@ pub fn main(
         .alimp_control_synthesis
         .insert(node_id.clone(), AlimpControlSynthesis::default());
 
-    generate_firmware_code(db, node_id, &module_dir)?;
+    let alimp_dir = format!("{}/work/integration/alimp", dir);
+    
+    generate_firmware_code(db, node_id, &format!("{}/firmware", alimp_dir), &module_dir)?;
 
     Ok(())
 }

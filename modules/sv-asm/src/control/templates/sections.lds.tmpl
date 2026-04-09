@@ -50,12 +50,28 @@ ASSERT(SIZEOF(.part2) <= {{PART2_SIZE}}, "ERROR: Part2 exceeds limit!")
     KEEP(*(.text.part1*))
 
     *(.text*)
-    *(.rodata*)
 
     . = ALIGN(4);
 } > INST_MEM
 
 ASSERT(SIZEOF(.part1) <= {{PART1_SIZE}}, "ERROR: Part1 exceeds limit!")
+
+
+/* --------------------------------------------------------- */
+/* Read-Only Data Section */
+/* --------------------------------------------------------- */
+
+.rodata :
+{
+    . = ALIGN(4);
+    __rodata_start = .;
+    *(.rodata*)
+    *(.srodata*)
+    . = ALIGN(4);
+    __rodata_end = .;
+} > DATA_MEM AT > INST_MEM
+
+__rodata_load = LOADADDR(.rodata);
 
 /* --------------------------------------------------------- */
 /* Data Section */

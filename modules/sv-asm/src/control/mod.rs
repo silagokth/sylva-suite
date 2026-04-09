@@ -2,9 +2,7 @@ use sv_lib::model::{DataBase};
 //use sv_lib::file_handler;
 use log::{info, error};
 //use std::collections::{HashMap};
-use std::process::Command;
-use std::path::{Path, PathBuf};
-use std::fs;
+use std::path::{Path};
 
 
 //pub mod utils;
@@ -12,23 +10,13 @@ mod alimp_syn;
 //mod glocal_syn;
 
 
-fn runc(
-    cmd: &mut Command
-) -> Result<(), Box<dyn std::error::Error>> {
-    let status = cmd.status()?;
-    if !status.success() {
-        return Err(format!("Command failed: {:?}", cmd).into());
-    }
-    Ok(())
-}
-
 fn copy_dir_all(
     src: impl AsRef<Path>, 
     dst: impl AsRef<Path>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    fs::create_dir_all(&dst)?;
+    std::fs::create_dir_all(&dst)?;
 
-    for entry in fs::read_dir(src)? {
+    for entry in std::fs::read_dir(src)? {
         let entry = entry?;
         let ty = entry.file_type()?;
         let dest_path = dst.as_ref().join(entry.file_name());
@@ -36,76 +24,92 @@ fn copy_dir_all(
         if ty.is_dir() {
             copy_dir_all(entry.path(), &dest_path)?;
         } else {
-            fs::copy(entry.path(), dest_path)?;
+            std::fs::copy(entry.path(), dest_path)?;
         }
     }
 
     Ok(())
 }
 
-fn get_alimp_sys(
-    dir: &String,
+
+fn verify_git_submodule(
+    path: &str,
+    expected_url: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let token = std::env::var("GITHUB_TOKEN").map_err(|e| {
-        error!("GITHUB_TOKEN is not present or invalid: {}", e);
-        e
-    })?;
 
-    let repo_url = format!(
-        "https://{}@github.com/silagokth/sylva-components.git",
-        token
-    );
+    let output = std::process::Command::new("git")
+        .arg("-C")
+        .arg(path)
+        .arg("remote")
+        .arg("get-url")
+        .arg("origin")
+        .output()?;
 
-    let temp_dir = format!("{}/temp_repo", dir);
-    let target_subdir = "integration/alimp";
-    let output_dir = format!("{}/alimp", dir);
-
-    // 1. Clean existing directories (ignore if they don’t exist)
-    if Path::new(&temp_dir).exists() {
-        fs::remove_dir_all(&temp_dir)?;
+    if !output.status.success() {
+        return Err(format!("{} is not a valid git repository", path).into());
     }
 
-    if Path::new(&output_dir).exists() {
-        fs::remove_dir_all(&output_dir)?;
+    let url = String::from_utf8(output.stdout)?.trim().to_string();
+
+    if url != expected_url {
+        return Err(format!(
+            "Submodule mismatch:\n  expected: {}\n  got: {}",
+            expected_url, url
+        ).into());
     }
-
-    // 2. Clone (no checkout)
-    runc(Command::new("git").args([
-        "clone",
-        "--filter=blob:none",
-        "--no-checkout",
-        &repo_url,
-        &temp_dir,
-    ]))?;
-
-    // 3. Sparse checkout setup
-    runc(Command::new("git")
-        .current_dir(&temp_dir)
-        .args(["sparse-checkout", "init", "--cone"]))?;
-
-    runc(Command::new("git")
-        .current_dir(&temp_dir)
-        .args(["sparse-checkout", "set", target_subdir]))?;
-
-    runc(Command::new("git")
-        .current_dir(&temp_dir)
-        .arg("checkout"))?;
-
-    // 4. Copy only desired directory
-    let src_path = PathBuf::from(&temp_dir).join(target_subdir);
-    copy_dir_all(&src_path, &output_dir)?;
-
-    // 5. Cleanup temp repo
-    fs::remove_dir_all(&temp_dir)?;
-
 
     Ok(())
+}
+
+
+
+
+fn get_rtl_framework(
+    framework_dir: &String,
+    dir: &String,
+) -> Result<(), Box<dyn std::error::Error>> {
+
+    let framework_path = Path::new(framework_dir);
+    let work_dir = Path::new(dir).join("work");
+
+    // ------------------ 1. verify repo ------------------
+    verify_git_submodule(
+        framework_dir,
+        "https://github.com/silagokth/sylva-components.git"
+    )?;   
+
+    // ------------------ 2. clean work dir ------------------
+    if work_dir.exists() {
+        std::fs::remove_dir_all(&work_dir)?;
+    }
+    std::fs::create_dir_all(&work_dir)?;
+
+    // ------------------ 3. copy folders ------------------
+    let components_src = framework_path.join("components");
+    let integration_src = framework_path.join("integration");
+
+    let components_dst = work_dir.join("components");
+    let integration_dst = work_dir.join("integration");
+
+    if !components_src.exists() {
+        return Err("Missing components directory".into());
+    }
+
+    if !integration_src.exists() {
+        return Err("Missing integration directory".into());
+    }
+
+    copy_dir_all(&components_src, &components_dst)?;
+    copy_dir_all(&integration_src, &integration_dst)?;
+
+    Ok(())        
 }
 
 
 #[allow(unused_variables)]
 pub fn run(
     db: &mut DataBase, 
+    framework_dir: &String,
     dir: &String,
 ) -> Result<(), Box<dyn std::error::Error>> {
     info!("Start: control");
@@ -119,7 +123,7 @@ pub fn run(
     };
    
     /* Create an Alimp system environment */
-    //get_alimp_sys(&module_dir)?;
+    get_rtl_framework(&framework_dir, &module_dir)?;
     info!("Complete creating AlImp system");
 
     

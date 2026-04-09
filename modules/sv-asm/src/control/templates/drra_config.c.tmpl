@@ -3,11 +3,11 @@
 #include <stdint.h>
 #include "drra_config.h"
 /* Define DRRA configured parameters */
-#define ROWS                    ((uint32_t) {{ROWS}})
-#define COLS                    ((uint32_t) {{COLS}})
-#define NUM_IN_TLBS             ((uint32_t) {{NUM_IN_TLBS}})
-#define NUM_OUT_TLBS            ((uint32_t) {{NUM_OUT_TLBS}})
-#define NUM_OUT_TPS             ((uint32_t) {{NUM_OUT_TPS}})
+#define ROWS                    {{ROWS}}
+#define COLS                    {{COLS}}
+#define NUM_IN_TLBS             {{NUM_IN_TLBS}}
+#define NUM_OUT_TLBS            {{NUM_OUT_TLBS}}
+#define NUM_OUT_TPS             {{NUM_OUT_TPS}}
 
 
 #define MMIO32(addr)            (*(volatile uint32_t *)(addr))
@@ -43,7 +43,7 @@ static void load_instructions(
     uint32_t num_insts, 
     uint32_t row, 
     uint32_t col,
-    volatile uint32_t *instructions
+    const uint32_t *instructions
 ) {
 
     DRRA_CONFIG_LOADER = 
@@ -75,7 +75,7 @@ void drra_inst_loader(void) {
     } 
 }
 
-
+#if NUM_IN_TLBS > 0
 const uint32_t in_tlb_pre_ptrs[NUM_IN_TLBS] = { {{IN_TLB_PRE_PTRS}} };
 const uint32_t in_tlb_pres[NUM_IN_TLBS]     = { {{IN_TLB_PRES}} };
 
@@ -85,8 +85,10 @@ const uint32_t in_tlb_lengths[NUM_IN_TLBS]  = { {{IN_TLB_LENGTHS}} };
 const uint32_t in_tlb_code[] = {
     {{IN_TLB_CODE_FLAT}}
 };
+#endif
 
 void initial_in_tlb(void) {
+#if NUM_IN_TLBS > 0
     for (uint32_t id = 0; id < NUM_IN_TLBS; id++) {
         volatile uint32_t * base =
             (volatile uint32_t *)(IB_TRANSLATION_BASE | (id << 16));
@@ -100,9 +102,10 @@ void initial_in_tlb(void) {
             *(base + i) = in_tlb_code[offset + i];
         }
     }
+#endif
 }
 
-
+#if NUM_OUT_TLBS > 0
 const uint32_t out_tlb_pre_ptrs[NUM_OUT_TLBS] = { {{OUT_TLB_PRE_PTRS}} };
 const uint32_t out_tlb_pres[NUM_OUT_TLBS]     = { {{OUT_TLB_PRES}} };
 
@@ -112,8 +115,10 @@ const uint32_t out_tlb_lengths[NUM_OUT_TLBS]  = { {{OUT_TLB_LENGTHS}} };
 const uint32_t out_tlb_code[] = {
     {{OUT_TLB_CODE_FLAT}}
 };
+#endif
 
 void initial_out_tlb(void) {
+#if NUM_OUT_TLBS > 0
     for (uint32_t id = 0; id < NUM_OUT_TLBS; id++) {
         volatile uint32_t * base =
             (volatile uint32_t *)(OB_TRANSLATION_BASE | (id << 16));
@@ -127,17 +132,21 @@ void initial_out_tlb(void) {
             *(base + i) = out_tlb_code[offset + i];
         }
     }    
+#endif
 }
 
 
+#if NUM_OUT_TPS > 0
 const uint32_t out_tp_offsets[NUM_OUT_TPS]  = { {{OUT_TP_OFFSETS}} };
 const uint32_t out_tp_lengths[NUM_OUT_TPS]  = { {{OUT_TP_LENGTHS}} };
 
 const uint32_t out_tp_code[] = {
     {{OUT_TP_CODE_FLAT}}
 };
+#endif
 
 void initial_tp(void) {
+#if NUM_OUT_TPS > 0
     for (uint32_t id = 0; id < NUM_OUT_TPS; id++) {
         volatile uint32_t * base =
             (volatile uint32_t *)(TRANSPORTER_BASE | (id << 16));
@@ -149,4 +158,5 @@ void initial_tp(void) {
             *(base + i) = out_tp_code[offset + i];
         }
     }
+#endif
 }

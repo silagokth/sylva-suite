@@ -1,3 +1,4 @@
 [submodule "sylva-components"]
 	path = sylva-components
-	url = https://github.com/silagokth/sylva-components.git
+    url = https://github.com/silagokth/sylva-components.git
+    branch = main
