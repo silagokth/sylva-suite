@@ -1,11 +1,7 @@
 use sv_lib::model::{DataBase}; 
-//use sv_lib::file_handler;
 use log::{info, error};
-//use std::collections::{HashMap};
 use std::path::{Path};
 
-
-//pub mod utils;
 mod alimp_syn;
 //mod glocal_syn;
 
@@ -70,7 +66,7 @@ fn get_rtl_framework(
 ) -> Result<(), Box<dyn std::error::Error>> {
 
     let framework_path = Path::new(framework_dir);
-    let work_dir = Path::new(dir).join("work");
+    let work_dir = Path::new(dir).join("_work");
 
     // ------------------ 1. verify repo ------------------
     verify_git_submodule(

@@ -26,6 +26,7 @@ Tool suite for Application Level Synthesis.
 
 - [rustc](https://www.rust-lang.org/)
 - [minizinc](https://www.minizinc.org/)
+- [riscv-gnu-toolchain](https://github.com/riscv-collab/riscv-gnu-toolchain)
 
 ### Commands
 

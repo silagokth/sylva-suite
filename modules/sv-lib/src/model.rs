@@ -466,12 +466,91 @@ pub struct ArchConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub struct HardwareCommonConfig {
+    pub axi_addr_width: u32,
+    pub axi_data_width: u32,
+    pub cpu_addr_width: u32,
+    pub cpu_data_width: u32,
+    pub cpu_instmem_depth: u32,
+    pub cpu_datamem_depth: u32,
+    pub cpu_sharemem_depth: u32,
+    pub chunk_addr_width: u32,
+    pub chunk_data_width: u32,
+    pub id_bits: u32,
+    pub tlb_program_addr_width: u32,
+    pub tlb_agu_internal_width: u32,
+    pub tp_start_bits: u32,
+    pub tp_internal_col_msb: u32,
+    pub tp_internal_col_lsb: u32,
+    pub tp_internal_data_width: u32,
+    pub tp_program_addr_width: u32,
+    pub tp_program_data_width: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub struct HardwareDrraConfig {
+    pub rows: u32,
+    pub cols: u32,
+    pub instr_data_width: u32,
+    pub instr_addr_width: u32,
+    pub instr_hops_width: u32,
+    pub io_addr_width: u32,
+    pub dm_addr_width: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub struct HardwareTLBConfig {
+    pub tlb_type: String,
+    pub program_size: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub struct HardwareIOConfig {
+    pub active: bool,
+    pub skip: bool,
+    pub buf_type: String,
+    pub buf_size: u32,
+    pub block_size: u32,
+    pub input1: i32,
+    pub input2: i32,
+    pub output1: i32,
+    pub output2: i32,
+    pub tlb1: HardwareTLBConfig,
+    pub tlb2: HardwareTLBConfig,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub struct HardwareTPConfig {
+    pub active: bool,
+    pub program_size: u32,
+    pub last: u32,
+}
+
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct HardwareConfig {
+    pub hardware_common_config: HardwareCommonConfig,
+    pub hardware_drra_config: HardwareDrraConfig,
+    pub in_io_config: Vec<HardwareIOConfig>,
+    pub out_io_config: Vec<HardwareIOConfig>,
+    pub out_tp_config: Vec<HardwareTPConfig>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct AlimpControlSynthesis {
     pub ir_drra_config: DrraConfig,
     pub arch_config: ArchConfig,
+    pub hardware_config: HardwareConfig, 
     pub kernel_object: ObjectFile,
-    pub firmware_object: ObjectFile,
+    pub firmware_path: std::path::PathBuf,
+    //pub synchronisation:
 }
 
 

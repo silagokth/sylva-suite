@@ -585,11 +585,7 @@ fn generate_firmware_code(
     )?;
  
     // mkdir build
-    runc(
-        std::process::Command::new("mkdir")
-            .arg("build")
-            .current_dir(work_path)
-    )?;   
+    std::fs::create_dir_all(&work_path.join("build"))?;
 
     // copy drra_config.c → src/
     let drra_src = std::path::Path::new(dir).join("drra_config.c");
@@ -626,17 +622,9 @@ fn generate_firmware_code(
     let work_build = work_path.join("build");
     let out_build = std::path::Path::new(dir).join("build");
     
-    // ensure destination exists
     std::fs::create_dir_all(&out_build)?;
     
-    // list of files to copy
-    let files = [
-        "firmware.elf",
-        "part1.bin",
-        "part2.bin",
-        "data.bin",
-        "sdata.bin",
-    ];
+    let files = ["firmware.elf"];
     
     for file in &files {
         let src = work_build.join(file);
@@ -649,14 +637,121 @@ fn generate_firmware_code(
         std::fs::copy(&src, &dst)
             .map_err(|e| format!("Failed to copy {:?} -> {:?}: {}", src, dst, e))?;
     }
-
+    
+    // store firmware.elf path
+    cfg.firmware_path = out_build.join("firmware.elf");
 
     Ok(())
 }
 
 
+fn hardware_settings(
+    db: &mut DataBase, 
+    node_id: &String,
+) -> Result<(), Box<dyn std::error::Error>> {
 
+    // get config object  
+    let cfg = db
+        .synthesized_information
+        .control_synthesis
+        .alimp_control_synthesis
+        .get_mut(node_id)
+        .ok_or("Missing config")?;
 
+    let common_config = HardwareCommonConfig {
+        axi_addr_width: 32,
+        axi_data_width: 32,
+        cpu_addr_width: 32,
+        cpu_data_width: 32,
+        cpu_instmem_depth: cfg.arch_config.inst_mem_length,
+        cpu_datamem_depth: cfg.arch_config.data_mem_length,
+        cpu_sharemem_depth: cfg.arch_config.share_mem_length,
+        chunk_addr_width: 32,
+        chunk_data_width: 128,
+        id_bits: 32,
+        tlb_program_addr_width: 20,
+        tlb_agu_internal_width: 16,
+        tp_start_bits: 32,
+        tp_internal_col_msb: 19,
+        tp_internal_col_lsb: 16,
+        tp_internal_data_width: 16,
+        tp_program_addr_width: 20,
+        tp_program_data_width: 32,
+    };
+
+    let drra_config = HardwareDrraConfig {
+        rows: cfg.ir_drra_config.rows,
+        cols: cfg.ir_drra_config.cols,
+        instr_data_width: 32,
+        instr_addr_width: 16,
+        instr_hops_width: 4,
+        io_addr_width: 0,   // unused CPU DM memory
+        dm_addr_width: 0,   // unused CPU DM memory
+    };
+    
+    // =========================
+    // IN TLB
+    // =========================
+    let mut in_io_config: Vec<HardwareIOConfig> = Vec::new();
+
+    let mut in_memories: Vec<MemoryStructure> = db.synthesized_information.memory_synthesis.
+        .iter()
+        .filter(|m| m.app_node_id == node_id && m.memory_direction == "in")
+        .flat_map(|m| m.memory_structure.clone())
+        .map(|m| m.memory_structure.clone())
+        .collect();
+
+    in_memories.sort_by_key(|m| {
+        m.output_channels.iter().min().cloned().unwrap_or(u32::MAX)
+    });
+
+    let mut skip = false;
+    for col in drra_config.cols {
+        let mut config = HardwareIOConfig {
+            active: false,
+            skip: skip,
+            buf_type: "NONE",
+            buf_size: 0,
+            block_size: 1,
+            input1: -1,
+            input2: -1,
+            output1: -1,
+            output2: -1,
+            tlb1: HardwareTLBConfig {
+                tlb_type: "NONE",
+                program_size: 0,
+            },
+            tlb2: HardwareTLBConfig {
+                tlb_type: "NONE",
+                program_size: 0,
+            },
+        }
+       
+        skip = false;
+
+        if !in_memories.is_empty() {
+            let memory_col = in_memories[0].output_channels.iter().min()    
+        }
+
+        in_io_config.push(config);
+    }
+        pub struct HardwareIOConfig {
+    pub active: bool,
+    pub skip: bool,
+    pub buf_type: String,
+    pub buf_size: u32,
+    pub block_size: u32,
+    pub input1: i32,
+    pub input2: i32,
+    pub output1: i32,
+    pub output2: i32,
+    pub tlb1: HardwareTLBConfig,
+    pub tlb2: HardwareTLBConfig,
+}
+
+    }
+
+}
 
 
 pub fn main(
@@ -683,9 +778,11 @@ pub fn main(
         .alimp_control_synthesis
         .insert(node_id.clone(), AlimpControlSynthesis::default());
 
-    let alimp_dir = format!("{}/work/integration/alimp", dir);
+    let alimp_dir = format!("{}/_work/integration/alimp", dir);
     
     generate_firmware_code(db, node_id, &format!("{}/firmware", alimp_dir), &module_dir)?;
+    hardware_settings(db, node_id)?;
+    //synchronisation(db, node_id, alimp_dir)?;
 
     Ok(())
 }

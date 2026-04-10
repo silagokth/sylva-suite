@@ -462,8 +462,8 @@ fn memory_synthesis(
             target_memory.memory_structure.push(MemoryStructure {
                 memory_type: memory_info.ib_type.clone(),
                 memory_size: memory_info.ib_size as u32,
-                input_channels: dst_list.iter().map(|&x| x as u32).collect(), 
-                output_channels: input_communication_channels.iter().map(|&x| x as u32).collect(), 
+                input_channels: input_communication_channels.iter().map(|&x| x as u32).collect(),
+                output_channels: dst_list.iter().map(|&x| x as u32).collect(),  
                 corresponding_channels: vec![],
                 placement: MemoryPlacement {
                     x: target_x + (target_most_left_x_position as i32) * db.technology_constraint.grid_per_drra_width, 
