@@ -21,6 +21,8 @@ fn pass0(
 
     // 2. Build indices and required values
     for entry in &transporter_table.entries {
+        // relative time represents the data movement from source to target
+        // synchronisation will be dealt with in later stages
         let time = entry.relative_time;
 
         tmp_regs.insert(

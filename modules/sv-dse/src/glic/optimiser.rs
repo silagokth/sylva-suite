@@ -48,8 +48,8 @@ pub fn solve_min_delay(
     solver.add(format!("% ========= constraints ========="));
     solver.add(format!(
         "constraint forall(i in 1..N)(\
-        \n  tr_read[i] > src_patterns[i] /\\\
-        \n  dst_patterns[i] + delay > tr_read[i] /\\\
+        \n  tr_read[i] > src_patterns[i] + 2 /\\\
+        \n  dst_patterns[i] + delay > tr_read[i] + 2 /\\\
         \n  dst_patterns[i] + delay < MAX_DELAY\
     \n);"));
     solver.add(format!(
@@ -516,8 +516,8 @@ fn solve_node_schedule(
         solver.add(format!("array [1..{}] of var 0..MAX_DELAY: T1_{};", size, edge.id));  
         solver.add(format!("array [1..{}] of var 0..MAX_DELAY: T2_{};", size, edge.id));  
         solver.add(format!("array [1..{}] of var 0..MAX_DELAY: T3_{};", size, edge.id));  
-        solver.add(format!("array [1..{}] of var 1..MAX_DELAY: D01_{};", size, edge.id));  
-        solver.add(format!("array [1..{}] of var 1..MAX_DELAY: D23_{};", size, edge.id));  
+        solver.add(format!("array [1..{}] of var 2..MAX_DELAY: D01_{};", size, edge.id));  
+        solver.add(format!("array [1..{}] of var 2..MAX_DELAY: D23_{};", size, edge.id));  
         solver.new_line();
 
         solver.add(format!("% scheduling constraints"));
