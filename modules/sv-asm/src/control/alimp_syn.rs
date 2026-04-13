@@ -1,5 +1,7 @@
 use sv_lib::model::{DataBase, AlimpControlSynthesis, DrraConfig,
-                    ArchConfig, TlbBlock, TpBlock, TranslationTable}; 
+                    ArchConfig, TlbBlock, TpBlock, TranslationTable,
+                    HardwareCommonConfig, HardwareDrraConfig, HardwareIOConfig, 
+                    HardwareTPConfig, HardwareTLBConfig, MemoryStructure, TLBImplementation}; 
 use sv_lib::{file_handler};
 use std::collections::{HashMap};
 use log::{error};
@@ -650,6 +652,20 @@ fn hardware_settings(
     node_id: &String,
 ) -> Result<(), Box<dyn std::error::Error>> {
 
+    let node = db
+        .app_graph
+        .nodes
+        .iter()
+        .find(|n| n.id == *node_id)
+        .ok_or_else(|| format!("Node {} not found", node_id))?;
+
+    let in_edges: std::collections::HashSet<_> =
+        node.input_ports.iter().map(|p| p.id.clone()).collect();
+
+    let out_edges: std::collections::HashSet<_> =
+        node.output_ports.iter().map(|p| p.id.clone()).collect();
+
+
     // get config object  
     let cfg = db
         .synthesized_information
@@ -694,23 +710,37 @@ fn hardware_settings(
     // =========================
     let mut in_io_config: Vec<HardwareIOConfig> = Vec::new();
 
-    let mut in_memories: Vec<MemoryStructure> = db.synthesized_information.memory_synthesis.
+    let mut in_memories: Vec<MemoryStructure> = db
+        .synthesized_information
+        .memory_synthesis
         .iter()
-        .filter(|m| m.app_node_id == node_id && m.memory_direction == "in")
+        .filter(|m| m.app_node_id == *node_id && m.memory_direction == "in")
         .flat_map(|m| m.memory_structure.clone())
-        .map(|m| m.memory_structure.clone())
         .collect();
 
     in_memories.sort_by_key(|m| {
         m.output_channels.iter().min().cloned().unwrap_or(u32::MAX)
     });
 
+    let mut in_tlb_entries: HashMap<i32, &TranslationTable> = HashMap::new();
+
+    for at in db
+        .synthesized_information
+        .address_translations
+        .iter()
+        .filter(|t| t.app_node_id == *node_id && in_edges.contains(&t.port_id))
+    {
+        for (ch, tt) in &at.translation_table {
+            in_tlb_entries.insert(*ch, tt);
+        }
+    }
+
     let mut skip = false;
-    for col in drra_config.cols {
+    for col in 0..drra_config.cols {
         let mut config = HardwareIOConfig {
             active: false,
             skip: skip,
-            buf_type: "NONE",
+            buf_type: "".to_string(),
             buf_size: 0,
             block_size: 1,
             input1: -1,
@@ -718,39 +748,358 @@ fn hardware_settings(
             output1: -1,
             output2: -1,
             tlb1: HardwareTLBConfig {
-                tlb_type: "NONE",
+                tlb_type: "NONE".to_string(),
                 program_size: 0,
             },
             tlb2: HardwareTLBConfig {
-                tlb_type: "NONE",
+                tlb_type: "NONE".to_string(),
                 program_size: 0,
             },
-        }
+        };
        
         skip = false;
 
         if !in_memories.is_empty() {
-            let memory_col = in_memories[0].output_channels.iter().min()    
+            let memory_col = in_memories[0].output_channels.iter().min().cloned().unwrap_or(u32::MAX);
+            
+            // assign memory implementation 
+            if col == memory_col {
+                let memory = in_memories.remove(0);
+                
+                config.active = true;
+                config.buf_size = memory.memory_size;
+                config.buf_type = match memory.memory_type.as_str() {
+                    "fifo" => "BUF_FIFO".to_string(),
+                    "rf" => "BUF_RF".to_string(),
+                    "ram" => "BUF_RAM".to_string(),
+                    _ => return Err("Cannot parse memory_type from memory synthesis".into()),
+                };
+                config.block_size = std::cmp::max(
+                    memory.input_channels.len(),
+                    memory.output_channels.len(),
+                ) as u32;
+                config.input1 = memory.input_channels[0] as i32;
+                if memory.input_channels.len() > 1 {
+                    config.input2 = memory.input_channels[1] as i32;
+                }
+                config.output1 = memory.output_channels[0] as i32;
+                if memory.output_channels.len() > 1 {
+                    config.output2 = memory.output_channels[1] as i32;
+                }
+
+                // geometry limitations 
+                if config.input1 != col as i32 {
+                    return Err("Fail to assign memory implmention - geometry limitaion".into());
+                }
+                if config.output1 != col as i32 {
+                    return Err("Fail to assign memory implmention - geometry limitaion".into());
+                }
+                if config.input2 >= 0 {
+                    if config.input2 != col as i32 + 1 { 
+                        return Err("Fail to assign memory implmention - geometry limitaion".into());
+                    }
+                }
+                if config.output2 >= 0 {
+                    if config.output2 != col as i32 + 1 { 
+                        return Err("Fail to assign memory implmention - geometry limitaion".into());
+                    }
+                }
+                
+                // assign TLB information
+                // For IB, TLBs sit at the output side of the memory
+                let tlb1 = in_tlb_entries
+                    .get(&config.input1)
+                    .ok_or("Fail to assign memory implementation - TLB1")?;
+                
+                if config.buf_type == "BUF_FIFO" {
+                    if config.block_size != 1 {
+                        return Err("Fail to assign memory implmention".into());
+                    }
+                    config.tlb1.tlb_type = "TLB_DUMMY".to_string();
+                } else {
+                    match &tlb1.implementation {
+                        TLBImplementation::AGU { .. } => {
+                            config.tlb1.tlb_type = "TLB_AGU".to_string();
+                            config.tlb1.program_size = 0;
+                        }
+                        TLBImplementation::TLB { size, .. } => {
+                            config.tlb1.tlb_type = "TLB_TLB".to_string();
+                            config.tlb1.program_size = *size;
+                        }
+                    }
+                }
+
+                if config.output2 != -1 {
+                    let tlb2 = in_tlb_entries
+                        .get(&config.input2)
+                        .ok_or("Fail to assign memory implementation - TLB2")?;
+                    
+                    if config.buf_type == "BUF_FIFO" {
+                        return Err("Fail to assign memory implmention".into());
+                    } else {
+                        match &tlb2.implementation {
+                            TLBImplementation::AGU { .. } => {
+                                config.tlb2.tlb_type = "TLB_AGU".to_string();
+                                config.tlb2.program_size = 0;
+                            }
+                            TLBImplementation::TLB { size, .. } => {
+                                config.tlb2.tlb_type = "TLB_TLB".to_string();
+                                config.tlb2.program_size = *size;
+                            }
+                        }
+                    }
+                }
+
+                // skip next channel 
+                if config.block_size == 2 {
+                    skip = true;
+                }
+
+            } else if col > memory_col {
+                return Err("Fail to assign memory implemention".into());
+            }
         }
 
         in_io_config.push(config);
     }
-        pub struct HardwareIOConfig {
-    pub active: bool,
-    pub skip: bool,
-    pub buf_type: String,
-    pub buf_size: u32,
-    pub block_size: u32,
-    pub input1: i32,
-    pub input2: i32,
-    pub output1: i32,
-    pub output2: i32,
-    pub tlb1: HardwareTLBConfig,
-    pub tlb2: HardwareTLBConfig,
-}
 
+    if !in_memories.is_empty() {
+        return Err("Fail to assign all memory implementions - some implementations are unassigned".into());
     }
 
+    // =========================
+    // OUT TLB
+    // =========================
+    let mut out_io_config: Vec<HardwareIOConfig> = Vec::new();
+
+    let mut out_memories: Vec<MemoryStructure> = db
+        .synthesized_information
+        .memory_synthesis
+        .iter()
+        .filter(|m| m.app_node_id == *node_id && m.memory_direction == "out")
+        .flat_map(|m| m.memory_structure.clone())
+        .collect();
+
+    out_memories.sort_by_key(|m| {
+        m.input_channels.iter().min().cloned().unwrap_or(u32::MAX)
+    });
+
+    let mut out_tlb_entries: HashMap<i32, &TranslationTable> = HashMap::new();
+
+    for at in db
+        .synthesized_information
+        .address_translations
+        .iter()
+        .filter(|t| t.app_node_id == *node_id && out_edges.contains(&t.port_id))
+    {
+        for (ch, tt) in &at.translation_table {
+            out_tlb_entries.insert(*ch, tt);
+        }
+    }
+
+    skip = false;
+
+    let mut out_tp_positions: Vec<i32> = Vec::new();
+
+    for col in 0..drra_config.cols {
+        let mut config = HardwareIOConfig {
+            active: false,
+            skip: skip,
+            buf_type: "".to_string(),
+            buf_size: 0,
+            block_size: 1,
+            input1: -1,
+            input2: -1,
+            output1: -1,
+            output2: -1,
+            tlb1: HardwareTLBConfig {
+                tlb_type: "NONE".to_string(),
+                program_size: 0,
+            },
+            tlb2: HardwareTLBConfig {
+                tlb_type: "NONE".to_string(),
+                program_size: 0,
+            },
+        };
+       
+        skip = false;
+
+        if !out_memories.is_empty() {
+            let memory_col = out_memories[0].input_channels.iter().min().cloned().unwrap_or(u32::MAX);
+            
+            // assign memory implementation 
+            if col == memory_col {
+                let memory = out_memories.remove(0);
+                
+                config.active = true;
+                config.buf_size = memory.memory_size;
+                config.buf_type = match memory.memory_type.as_str() {
+                    "fifo" => "BUF_FIFO".to_string(),
+                    "rf" => "BUF_RF".to_string(),
+                    "ram" => "BUF_RAM".to_string(),
+                    _ => return Err("Cannot parse memory_type from memory synthesis".into()),
+                };
+                config.block_size = std::cmp::max(
+                    memory.input_channels.len(),
+                    memory.output_channels.len(),
+                ) as u32;
+                config.input1 = memory.input_channels[0] as i32;
+                if memory.input_channels.len() > 1 {
+                    config.input2 = memory.input_channels[1] as i32;
+                }
+                config.output1 = memory.output_channels[0] as i32;
+                out_tp_positions.push(config.output1);
+                if memory.output_channels.len() > 1 {
+                    config.output2 = memory.output_channels[1] as i32;
+                    out_tp_positions.push(config.output2);
+                }
+
+                // geometry limitations 
+                if config.input1 != col as i32 {
+                    return Err("Fail to assign memory implmention - geometry limitaion".into());
+                }
+                if config.output1 != col as i32 {
+                    return Err("Fail to assign memory implmention - geometry limitaion".into());
+                }
+                if config.input2 >= 0 {
+                    if config.input2 != col as i32 + 1 { 
+                        return Err("Fail to assign memory implmention - geometry limitaion".into());
+                    }
+                }
+                if config.output2 >= 0 {
+                    if config.output2 != col as i32 + 1 { 
+                        return Err("Fail to assign memory implmention - geometry limitaion".into());
+                    }
+                }
+
+                // assign TLB information
+                // For OB, TLBs sit at the input side of the memory
+                let tlb1 = out_tlb_entries
+                    .get(&config.input1)
+                    .ok_or("Fail to assign memory implementation - TLB1")?;
+                
+                if config.buf_type == "BUF_FIFO" {
+                    if config.block_size != 1 {
+                        return Err("Fail to assign memory implmention".into());
+                    }
+                    config.tlb1.tlb_type = "TLB_DUMMY".to_string();
+                } else {
+                    match &tlb1.implementation {
+                        TLBImplementation::AGU { .. } => {
+                            config.tlb1.tlb_type = "TLB_AGU".to_string();
+                            config.tlb1.program_size = 0;
+                        }
+                        TLBImplementation::TLB { size, .. } => {
+                            config.tlb1.tlb_type = "TLB_TLB".to_string();
+                            config.tlb1.program_size = *size;
+                        }
+                    }
+                }
+
+                if config.input2 != -1 {
+                    let tlb2 = out_tlb_entries
+                        .get(&config.input2)
+                        .ok_or("Fail to assign memory implementation - TLB2")?;
+                    
+                    if config.buf_type == "BUF_FIFO" {
+                        return Err("Fail to assign memory implmention".into());
+                    } else {
+                        match &tlb2.implementation {
+                            TLBImplementation::AGU { .. } => {
+                                config.tlb2.tlb_type = "TLB_AGU".to_string();
+                                config.tlb2.program_size = 0;
+                            }
+                            TLBImplementation::TLB { size, .. } => {
+                                config.tlb2.tlb_type = "TLB_TLB".to_string();
+                                config.tlb2.program_size = *size;
+                            }
+                        }
+                    }
+                    
+                }
+
+                // skip next channel 
+                if config.block_size == 2 {
+                    skip = true;
+                }
+
+            } else if col > memory_col {
+                return Err("Fail to assign memory implemention".into());
+            }
+        }
+
+        out_io_config.push(config);
+    }
+
+    if !out_memories.is_empty() {
+        return Err("Fail to assign all memory implementions - some implementations are unassigned".into());
+    }
+
+    // =========================
+    // OUT TP
+    // =========================
+    let mut out_tp_config: Vec<HardwareTPConfig> = Vec::new();
+
+    let mut tp_indices: Vec<usize> = db
+        .synthesized_information
+        .transporter_tables
+        .iter()
+        .enumerate()
+        .filter(|(_, tt)| tt.transporter_id.starts_with(&format!("transporter_{}_", node_id)))
+        .map(|(i, _)| i)
+        .collect();
+
+    tp_indices.sort_by_key(|&i| {
+        db.synthesized_information.transporter_tables[i].placement.x
+    });
+
+    if tp_indices.len() != out_tp_positions.len() {
+        return Err("Fail to assign transporters - mismatch number of tps".into());
+    }
+
+    for col in 0..drra_config.cols {
+        let mut config = HardwareTPConfig {
+            active: false,
+            program_size: 0,
+            last: 0,
+        };
+
+        if !out_tp_positions.is_empty() {
+           if col as i32 == out_tp_positions[0] {
+                let _ = out_tp_positions.remove(0);
+                let tt_idx = tp_indices.remove(0);
+                let tp = &db.synthesized_information.transporter_tables[tt_idx];
+
+                config.active = true;
+                config.program_size = if tp.size == 0 {
+                    return Err("Fail to assign a transporter - program size".into())
+                } else {
+                    tp.size.next_power_of_two()
+                };
+                if out_tp_positions.is_empty() {
+                    config.last = 1;
+                }
+           }
+        }
+
+        out_tp_config.push(config);
+    }
+
+    if !out_tp_positions.is_empty() {
+        return Err("Fail to assign all transporter implementions - some implementations are unassigned".into()); 
+    }
+
+    // =========================
+    // update hardware settings
+    // =========================
+
+    cfg.hardware_config.hardware_common_config = common_config; 
+    cfg.hardware_config.hardware_drra_config = drra_config;
+    cfg.hardware_config.in_io_config = in_io_config;
+    cfg.hardware_config.out_io_config = out_io_config;
+    cfg.hardware_config.out_tp_config = out_tp_config;
+
+    Ok(())
 }
 
 
