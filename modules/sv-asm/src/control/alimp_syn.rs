@@ -1103,6 +1103,60 @@ fn hardware_settings(
 }
 
 
+fn local_synchronisation(
+    db: &mut DataBase, 
+    node_id: &String,
+) -> Result<(), Box<dyn std::error::Error>> {
+
+    let node_fire_time: i32 = *db
+        .synthesized_information
+        .node_fire_times
+        .get(node_id)
+        .ok_or_else(|| format!("node {} cannot be found in node_fire_times", node_id))?;
+
+    let all_fire_times = &db.synthesized_information.node_fire_times;
+
+    let cfg = db
+        .synthesized_information
+        .control_synthesis
+        .alimp_control_synthesis
+        .get_mut(node_id)
+        .ok_or_else(|| format!("Missing config of node {}", node_id))?;
+    
+    let mut id: u32 = 0;
+
+    for col in 0..cfg.hardware_config.out_tp_config.len() {
+        if cfg.hardware_config.out_tp_config[col].active {
+            let fire_time = all_fire_times
+                .iter()
+                .find_map(|(k, v)| {
+                    let prefix = format!("transporter_{}_", node_id);
+                    let suffix = format!("_{}", id);
+
+                    if k.starts_with(&prefix) && k.ends_with(&suffix) {
+                        Some(*v)
+                    } else {
+                        None
+                    }
+                })
+                .ok_or_else(|| format!("Missing fire_time for transporter_{}_x_{}", node_id, id))?;
+            
+            // start_time = fire_time - Rd latency - start up cost - execution - col
+            let tp_start_time = fire_time - 1 - 3 - 1 - col as i32;        
+            let relative_delay = tp_start_time - node_fire_time;
+
+            cfg.synchronisation.insert(id, relative_delay);
+            
+            id += 1;
+        }
+    }
+
+    Ok(())
+}
+
+
+
+
 pub fn main(
     db: &mut DataBase, 
     node_id: &String,
@@ -1131,7 +1185,7 @@ pub fn main(
     
     generate_firmware_code(db, node_id, &format!("{}/firmware", alimp_dir), &module_dir)?;
     hardware_settings(db, node_id)?;
-    //synchronisation(db, node_id, alimp_dir)?;
+    local_synchronisation(db, node_id)?;
 
     Ok(())
 }

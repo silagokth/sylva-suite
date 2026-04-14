@@ -550,7 +550,7 @@ pub struct AlimpControlSynthesis {
     pub hardware_config: HardwareConfig, 
     pub kernel_object: ObjectFile,
     pub firmware_path: std::path::PathBuf,
-    //pub synchronisation:
+    pub synchronisation: HashMap<u32, i32>, 
 }
 
 
