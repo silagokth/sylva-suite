@@ -3,12 +3,20 @@ use std::error::Error;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::{from_str, to_string_pretty};
+use std::path::Path;
 
 /// Loads a file and returns its contents as a `String`, with error reporting.
 #[allow(dead_code)]
-pub fn load_file(filename: &str) -> Result<String, Box<dyn Error>> {
-    fs::read_to_string(filename)
-        .map_err(|e| -> Box<dyn Error> {format!("Error reading file '{}': {}", filename, e).into()})
+pub fn load_file<P>(filename: P) -> Result<String, Box<dyn Error>> 
+where 
+    P: AsRef<Path>
+{
+    let path = filename.as_ref();
+
+    fs::read_to_string(path)
+        .map_err(|e| -> Box<dyn Error> {
+            format!("Error reading file '{}': {}", path.display(), e).into()
+        })
 }
 
 /// Loads and deserializes a JSON file into a generic Rust type, with filename-aware error reporting.
@@ -24,9 +32,17 @@ where
 
 /// Writes a string to a file, with filename-aware error reporting.
 #[allow(dead_code)]
-pub fn write_file<C: AsRef<[u8]>>(filename: &str, contents: C) -> Result<(), Box<dyn Error>> {
-    fs::write(filename, contents)
-        .map_err(|e| -> Box<dyn Error> {format!("Error writing to file '{}': {}", filename, e).into()})
+pub fn write_file<P, C>(filename: P, contents: C) -> Result<(), Box<dyn Error>>
+where
+    P: AsRef<Path>,
+    C: AsRef<[u8]>,
+{
+    let path = filename.as_ref();
+
+    fs::write(path, contents)
+        .map_err(|e| -> Box<dyn Error> {
+            format!("Error writing to file '{}': {}", path.display(), e).into()
+        })
 }
 
 /// Serializes a Rust object to a pretty JSON string and writes it to a file.

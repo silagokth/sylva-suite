@@ -553,11 +553,29 @@ pub struct AlimpControlSynthesis {
     pub synchronisation: HashMap<u32, i32>, 
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AlimpDataFormat {
+    pub section_offset: (u32, u32, u32), 
+    pub section_length: (u32, u32, u32), 
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct CPUSettings {
+    pub instruction_memory_size: u32, 
+    pub data_memory_size: u32, 
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ControlSynthesis {
-    pub alimp_control_synthesis: HashMap<String, AlimpControlSynthesis>, 
+    pub alimp_id: Vec<String>,
+    pub alimp_control_synthesis: HashMap<String, AlimpControlSynthesis>,
+    pub alimp_data_format: Vec<AlimpDataFormat>,
+    pub alimp_data: Vec<u32>,
+    pub alimp_data_path: std::path::PathBuf,
+    pub host_cpu_settings: CPUSettings,
 //  host
 }
 

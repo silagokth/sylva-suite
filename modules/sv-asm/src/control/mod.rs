@@ -2,8 +2,9 @@ use sv_lib::model::{DataBase};
 use log::{info, error};
 use std::path::{Path};
 
+pub mod utils;
 mod alimp_syn;
-//mod glocal_syn;
+mod global_syn;
 
 
 fn copy_dir_all(
@@ -133,11 +134,11 @@ pub fn run(
         info!("running AlImp Synthesis for {}", node_id);
         alimp_syn::main(db, &node_id, &module_dir)?;
     }
-/*
+
     /* Glocal Control synthesis */
     info!("running global control synthesis");
-    global_syn::main(db, module_dir);
-*/
+    global_syn::main(db, &module_dir)?;
+
     info!("Finish: control");
     Ok(())
 }

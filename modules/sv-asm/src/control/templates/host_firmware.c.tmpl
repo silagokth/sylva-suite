@@ -1,0 +1,223 @@
+#include <stdint.h>
+#include <stdbool.h>
+
+#include "memory.h"
+
+/* =========================================================
+ * Configuration
+ * ========================================================= */
+
+#define NUMBER_OF_ALIMPS        {{NUMBER_OF_ALIMPS}}
+#define MAXIMUM_TPS             {{MAXIMUM_TPS}}
+
+/*
+ * For each ALIMP:
+ * [0] = instruction part1 segment
+ * [1] = instruction part2 segment
+ * [2] = data segment
+ *
+ * Values are in BYTES (offsets from DRAM_BASE)
+ */
+static const uint32_t ALIMP_PROGRAM_OFFSET[NUMBER_OF_ALIMPS][3] = { {{ALIMP_PROGRAM_OFFSET}} };
+static const uint32_t ALIMP_PROGRAM_SIZE[NUMBER_OF_ALIMPS][3] = { {{ALIMP_PROGRAM_SIZE}} };
+static const uint32_t ALIMP_PART2_OFFSET = {{ALIMP_PART2_OFFSET}};
+
+/* =========================================================
+ * utility 
+ * ========================================================= */
+
+static inline void add_fence(void)
+{
+    __asm__ volatile("fence iorw, iorw" ::: "memory");
+}
+
+static inline void enable_global_timer(void) {
+    TIMER_EN = 1; 
+}
+
+/* =========================================================
+ * MAILBOX Management (per ALIMP node)
+ * ========================================================= */
+
+/* Status codes */
+#define STATUS_OKAY         1U
+#define STATUS_INIT_DONE    2U
+#define STATUS_APP_DONE     3U
+#define STATUS_START_TIME   100U
+#define STATUS_FAIL         0xFFFFFFFFU
+
+typedef struct {
+    volatile uint32_t host_valid;
+    volatile uint32_t cpu_valid;
+    volatile uint32_t status;
+    volatile uint32_t cpu_time_lo;
+    volatile uint32_t cpu_time_hi;
+    volatile int32_t tp_time[MAXIMUM_TPS];
+} Mailbox_t;
+
+/* Base pointer to mailbox of a given ALIMP node */
+#define ALIMP_MAILBOX_PTR(id)   ((Mailbox_t *)(ALIMP_SHARED_BASE(id)))
+
+/* Array-style access */
+#define MAILBOX(id)             (*ALIMP_MAILBOX_PTR(id))
+
+
+static inline void check_mailbox(uint32_t id,
+                                 uint32_t *valid,
+                                 uint32_t *status)
+{
+    *valid  = MAILBOX(id).cpu_valid;
+    *status = MAILBOX(id).status;
+}
+
+static inline void reset_mailbox(uint32_t id)
+{
+    MAILBOX(id).host_valid = 0;
+    MAILBOX(id).cpu_valid = 0;
+    MAILBOX(id).status    = STATUS_OKAY;
+}
+
+static inline void clear_mailbox(uint32_t id)
+{
+    MAILBOX(id).cpu_valid = 0;
+    MAILBOX(id).status    = STATUS_OKAY;
+}
+
+static inline void notify_mailbox(uint32_t id, 
+                                  uint32_t status)
+{
+    MAILBOX(id).status = status;
+    MAILBOX(id).host_valid = 1;
+}
+
+/* =========================================================
+ * ALIMP functions
+ * ========================================================= */
+void program_alimps(void);
+void program_alimps(void) {
+    for (uint32_t i = 0; i < NUMBER_OF_ALIMPS; i++) {
+        ALIMP_ASSERT_RESET(i);     
+    
+        alimp_load_program(
+            i, 
+            (const uint32_t *)(DRAM_BASE + ALIMP_PROGRAM_OFFSET[i][0]),
+            0,
+            ALIMP_PROGRAM_SIZE[i][0] / 4
+        ); 
+
+        alimp_load_program(
+            i, 
+            (const uint32_t *)(DRAM_BASE + ALIMP_PROGRAM_OFFSET[i][1]),
+            ALIMP_PART2_OFFSET,
+            ALIMP_PROGRAM_SIZE[i][1] / 4
+        );
+
+        alimp_load_data(
+            i, 
+            (const uint32_t *)(DRAM_BASE + ALIMP_PROGRAM_OFFSET[i][2]),
+            ALIMP_PROGRAM_SIZE[i][2] / 4
+        );
+        
+        reset_mailbox(i);
+        
+        ALIMP_RELEASE_RESET(i);     
+    }
+}
+
+
+void wait_alimps(uint32_t expect);
+void wait_alimps(uint32_t expect) {
+    uint32_t valid;
+    uint32_t status;
+    bool init = false;
+    
+    while (!init) {
+        init = true;
+
+        for (uint32_t i = 0; i < NUMBER_OF_ALIMPS; i++) {
+
+            check_mailbox(i, &valid, &status);           
+
+            if (!valid) {
+                init = false;
+            } 
+            else if (status == STATUS_FAIL) {
+                // TODO: replace with proper error handler
+                while (1); 
+            }
+            else if (status != expect) {
+                init = false;
+            }
+        }
+    }
+
+    for (uint32_t i = 0; i < NUMBER_OF_ALIMPS; i++) {
+        clear_mailbox(i);
+    }   
+}
+
+/* =========================================================
+ * Scheduler Configuration
+ * ========================================================= */
+
+static const uint64_t schedule_time[NUMBER_OF_ALIMPS] = { {{SCHEDULE_TIME}} };
+static const int32_t active_tps[NUMBER_OF_ALIMPS] = { {{ACTIVE_TPS}} };
+static const int32_t relative_time[NUMBER_OF_ALIMPS][MAXIMUM_TPS] = { {{RELATIVE_TIME}} };
+
+/* Safe 64-bit timer read */
+static inline uint64_t read_timer64(void)
+{
+    uint32_t hi0, lo, hi1;
+
+    do {
+        hi0 = TIMER_HI;
+        lo  = TIMER_LO;
+        hi1 = TIMER_HI;
+    } while (hi0 != hi1);
+
+    return (((uint64_t)hi1 << 32) | lo);
+}
+
+void scheduler(void);
+void scheduler(void) {
+    add_fence();
+
+    uint64_t current_time = read_timer64();     
+
+    for (uint32_t i = 0; i < NUMBER_OF_ALIMPS; i++) {
+        
+        uint64_t reference_time = current_time + schedule_time[i];
+
+        MAILBOX(i).cpu_time_lo = (uint32_t)(reference_time & 0xFFFFFFFFULL);
+        MAILBOX(i).cpu_time_hi = (uint32_t)(reference_time >> 32);
+
+        uint32_t tp_count = (active_tps[i] > MAXIMUM_TPS) ? MAXIMUM_TPS : active_tps[i];
+        
+        for (uint32_t j = 0; j < tp_count; j++) {
+            MAILBOX(i).tp_time[j] = relative_time[i][j];
+        }
+
+        add_fence();
+        notify_mailbox(i, STATUS_START_TIME + tp_count);
+    }
+}
+
+
+/* =========================================================
+ * Main program
+ * ========================================================= */
+
+
+int main(void)
+{
+    /* Initialisation */
+    program_alimps();
+    wait_alimps(STATUS_INIT_DONE);
+    enable_global_timer();
+    
+    /* running application */ 
+    scheduler();
+    wait_alimps(STATUS_APP_DONE);
+
+    while (1);
+}

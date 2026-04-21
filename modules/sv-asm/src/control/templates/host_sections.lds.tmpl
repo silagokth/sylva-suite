@@ -1,0 +1,69 @@
+/* AUTO-GENERATED LINKER FILE BY SYLVA EDA SUITE: DO NOT EDIT */
+
+
+ENTRY(_start)
+
+/* ========================================================= */
+/* Memory Regions */
+/* ========================================================= */
+
+MEMORY
+{
+    INST_MEM   (rx)  : ORIGIN = 0x00000000, LENGTH = {{INST_MEM_LENGTH}}
+    DATA_MEM   (rwx) : ORIGIN = 0x00010000, LENGTH = {{DATA_MEM_LENGTH}}
+}
+
+/* ========================================================= */
+/* Sections */
+/* ========================================================= */
+
+SECTIONS
+{
+
+.text :
+{
+    . = ALIGN(4);
+    __text_start = .;
+    
+    KEEP(*(.init))
+    KEEP(*(.text*))
+
+    *(.text*)
+    *(.rodata*)
+
+    . = ALIGN(4);
+    __text_end = .;
+} > INST_MEM
+
+.data :
+{
+    . = ALIGN(4);
+    __data_start = .;
+    *(.data*)
+    . = ALIGN(4);
+    __data_end = .;
+} > DATA_MEM AT > INST_MEM
+
+__data_load = LOADADDR(.data);
+
+/* --------------------------------------------------------- */
+/* BSS */
+/* --------------------------------------------------------- */
+
+.bss (NOLOAD) :
+{
+    . = ALIGN(4);
+    __bss_start = .;
+    *(.bss*)
+    *(COMMON)
+    . = ALIGN(4);
+    __bss_end = .;
+} > DATA_MEM
+
+/* --------------------------------------------------------- */
+/* Stack */
+/* --------------------------------------------------------- */
+
+__stack_top = ORIGIN(DATA_MEM) + LENGTH(DATA_MEM);
+
+}

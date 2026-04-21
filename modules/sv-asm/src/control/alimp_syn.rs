@@ -3,47 +3,26 @@ use sv_lib::model::{DataBase, AlimpControlSynthesis, DrraConfig,
                     HardwareCommonConfig, HardwareDrraConfig, HardwareIOConfig, 
                     HardwareTPConfig, HardwareTLBConfig, MemoryStructure, TLBImplementation}; 
 use sv_lib::{file_handler};
+use crate::control::utils;
 use std::collections::{HashMap};
 use log::{error};
 use serde::Serialize;
 use tera::{Tera, Context};
 use once_cell::sync::Lazy;
 
+
 static TERA: Lazy<Tera> = Lazy::new(|| {
     let mut tera = Tera::default();
     tera.add_raw_template(
         "drra_config.c",
-        include_str!("templates/drra_config.c.tmpl")
+        include_str!("templates/alimp_drra_config.c.tmpl")
     ).unwrap();
     tera.add_raw_template(
         "sections.lds",
-        include_str!("templates/sections.lds.tmpl")
+        include_str!("templates/alimp_sections.lds.tmpl")
     ).unwrap();
     tera
 });
-
-
-fn runc(
-    cmd: &mut std::process::Command
-) -> Result<(), Box<dyn std::error::Error>> {
-    
-    let output = cmd.output()?;  // capture stdout + stderr
-
-    if !output.status.success() {
-        error!("Command failed: {:?}", cmd);
-
-        error!("--- stdout ---");
-        error!("{}", String::from_utf8_lossy(&output.stdout));
-
-        error!("--- stderr ---");
-        error!("{}", String::from_utf8_lossy(&output.stderr));
-
-        return Err("Command execution failed".into());
-    }
-    
-    Ok(())
-}
-
 
 fn get_drra_config(
     db: &mut DataBase, 
@@ -392,29 +371,6 @@ struct LinkerTemplateCtx {
     part2_size: String,
 }
 
-fn to_hex(u: u32) -> String {
-    format!("0x{:08X}", u)
-}
-
-fn vec_to_c_array(v: &[u32]) -> String {
-    v.iter()
-        .map(|x| format!("0x{:08X}", x))
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
-fn vec2d_to_c(v: &[Vec<u32>]) -> String {
-    v.iter()
-        .map(|row| {
-            let row_str = row.iter()
-                .map(|x| format!("{}", x))
-                .collect::<Vec<_>>()
-                .join(", ");
-            format!("{{{}}}", row_str)
-        })
-        .collect::<Vec<_>>()
-        .join(", ")
-}
 
 fn estimate_drra_code_size(cfg: &DrraConfig) -> usize {
     let mut size = 0;
@@ -521,26 +477,26 @@ fn generate_firmware_code(
         num_out_tps: cfg.ir_drra_config.tps.len() as u32,
     
         drra_insts_raw_length: cfg.ir_drra_config.insts_raw.len(),
-        drra_insts_raw: vec_to_c_array(&cfg.ir_drra_config.insts_raw),
-        drra_offset_cells: vec2d_to_c(&cfg.ir_drra_config.insts_offset_cells),
-        drra_num_insts: vec2d_to_c(&cfg.ir_drra_config.num_insts_cells),
-        drra_start_addrs: vec2d_to_c(&cfg.ir_drra_config.start_addr_cells),
+        drra_insts_raw: utils::vec_to_c_array(&cfg.ir_drra_config.insts_raw),
+        drra_offset_cells: utils::vec2d_to_c(&cfg.ir_drra_config.insts_offset_cells),
+        drra_num_insts: utils::vec2d_to_c(&cfg.ir_drra_config.num_insts_cells),
+        drra_start_addrs: utils::vec2d_to_c(&cfg.ir_drra_config.start_addr_cells),
     
-        in_tlb_pre_ptrs: vec_to_c_array(&in_tlb_pre_ptrs),
-        in_tlb_pres: vec_to_c_array(&in_tlb_pres),
-        in_tlb_offsets: vec_to_c_array(&in_tlb_offsets),
-        in_tlb_lengths: vec_to_c_array(&in_tlb_lengths),
-        in_tlb_code_flat: vec_to_c_array(&in_tlb_code_flat),
+        in_tlb_pre_ptrs: utils::vec_to_c_array(&in_tlb_pre_ptrs),
+        in_tlb_pres: utils::vec_to_c_array(&in_tlb_pres),
+        in_tlb_offsets: utils::vec_to_c_array(&in_tlb_offsets),
+        in_tlb_lengths: utils::vec_to_c_array(&in_tlb_lengths),
+        in_tlb_code_flat: utils::vec_to_c_array(&in_tlb_code_flat),
     
-        out_tlb_pre_ptrs: vec_to_c_array(&out_tlb_pre_ptrs),
-        out_tlb_pres: vec_to_c_array(&out_tlb_pres),
-        out_tlb_offsets: vec_to_c_array(&out_tlb_offsets),
-        out_tlb_lengths: vec_to_c_array(&out_tlb_lengths),
-        out_tlb_code_flat: vec_to_c_array(&out_tlb_code_flat),
+        out_tlb_pre_ptrs: utils::vec_to_c_array(&out_tlb_pre_ptrs),
+        out_tlb_pres: utils::vec_to_c_array(&out_tlb_pres),
+        out_tlb_offsets: utils::vec_to_c_array(&out_tlb_offsets),
+        out_tlb_lengths: utils::vec_to_c_array(&out_tlb_lengths),
+        out_tlb_code_flat: utils::vec_to_c_array(&out_tlb_code_flat),
     
-        out_tp_offsets: vec_to_c_array(&out_tp_offsets),
-        out_tp_lengths: vec_to_c_array(&out_tp_lengths),
-        out_tp_code_flat: vec_to_c_array(&out_tp_code_flat),
+        out_tp_offsets: utils::vec_to_c_array(&out_tp_offsets),
+        out_tp_lengths: utils::vec_to_c_array(&out_tp_lengths),
+        out_tp_code_flat: utils::vec_to_c_array(&out_tp_code_flat),
     };
 
     let drra_context = Context::from_serialize(&drra_ctx)?;
@@ -558,11 +514,11 @@ fn generate_firmware_code(
 
     // ------------------ write sections.lds --------------
     let linker_ctx = LinkerTemplateCtx {
-        inst_mem_length: to_hex(cfg.arch_config.inst_mem_length),
-        data_mem_length: to_hex(cfg.arch_config.data_mem_length),
-        share_mem_length: to_hex(cfg.arch_config.share_mem_length),
-        part1_size: to_hex(cfg.arch_config.part1_size),
-        part2_size: to_hex(cfg.arch_config.part2_size),
+        inst_mem_length: utils::to_hex(cfg.arch_config.inst_mem_length),
+        data_mem_length: utils::to_hex(cfg.arch_config.data_mem_length),
+        share_mem_length: utils::to_hex(cfg.arch_config.share_mem_length),
+        part1_size: utils::to_hex(cfg.arch_config.part1_size),
+        part2_size: utils::to_hex(cfg.arch_config.part2_size),
     };
 
     let linker_context = Context::from_serialize(&linker_ctx)?;
@@ -580,7 +536,7 @@ fn generate_firmware_code(
     let work_path = std::path::Path::new(&work_dir);
 
     // make clean
-    runc(
+    utils::runc(
         std::process::Command::new("make")
             .arg("clean")
             .current_dir(work_path)
@@ -605,14 +561,14 @@ fn generate_firmware_code(
     std::fs::copy(&lds_src, &lds_dst)?;
     
     // make manager
-    runc(
+    utils::runc(
         std::process::Command::new("make")
             .arg("manager")
             .current_dir(work_path)
     )?;
     
     // make link
-    runc(
+    utils::runc(
         std::process::Command::new("make")
             .arg("link")
             .current_dir(work_path)
