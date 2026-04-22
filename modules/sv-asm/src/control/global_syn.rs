@@ -203,7 +203,341 @@ fn generate_alimp_data(
     Ok(())
 }
 
+/*
+#[derive(Serialize)]
+struct AlimpTopTemplateCtx {
+    #[serde(rename = "N_ALIMP")]
+    n_alimp: u32,
+    #[serde(rename = "MAX_COLS")]
+    max_cols: u32,
+    #[serde(rename = "BASE_CFG")]
+    base_cfg: String,
+    #[serde(rename = "IN_IO_CFG")]
+    in_io_cfg: String,
+    #[serde(rename = "OUT_IO_CFG")]
+    out_io_cfg: String,
+    #[serde(rename = "OUT_TP_CFG")]
+    out_tp_cfg: String,
+    #[serde(rename = "APP_INTERFACE_CONNECT")]
+    app_interface_connect: String,
+}
 
+
+fn hardware_system_generation(
+    db: &mut DataBase, 
+    dir: &String,
+) -> Result<(), Box<dyn std::error::Error>> {
+      
+    let cfg = &db.synthesized_information.control_synthesis;
+
+    // --------------------------------
+    // Basic configuration
+    // --------------------------------
+    let n_alimp = cfg.alimp_id.len() as u32;
+    let max_cols: u32 = 16; // FIXED
+    
+    // --------------------------------
+    // Base - Common, PICO, DRRA - settings 
+    // --------------------------------
+    let mut base_cfg = String::from("'{\n");
+
+    let pico_settings = "\
+                pico: '{
+                    ENABLE_COUNTERS: 0,
+                    ENABLE_COUNTERS64: 0,
+                    ENABLE_REGS_16_31: 1,
+                    ENABLE_REGS_DUALPORT: 0,
+                    LATCHED_MEM_RDATA: 0,
+                    TWO_STAGE_SHIFT: 0,
+                    BARREL_SHIFTER: 0,
+                    TWO_CYCLE_COMPARE: 0,
+                    TWO_CYCLE_ALU: 0,
+                    COMPRESSED_ISA: 0,
+                    CATCH_MISALIGN: 0,
+                    CATCH_ILLINSN: 0,
+                    ENABLE_PCPI: 0,
+                    ENABLE_MUL: 1,
+                    ENABLE_FAST_MUL: 0,
+                    ENABLE_DIV: 0,
+                    ENABLE_IRQ: 0,
+                    ENABLE_IRQ_QREGS: 0,
+                    ENABLE_IRQ_TIMER: 0,
+                    ENABLE_TRACE: 0,
+                    REGS_INIT_ZERO: 0,
+                    MASKED_IRQ: 32'h0000_0000,
+                    LATCHED_IRQ: 32'hffff_ffff,
+                    PROGADDR_RESET: 32'h0000_0000,
+                    PROGADDR_IRQ: 32'h0000_0010,
+                    STACKADDR: 32'hffff_ffff
+                },\n";
+    
+    for (idx, id) in cfg.alimp_id.iter().enumerate() {
+        let alimp_cfg = cfg
+            .alimp_control_synthesis
+            .get(id)
+            .ok_or_else(|| format!("Alimp {} is not found in control synthesis", id))?;
+    
+        let hardware_cfg = &alimp_cfg.hardware_common_config;
+        let drra_cfg = &alimp_cfg.hardware_drra_config;
+    
+        let cmn_settings = format!(
+            "\
+                cmn: '{{
+                    AXI_ADDR_WIDTH: {},
+                    AXI_DATA_WIDTH: {},
+                    CPU_ADDR_WIDTH: {},
+                    CPU_DATA_WIDTH: {},
+                    CPU_INSTMEM_DEPTH: {},
+                    CPU_DATAMEM_DEPTH: {},
+                    CPU_SHAREMEM_DEPTH: {},
+                    CHUNK_ADDR_WIDTH: {},
+                    CHUNK_DATA_WIDTH: {},
+                    ID_BITS: {},
+                    TLB_PROGRAM_ADDR_WIDTH: {},
+                    TLB_AGU_INTERNAL_WIDTH: {},
+                    TP_START_BITS: {},
+                    TP_INTERNAL_COL_MSB: {},
+                    TP_INTERNAL_COL_LSB: {},
+                    TP_INTERNAL_DATA_WIDTH: {},
+                    TP_PROGRAM_ADDR_WIDTH: {},
+                    TP_PROGRAM_DATA_WIDTH: {}
+                }},\n",
+            hardware_cfg.axi_addr_width,
+            hardware_cfg.axi_data_width,
+            hardware_cfg.cpu_addr_width,
+            hardware_cfg.cpu_data_width,
+            hardware_cfg.cpu_instmem_depth,
+            hardware_cfg.cpu_datamem_depth,
+            hardware_cfg.cpu_sharemem_depth,
+            hardware_cfg.chunk_addr_width,
+            hardware_cfg.chunk_data_width,
+            hardware_cfg.id_bits,
+            hardware_cfg.tlb_program_addr_width,
+            hardware_cfg.tlb_agu_internal_width,
+            hardware_cfg.tp_start_bits,
+            hardware_cfg.tp_internal_col_msb,
+            hardware_cfg.tp_internal_col_lsb,
+            hardware_cfg.tp_internal_data_width,
+            hardware_cfg.tp_program_addr_width,
+            hardware_cfg.tp_program_data_width
+        );
+    
+        let drra_settings = format!(
+            "\
+                drra: '{{
+                    ROWS: {},
+                    COLS: {},
+                    INSTR_DATA_WIDTH: {},
+                    INSTR_ADDR_WIDTH: {},
+                    INSTR_HOPS_WIDTH: {},
+                    IO_ADDR_WIDTH: {},
+                    DM_ADDR_WIDTH: {}
+                }}\n",
+            drra_cfg.rows,
+            drra_cfg.cols,
+            drra_cfg.instr_data_width,
+            drra_cfg.instr_addr_width,
+            drra_cfg.instr_hops_width,
+            drra_cfg.io_addr_width,
+            drra_cfg.dm_addr_width
+        );
+    
+        let alimp_settings = format!(
+            "'{{\n{}{}{}\n}}",
+            cmn_settings,
+            pico_settings,
+            drra_settings
+        );
+    
+        base_cfg.push_str(&alimp_settings);
+    
+        // Add comma except for last element
+        if idx != cfg.alimp_id.len() - 1 {
+            base_cfg.push_str(",\n");
+        } else {
+            base_cfg.push('\n');
+        }
+    }
+    
+    base_cfg.push_str("};\n");
+
+    // --------------------------------
+    // IO settings 
+    // --------------------------------
+    let mut in_io_cfg = String::from("'{\n");
+    let mut out_io_cfg = String::from("'{\n");
+    let mut out_tp_cfg = String::from("'{\n");
+
+    for (i, id) in cfg.alimp_id.iter().enumerate() {
+        let alimp_cfg = cfg
+            .alimp_control_synthesis
+            .get(id)
+            .ok_or_else(|| format!("Alimp {} is not found in control synthesis", id))?;
+    
+        let ib_cfgs = &alimp_cfg.hardware_common_config.in_io_config;
+        let ob_cfgs = &alimp_cfg.hardware_common_config.out_io_config;
+        let tp_cfgs = &alimp_cfg.hardware_common_config.out_tp_config;
+        
+        // -------------------- IB ----------------------------
+        let mut ib_settings = String::from("'{\n");
+
+        for j in 0..max_cols {
+            let ib_cfg = if j < ib_cfgs.len() {
+                &ib_cfgs[j]
+            } else {
+                &HardwareIOConfig::default()
+            };
+
+            let setting = if ib_cfg.active || ib_cfg.skip {
+                format!(
+                    "'{{
+                    active:{}, skip:{}, buf_type:{}, buf_size:{}, block_size:{},
+                    input1:{}, input2:{}, output1:{}, output2:{},
+                    tlb1:'{{ tlb_type:{}, program_size:{} }},
+                    tlb2:'{{ tlb_type:{}, program_size:{} }}
+                }}",
+                    ib_cfg.active as u32,
+                    ib_cfg.skip as u32,
+                    ib_cfg.buf_type,
+                    ib_cfg.buf_size,
+                    ib_cfg.block_size,
+                    ib_cfg.input1,
+                    ib_cfg.input2,
+                    ib_cfg.output1,
+                    ib_cfg.output2,
+                    ib_cfg.tlb1.tlb_type,
+                    ib_cfg.tlb1.program_size,
+                    ib_cfg.tlb2.tlb_type,
+                    ib_cfg.tlb2.program_size
+                )
+            } else {
+                "IO_DEFAULT".to_string()
+            };
+
+            ib_settings.push_str(&setting);
+            if j != ib_cfgs.len() - 1 {
+                ib_settings.push_str(",\n");
+            } else {
+                ib_settings.push_str("\n");
+            }
+        }
+
+        in_io_cfg.push_str(&format!("'{{\n{}\n}}", ib_settings));
+        if i != cfg.alimp_id.len() - 1 {
+            in_io_cfg.push_str(",\n");
+        } else {
+            in_io_cfg.push_str("\n");
+        }
+            
+        // -------------------- OB ----------------------------
+        let mut ob_settings = String::from("'{\n");
+
+        for j in 0..max_cols {
+            let ob_cfg = if j < ob_cfgs.len() {
+                &ob_cfgs[j]
+            } else {
+                &HardwareIOConfig::default()
+            };
+
+            let setting = if ob_cfg.active || ob_cfg.skip {
+                format!(
+                    "'{{
+                    active:{}, skip:{}, buf_type:{}, buf_size:{}, block_size:{},
+                    input1:{}, input2:{}, output1:{}, output2:{},
+                    tlb1:'{{ tlb_type:{}, program_size:{} }},
+                    tlb2:'{{ tlb_type:{}, program_size:{} }}
+                }}",
+                    ob_cfg.active as u32,
+                    ob_cfg.skip as u32,
+                    ob_cfg.buf_type,
+                    ob_cfg.buf_size,
+                    ob_cfg.block_size,
+                    ob_cfg.input1,
+                    ob_cfg.input2,
+                    ob_cfg.output1,
+                    ob_cfg.output2,
+                    ob_cfg.tlb1.tlb_type,
+                    ob_cfg.tlb1.program_size,
+                    ob_cfg.tlb2.tlb_type,
+                    ob_cfg.tlb2.program_size
+                ) 
+            } else {
+                "IO_DEFAULT".to_string()
+            };
+
+            ob_settings.push_str(&setting);
+            if j != ob_cfgs.len() - 1 {
+                ob_settings.push_str(",\n");
+            } else {
+                ob_settings.push_str("\n");
+            }
+        }
+            
+        out_io_cfg.push_str(&format!("'{{\n{}\n}}", ob_settings));
+        if i != cfg.alimp_id.len() - 1 {
+            out_io_cfg.push_str(",\n");
+        } else {
+            out_io_cfg.push_str("\n");
+        }
+
+        // -------------------- TP ----------------------------
+        let mut tp_settings = String::new();
+
+        for j in 0..max_cols {
+            let tp_cfg = if j < tp_cfgs.len() {
+                &tp_cfgs[j]
+            } else {
+                &HardwareTPConfig::default()
+            };
+
+            let setting = if tp_cfg.active {
+                format!(
+                    "'{{active:{}, program_size:{}, last:{}}}",
+                    tp_cfg.active as u32,
+                    tp_cfg.program_size,
+                    tp_cfg.last
+                ) 
+            } else {
+                "TP_DEFAULT".to_string()
+            };
+
+            tp_settings.push_str(&setting);
+            if j != tp_cfgs.len() - 1 {
+                tp_settings.push_str(", ");
+            } 
+        }
+            
+        out_tp_cfg.push_str(&format!("'{{ {} }}", tp_settings));
+        if i != cfg.alimp_id.len() - 1 {
+            out_tp_cfg.push_str(",\n");
+        } else {
+            out_tp_cfg.push_str("\n");
+        }
+    }
+
+    in_io_cfg.push_str("};\n");
+    out_io_cfg.push_str("};\n");
+    out_tp_cfg.push_str("};\n");
+
+    // --------------------------------
+    // Application data interface  
+    // --------------------------------
+
+    for loop here-> synthesized info -> routingPath.source/target
+    -> (String, u32) // Alimp name, column ID
+
+        let app_interface_connect = 
+
+        app_if_pipe #(.A(32), .W(128), .DEPTH(0)) app_reg_1x5_2x3 app_reg_1x5_2x3 ( .clk(clk), .rst_n(rst_n),
+        .in_if (app_out[1][5]),
+        .out_if(app_in[2][3])
+    ); 
+
+
+
+    Ok(())
+}
+*/    
 
 #[derive(Serialize)]
 struct HostTemplateCtx {
@@ -412,10 +746,7 @@ fn generate_scheduling_firmware(
         instruction_memory_size: 32768,
         data_memory_size: 32768,
     };
-    cfg.host_cpu_settings = cpu_settings;
-
-    let instruction_memory_size = cfg.host_cpu_settings.instruction_memory_size;
-    let data_memory_size = cfg.host_cpu_settings.data_memory_size;
+    cfg.host_cpu_settings = cpu_settings.clone();
 
     // -----------------------------
     // directory settings
@@ -437,12 +768,18 @@ fn generate_scheduling_firmware(
         schedule_time,
         active_tps,
         relative_time,
-        instruction_memory_size,
-        data_memory_size,
+        cpu_settings.instruction_memory_size,
+        cpu_settings.data_memory_size,
         &main_path,
         &lds_path,
         &output_firmware_path,
         &working_dir)?;
+
+    // -----------------------------
+    // Extract
+    // -----------------------------
+    
+
 
     Ok(())
 }
@@ -466,6 +803,7 @@ pub fn main(
     
     set_alimp_id(db)?;
     generate_alimp_data(db, &module_dir)?;
+    //hardware_system_generation(db, &module_dir)?;
     generate_scheduling_firmware(db, &system_dir, &module_dir)?;
     //global_scheduler(db, &system_dir, &module_dir)?;
     //host_firmware_regeneration(db, &system_dir, &module_dir)?;

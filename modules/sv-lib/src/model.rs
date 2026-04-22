@@ -201,8 +201,11 @@ pub struct Edge {
 #[serde(rename_all = "camelCase")]
 pub struct Channel {
     pub app_edge_id: String,
+    pub source_name: String,
+    pub target_name: String,
     pub source: Vec<String>,
     pub target: Vec<String>,
+    pub connection: Vec<(u32, u32)>,
     pub traffic: f64,
     pub path: Vec<Vec<String>>,
 }
@@ -298,6 +301,8 @@ pub struct Placement {
 #[serde(rename_all = "camelCase")]
 pub struct RoutingPath {
     pub app_edge_id: String,
+    pub source: (String, u32), // node name, column index
+    pub target: (String, u32), // node name, column index
     pub path: Vec<Coordinate>,
     pub delay: i32,
 }

@@ -1,0 +1,78 @@
+`timescale 1ns / 1ps
+import common_utils::*;
+import alimp_pkg::*;
+
+module alimp_top (
+    input  logic        clk,
+    input  logic        rst_n,
+    
+    axi_lite_if.slave   axi_lite,
+    timer_if.slave      program_timer  
+);
+  
+    localparam N_ALIMP = {{N_ALIMP}};
+    localparam MAX_COLS = {{MAX_COLS}};
+
+    // -----------------------------------------
+    // Alimp settings 
+    // -----------------------------------------
+
+    typedef struct packed {
+        common_conf_t   cmn;
+        picorv_conf_t   pico;
+        drra_conf_t     drra;
+    } alimp_base_cfg_t;
+
+    localparam alimp_base_cfg_t cfg [N_ALIMP] = {{BASE_CFG}};
+
+    // -----------------------------------------
+    // IO configs
+    // -----------------------------------------
+    
+    localparam io_setting_t in_io [N_ALIMP][MAX_COLS] = {{IN_IO_CFG}};
+    localparam io_setting_t out_io [N_ALIMP][MAX_COLS] = {{OUT_IO_CFG}};
+    localparam tp_setting_t out_tp [N_ALIMP][MAX_COLS] = {{OUT_TP_CFG}};
+
+    // -----------------------------------------
+    // Interfaces
+    // -----------------------------------------
+
+    app_if #(.A(32), .W(128)) app_in  [N_ALIMP][MAX_COLS] ();
+    app_if #(.A(32), .W(128)) app_out [N_ALIMP][MAX_COLS] ();
+    
+    {{APP_INTERFACE_CONNECT}}
+
+    app_if_pipe #(.A(32), .W(128), .DEPTH(0)) app_reg_1x5_2x3 app_reg_1x5_2x3 ( .clk(clk), .rst_n(rst_n),
+        .in_if (app_out[1][5]),
+        .out_if(app_in[2][3])
+    ); 
+
+    // -----------------------------------------
+    // Generate ALIMPs
+    // -----------------------------------------
+    
+    genvar i;
+
+    generate
+        for (i = 0; i < N_ALIMP; i++) begin: gen_alimp 
+            alimp_wrapper #(
+                .ALIMP_ID(i),
+                .MAX_COLS(MAX_COLS),
+                .CMN_CFG(cfg[i].cmn),
+                .PICO_CFG(cfg[i].pico),
+                .DRRA_CFG(cfg[i].drra),
+                .IN_IO_CFG(in_io[i]),
+                .OUT_IO_CFG(out_io[i]),
+                .OUT_TP_CFG(out_tp[i])
+            ) alimp_inst (
+                .clk(clk),
+                .rst_n(rst_n),
+                .axi_lite(axi_lite),
+                .program_timer(program_timer),
+                .app_in(app_in[i]),
+                .app_out(app_out[i])
+            );
+        end
+    endgenerate
+
+endmodule 

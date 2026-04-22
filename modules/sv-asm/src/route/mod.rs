@@ -313,7 +313,8 @@ fn create_routing_graph(
         // get the node coordinates
         let mut source = vec![];
         let mut target = vec![];
-       
+        let mut connection = vec![];
+        
         // get source/target port positions
         let transporter_prefix = format!("transporter_{}_", &edge.id);
         
@@ -336,13 +337,18 @@ fn create_routing_graph(
             target.push(
                 _port_id_to_node_id(target_x, target_y, target_width, target_height, target_port)?
             );
+
+            connection.push((transporter.from, transporter.to));
         }  
 
         channels.push(
             Channel {
                 app_edge_id: edge.id.clone(),
+                source_name: edge.source_node.clone(),
+                target_name: edge.target_node.clone(),
                 source: source,
                 target: target,
+                connection: connection,
                 traffic: edge.token_size as f64,
                 path: Vec::new(),
             }
@@ -504,6 +510,8 @@ fn update_synthesized_info(
             db.synthesized_information.routing_paths.push(
                 RoutingPath {
                     app_edge_id: routing_id,
+                    source: (channel.source_name.clone(), channel.connection[i].0),
+                    target: (channel.target_name.clone(), channel.connection[i].1),
                     path: paths[i].clone(),
                     delay: fixed_delay,
                 }

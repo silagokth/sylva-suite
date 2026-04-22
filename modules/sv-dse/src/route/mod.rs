@@ -378,8 +378,11 @@ fn create_routing_graph(
         channels.push(
             Channel {
                 app_edge_id: edge.id.clone(),
+                source_name: edge.source_node.clone(),
+                target_name: edge.target_node.clone(),
                 source: vec![source],
                 target: vec![target],
+                connection: vec![], // unused
                 traffic: edge.token_size as f64,
                 path: Vec::new(),
             }
@@ -581,6 +584,8 @@ fn update_synthesized_info(
             db.synthesized_information.routing_paths.push(
                 RoutingPath {
                     app_edge_id: channel.app_edge_id.clone(),
+                    source: ("".to_string(), 0), // unused
+                    target: ("".to_string(), 0), // unused
                     path: path,
                     delay: 0,
                 }
