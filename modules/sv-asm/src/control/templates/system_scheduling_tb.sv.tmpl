@@ -1,0 +1,304 @@
+`timescale 1ns / 1ps
+import common_utils::*;
+import alimp_pkg::*;
+
+module system_scheduling_tb;
+
+    localparam int N_ALIMP = dut.alimp_top_inst.N_ALIMP;
+
+    localparam DATA_WIDTH = 32;
+    localparam ADDRESS_WIDTH = 32;
+    localparam INST_BASE_ADDR  = {{INST_BASE_ADDR}};        // 32'h8000_0000
+    localparam DATA_BASE_ADDR  = {{DATA_BASE_ADDR}};        // 32'h8001_0000
+    localparam HOST_INSTMEM_DEPTH = {{HOST_INSTMEM_DEPTH}}; // 32768
+    localparam HOST_DATAMEM_DEPTH = {{HOST_DATAMEM_DEPTH}}; // 32768
+   
+    localparam DATAMEM_BASE_ADDR = {{DATAMEM_BASE_ADDR}};   // 32'h8010_0000
+    localparam DATAMEM_DEPTH = {{DATAMEM_DEPTH}};           // 32768
+    
+    logic [31:0] host_inst_extram [0:HOST_INSTMEM_DEPTH/4];
+    logic [31:0] host_data_extram [0:HOST_DATAMEM_DEPTH/4];
+    logic [31:0] data_extram [0:DATAMEM_DEPTH/4];
+
+    parameter picorv_conf_t PICO_CFG = {{PICO_CFG}};
+
+    // ----------------------------------------------
+    // main signals  
+    // ----------------------------------------------
+    logic                               clk;
+    logic                               rst_n;
+    axi_lite_if #(.A(32),.W(32))        axi_lite_ext ();
+    logic [31:0]                        trap;
+
+    always #5 clk = ~clk;
+    assign axi_lite_ext.r_resp = '0;
+    assign axi_lite_ext.b_resp = '0;
+
+    // ----------------------------------------------
+    // dut instantiation
+    // ----------------------------------------------
+    system #(
+        .DATA_WIDTH(DATA_WIDTH),
+        .ADDRESS_WIDTH(ADDRESS_WIDTH),
+        .INST_BASE_ADDR(INST_BASE_ADDR),
+        .DATA_BASE_ADDR(DATA_BASE_ADDR),
+        .HOST_INSTMEM_DEPTH(HOST_INSTMEM_DEPTH),
+        .HOST_DATAMEM_DEPTH(HOST_DATAMEM_DEPTH),
+        .PICO_CFG(PICO_CFG)
+    ) dut (.*);
+
+    // mapping cpu_stall 
+    logic [N_ALIMP-1:0] stall;
+    
+    genvar i;
+    generate
+        for (i = 0; i < N_ALIMP; i++) begin : gen_alimp
+            assign stall[i] = dut.alimp_top_inst.gen_alimp[i].alimp_inst.sys_inst.int_sync_cpu_stall;
+        end
+    endgenerate
+
+    // ----------------------------------------------
+    // helper tasks
+    // ----------------------------------------------
+    
+    function automatic bit in_range(
+        input logic [31:0] addr,
+        input logic [31:0] base,
+        input int unsigned size_bytes
+    );
+        return (addr >= base) && (addr < base + size_bytes);
+    endfunction
+    
+    function automatic int addr_to_index(
+        input logic [31:0] addr,
+        input logic [31:0] base
+    );
+        return (addr - base) >> 2; // word aligned
+    endfunction
+
+    // AXI-LITE WRITE TO EXTERNAL MEMORY
+    always_ff @(posedge clk) begin
+        if (!rst_n) begin
+            axi_lite_ext.aw_ready <= 0;
+            axi_lite_ext.w_ready  <= 0;
+            axi_lite_ext.b_valid  <= 0;
+        end else begin
+            // default
+            axi_lite_ext.aw_ready <= 0;
+            axi_lite_ext.w_ready  <= 0;
+    
+            if (axi_lite_ext.aw_valid && axi_lite_ext.w_valid && !axi_lite_ext.b_valid) begin
+                logic [31:0] addr;
+                int idx;
+                
+                axi_lite_ext.aw_ready <= 1;
+                axi_lite_ext.w_ready  <= 1; 
+                addr = axi_lite_ext.aw_addr;
+
+                if (in_range(addr, INST_BASE_ADDR, HOST_INSTMEM_DEPTH)) begin
+                    idx = addr_to_index(addr, INST_BASE_ADDR);
+                    host_inst_extram[idx] <= axi_lite_ext.w_data;
+                end
+                else if (in_range(addr, DATA_BASE_ADDR, HOST_DATAMEM_DEPTH)) begin
+                    idx = addr_to_index(addr, DATA_BASE_ADDR);
+                    host_data_extram[idx] <= axi_lite_ext.w_data;
+                end
+                else if (in_range(addr, DATAMEM_BASE_ADDR, DATAMEM_DEPTH)) begin
+                    idx = addr_to_index(addr, DATAMEM_BASE_ADDR);
+                    data_extram[idx] <= axi_lite_ext.w_data;
+                end
+                else begin
+                    $fatal(1, "AXI WRITE ERROR: addr %h out of range", addr);
+                end
+    
+                axi_lite_ext.b_valid <= 1;
+            end
+    
+            if (axi_lite_ext.b_valid && axi_lite_ext.b_ready) begin
+                axi_lite_ext.b_valid <= 0;
+            end
+        end
+    end
+
+    // AXI-LITE READ TO EXTERNAL MEMORY
+    always_ff @(posedge clk) begin
+        if (!rst_n) begin
+            axi_lite_ext.ar_ready <= 0;
+            axi_lite_ext.r_valid  <= 0;
+            axi_lite_ext.r_data   <= 0;
+        end else begin
+            axi_lite_ext.ar_ready <= 0;
+    
+            if (axi_lite_ext.ar_valid && !axi_lite_ext.r_valid) begin
+                logic [31:0] addr;
+                int idx;
+                                 
+                axi_lite_ext.ar_ready <= 1;
+                addr = axi_lite_ext.ar_addr;
+    
+                if (in_range(addr, INST_BASE_ADDR, HOST_INSTMEM_DEPTH)) begin
+                    idx = addr_to_index(addr, INST_BASE_ADDR);
+                    axi_lite_ext.r_data <= host_inst_extram[idx];
+                end
+                else if (in_range(addr, DATA_BASE_ADDR, HOST_DATAMEM_DEPTH)) begin
+                    idx = addr_to_index(addr, DATA_BASE_ADDR);
+                    axi_lite_ext.r_data <= host_data_extram[idx];
+                end
+                else if (in_range(addr, DATAMEM_BASE_ADDR, DATAMEM_DEPTH)) begin
+                    idx = addr_to_index(addr, DATAMEM_BASE_ADDR);
+                    axi_lite_ext.r_data <= data_extram[idx];
+                end
+                else begin
+                    axi_lite_ext.r_data <= 32'hDEADBEEF;
+                    $fatal(1, "AXI READ ERROR: addr %h out of range", addr);
+                end
+    
+                axi_lite_ext.r_valid <= 1;
+            end
+    
+            if (axi_lite_ext.r_valid && axi_lite_ext.r_ready) begin
+                axi_lite_ext.r_valid <= 0;
+            end
+        end
+    end
+    
+    
+    task automatic load_host_ext_mem (
+        input string filename_text,
+        input string filename_data
+    );
+    begin
+        int fd;
+        
+        // init memory
+        for (int i = 0; i < HOST_INSTMEM_DEPTH/4; i++)
+            host_inst_extram[i] = '0;
+        for (int i = 0; i < HOST_DATAMEM_DEPTH/4; i++)
+            host_data_extram[i] = '0;
+
+        // load text
+        $readmemh(filename_text, host_inst_extram);
+        
+        // load data with a safe method if the file doesn't exist
+        fd = $fopen(filename_data, "r");
+        if (fd) begin
+            $fclose(fd);
+            $readmemh(filename_data, host_data_extram);
+        end else begin
+            $display("WARNING: %s not found, using zero init", filename_data);
+        end
+
+        $display("load host firmware complete");
+    end
+    endtask
+
+    task automatic load_data_ext_mem (
+        input string filename
+    );
+    begin
+        int fd;
+        
+        // init memory
+        for (int i = 0; i < DATAMEM_DEPTH/4; i++)
+            data_extram[i] = '0; 
+
+        // load data with a safe method if the file doesn't exist
+        fd = $fopen(filename, "r");
+        if (fd) begin
+            $fclose(fd);
+            $readmemh(filename, data_extram);
+        end else begin
+            $display("WARNING: %s not found, using zero init", filename);
+        end
+
+        $display("load alimp data complete");
+    end
+    endtask
+     
+    // emulate read_timer64 function
+    initial begin
+        logic [63:0] t;
+        logic [31:0] t_check;
+    
+        forever begin
+            // -----------------------
+            // Read HI
+            // -----------------------
+            while (1) begin
+                @(posedge clk);
+                if (dut.peri_v && dut.pico_mem_wstrb == 0 &&
+                    dut.pico_mem_ready && dut.pico_mem_addr == 32'h0008_2004) begin
+                    t[63:32] = dut.pico_mem_rdata;
+                    break;
+                end
+            end
+    
+            // -----------------------
+            // Read LO
+            // -----------------------
+            while (1) begin
+                @(posedge clk);
+                if (dut.peri_v && dut.pico_mem_wstrb == 0 &&
+                    dut.pico_mem_ready && dut.pico_mem_addr == 32'h0008_2000) begin
+                    t[31:0] = dut.pico_mem_rdata;
+                    break;
+                end
+            end
+    
+            // -----------------------
+            // Re-read HI
+            // -----------------------
+            while (1) begin
+                @(posedge clk);
+                if (dut.peri_v && dut.pico_mem_wstrb == 0 &&
+                    dut.pico_mem_ready && dut.pico_mem_addr == 32'h0008_2004) begin
+                    t_check = dut.pico_mem_rdata;
+                    break;
+                end
+            end
+    
+            // -----------------------
+            // Check consistency
+            // -----------------------
+            if (t_check == t[63:32]) begin
+                $display("[%0t] GLOBAL_TIME: %0d", $time, t);
+            end else begin
+                $display("[%0t] read time invalid - retrying", $time);
+            end
+        end
+    end
+
+    // ----------------------------------------------
+    // main stimulus
+    // ----------------------------------------------
+    initial begin 
+        clk = 0;
+        rst_n = 0;
+   
+        load_host_ext_mem("tb/data/text.hex", "tb/data/data.hex");
+        load_data_ext_mem("tb/data/alimp_data.hex");
+
+        repeat (10) @(posedge clk);
+        rst_n = 1;
+    
+        @(posedge clk iff dut.cpu_rst_n == 1);
+        $display("CPU starts running...");
+       
+        for (int i = 0; i < N_ALIMP; i++) begin
+            fork
+                automatic int id = i;
+                begin
+                    @(posedge clk iff stall[id] == 1);
+                    $display("[%0t] ALIMP_%0d ready time: %0d",
+                             $time, id, dut.program_timer.value);
+                end
+            join
+        end
+        
+        repeat (100) @(posedge clk);
+        $display("\n--- Test Done ---");
+        #20;
+        $finish;
+    end
+ 
+endmodule

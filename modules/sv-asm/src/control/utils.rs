@@ -12,6 +12,13 @@ where
     format!("0x{:X}", v)
 }
 
+pub fn to_hex_sv<T>(v: T) -> String
+where
+    T: UpperHex + Copy,
+{
+    let bits = std::mem::size_of::<T>() * 8;
+    format!("{}'h{:0width$X}", bits, v, width = bits / 4)
+}
 
 pub fn vec_to_c_array<T>(v: &[T]) -> String
 where
@@ -94,14 +101,24 @@ pub fn validate_sections(
     arch: &ArchConfig,
     sections: &HashMap<String, (u32, u32)>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let required = [".part1", ".part2", ".data"];
+   
+    let required: &[&str] = if arch.part1_size != 0 {
+        &[".part1", ".part2", ".data"]
+    } else {
+        &[".text", ".data"]
+    };
 
     for r in required {
         let (size, addr) = sections
-            .get(r)
+            .get(*r)
             .ok_or_else(|| format!("{} missing section {}", name, r))?;
 
-        match r {
+        match *r {
+            ".text" => {
+                if *size > arch.inst_mem_length || *addr != 0 {
+                    return Err(format!("{} invalid configuration of {}", name, r).into());
+                }
+            }
             ".part1" => {
                 if *size > arch.part1_size || *addr != 0 {
                     return Err(format!("{} invalid configuration of {}", name, r).into());
@@ -113,7 +130,7 @@ pub fn validate_sections(
                 }
             }
             ".data" => {
-                if *addr != 0x1_0000 {
+                if *size > arch.data_mem_length || *addr != arch.data_offset {
                     return Err(format!("{} invalid configuration of {}", name, r).into());
                 }
             }
@@ -129,10 +146,12 @@ pub fn validate_sections(
     }
 
     // .shared must exist AND be correct
-    match sections.get(".shared") {
-        Some((size, addr)) if *size == 0 && *addr == 0x20000 => {}
-        _ => {
-            return Err(format!("{}: .shared missing or invalid", name).into());
+    if arch.share_mem_length != 0 {
+        match sections.get(".shared") {
+            Some((size, addr)) if *size == 0 && *addr == arch.share_offset => {}
+            _ => {
+                return Err(format!("{}: .shared missing or invalid", name).into());
+            }
         }
     }
 

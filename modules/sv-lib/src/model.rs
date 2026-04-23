@@ -447,6 +447,25 @@ pub struct TpBlock {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub enum ObjectFormat {
+    Elf32Le,
+    Elf32Be,
+    Elf64Le,
+    Elf64Be,
+    #[default]
+    Binary,
+    Hex,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ObjectFile {
+    pub name: String,
+    pub format: ObjectFormat,
+    pub data: Vec<u8>,   // ALWAYS raw bytes
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct DrraConfig {
     pub rows: u32,
@@ -468,6 +487,8 @@ pub struct ArchConfig {
     pub share_mem_length: u32,
     pub part1_size: u32,
     pub part2_size: u32, 
+    pub data_offset: u32, 
+    pub share_offset: u32, 
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -580,31 +601,14 @@ pub struct ControlSynthesis {
     pub alimp_data_format: Vec<AlimpDataFormat>,
     pub alimp_data: Vec<u32>,
     pub alimp_data_path: std::path::PathBuf,
+    pub alimp_top_hardware_path: std::path::PathBuf,
     pub host_cpu_settings: CPUSettings,
-//  host
+    pub host_text: Vec<u32>,
+    pub host_data: Vec<u32>,
+    pub host_text_path: std::path::PathBuf,
+    pub host_data_path: std::path::PathBuf,
+    pub tb_scheduling_path: std::path::PathBuf,
 }
-
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-pub enum ObjectFormat {
-    Elf32Le,
-    Elf32Be,
-    Elf64Le,
-    Elf64Be,
-    #[default]
-    Binary,
-    Hex,
-}
-
-
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct ObjectFile {
-    pub name: String,
-    pub format: ObjectFormat,
-    pub data: Vec<u8>,   // ALWAYS raw bytes
-}
-
 
 
 

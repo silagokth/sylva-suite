@@ -1,15 +1,22 @@
-use sv_lib::model::{DataBase, AlimpDataFormat, CPUSettings};
+use sv_lib::model::{DataBase, AlimpDataFormat, 
+                    HardwareIOConfig, HardwareTPConfig, 
+                    ArchConfig, CPUSettings};
 use sv_lib::file_handler;
 use crate::control::utils;
 use log::{error};
-use std::collections::{HashMap};
+//use std::collections::{HashMap};
 use std::process::Command;
 use serde::Serialize;
 use tera::{Tera, Context};
 use once_cell::sync::Lazy;
 
+
 static TERA: Lazy<Tera> = Lazy::new(|| {
     let mut tera = Tera::default();
+    tera.add_raw_template(
+        "alimp_top.sv",
+        include_str!("templates/alimp_top.sv.tmpl")
+    ).unwrap();
     tera.add_raw_template(
         "main.c",
         include_str!("templates/host_firmware.c.tmpl")
@@ -17,6 +24,10 @@ static TERA: Lazy<Tera> = Lazy::new(|| {
     tera.add_raw_template(
         "sections.lds",
         include_str!("templates/host_sections.lds.tmpl")
+    ).unwrap();
+    tera.add_raw_template(
+        "system_scheduling_tb.sv",
+        include_str!("templates/system_scheduling_tb.sv.tmpl")
     ).unwrap();
     tera
 });
@@ -203,7 +214,7 @@ fn generate_alimp_data(
     Ok(())
 }
 
-/*
+
 #[derive(Serialize)]
 struct AlimpTopTemplateCtx {
     #[serde(rename = "N_ALIMP")]
@@ -227,8 +238,8 @@ fn hardware_system_generation(
     db: &mut DataBase, 
     dir: &String,
 ) -> Result<(), Box<dyn std::error::Error>> {
-      
-    let cfg = &db.synthesized_information.control_synthesis;
+     
+    let cfg = &mut db.synthesized_information.control_synthesis;
 
     // --------------------------------
     // Basic configuration
@@ -241,35 +252,35 @@ fn hardware_system_generation(
     // --------------------------------
     let mut base_cfg = String::from("'{\n");
 
-    let pico_settings = "\
-                pico: '{
-                    ENABLE_COUNTERS: 0,
-                    ENABLE_COUNTERS64: 0,
-                    ENABLE_REGS_16_31: 1,
-                    ENABLE_REGS_DUALPORT: 0,
-                    LATCHED_MEM_RDATA: 0,
-                    TWO_STAGE_SHIFT: 0,
-                    BARREL_SHIFTER: 0,
-                    TWO_CYCLE_COMPARE: 0,
-                    TWO_CYCLE_ALU: 0,
-                    COMPRESSED_ISA: 0,
-                    CATCH_MISALIGN: 0,
-                    CATCH_ILLINSN: 0,
-                    ENABLE_PCPI: 0,
-                    ENABLE_MUL: 1,
-                    ENABLE_FAST_MUL: 0,
-                    ENABLE_DIV: 0,
-                    ENABLE_IRQ: 0,
-                    ENABLE_IRQ_QREGS: 0,
-                    ENABLE_IRQ_TIMER: 0,
-                    ENABLE_TRACE: 0,
-                    REGS_INIT_ZERO: 0,
-                    MASKED_IRQ: 32'h0000_0000,
-                    LATCHED_IRQ: 32'hffff_ffff,
-                    PROGADDR_RESET: 32'h0000_0000,
-                    PROGADDR_IRQ: 32'h0000_0010,
-                    STACKADDR: 32'hffff_ffff
-                },\n";
+    let pico_settings = 
+"           pico: '{
+                ENABLE_COUNTERS: 0,
+                ENABLE_COUNTERS64: 0,
+                ENABLE_REGS_16_31: 1,
+                ENABLE_REGS_DUALPORT: 0,
+                LATCHED_MEM_RDATA: 0,
+                TWO_STAGE_SHIFT: 0,
+                BARREL_SHIFTER: 0,
+                TWO_CYCLE_COMPARE: 0,
+                TWO_CYCLE_ALU: 0,
+                COMPRESSED_ISA: 0,
+                CATCH_MISALIGN: 0,
+                CATCH_ILLINSN: 0,
+                ENABLE_PCPI: 0,
+                ENABLE_MUL: 1,
+                ENABLE_FAST_MUL: 0,
+                ENABLE_DIV: 0,
+                ENABLE_IRQ: 0,
+                ENABLE_IRQ_QREGS: 0,
+                ENABLE_IRQ_TIMER: 0,
+                ENABLE_TRACE: 0,
+                REGS_INIT_ZERO: 0,
+                MASKED_IRQ: 32'h0000_0000,
+                LATCHED_IRQ: 32'hffff_ffff,
+                PROGADDR_RESET: 32'h0000_0000,
+                PROGADDR_IRQ: 32'h0000_0010,
+                STACKADDR: 32'hffff_ffff
+            }";
     
     for (idx, id) in cfg.alimp_id.iter().enumerate() {
         let alimp_cfg = cfg
@@ -277,31 +288,30 @@ fn hardware_system_generation(
             .get(id)
             .ok_or_else(|| format!("Alimp {} is not found in control synthesis", id))?;
     
-        let hardware_cfg = &alimp_cfg.hardware_common_config;
-        let drra_cfg = &alimp_cfg.hardware_drra_config;
+        let hardware_cfg = &alimp_cfg.hardware_config.hardware_common_config;
+        let drra_cfg = &alimp_cfg.hardware_config.hardware_drra_config;
     
         let cmn_settings = format!(
-            "\
-                cmn: '{{
-                    AXI_ADDR_WIDTH: {},
-                    AXI_DATA_WIDTH: {},
-                    CPU_ADDR_WIDTH: {},
-                    CPU_DATA_WIDTH: {},
-                    CPU_INSTMEM_DEPTH: {},
-                    CPU_DATAMEM_DEPTH: {},
-                    CPU_SHAREMEM_DEPTH: {},
-                    CHUNK_ADDR_WIDTH: {},
-                    CHUNK_DATA_WIDTH: {},
-                    ID_BITS: {},
-                    TLB_PROGRAM_ADDR_WIDTH: {},
-                    TLB_AGU_INTERNAL_WIDTH: {},
-                    TP_START_BITS: {},
-                    TP_INTERNAL_COL_MSB: {},
-                    TP_INTERNAL_COL_LSB: {},
-                    TP_INTERNAL_DATA_WIDTH: {},
-                    TP_PROGRAM_ADDR_WIDTH: {},
-                    TP_PROGRAM_DATA_WIDTH: {}
-                }},\n",
+"            cmn: '{{
+                AXI_ADDR_WIDTH: {},
+                AXI_DATA_WIDTH: {},
+                CPU_ADDR_WIDTH: {},
+                CPU_DATA_WIDTH: {},
+                CPU_INSTMEM_DEPTH: {},
+                CPU_DATAMEM_DEPTH: {},
+                CPU_SHAREMEM_DEPTH: {},
+                CHUNK_ADDR_WIDTH: {},
+                CHUNK_DATA_WIDTH: {},
+                ID_BITS: {},
+                TLB_PROGRAM_ADDR_WIDTH: {},
+                TLB_AGU_INTERNAL_WIDTH: {},
+                TP_START_BITS: {},
+                TP_INTERNAL_COL_MSB: {},
+                TP_INTERNAL_COL_LSB: {},
+                TP_INTERNAL_DATA_WIDTH: {},
+                TP_PROGRAM_ADDR_WIDTH: {},
+                TP_PROGRAM_DATA_WIDTH: {}
+            }}",
             hardware_cfg.axi_addr_width,
             hardware_cfg.axi_data_width,
             hardware_cfg.cpu_addr_width,
@@ -323,16 +333,15 @@ fn hardware_system_generation(
         );
     
         let drra_settings = format!(
-            "\
-                drra: '{{
-                    ROWS: {},
-                    COLS: {},
-                    INSTR_DATA_WIDTH: {},
-                    INSTR_ADDR_WIDTH: {},
-                    INSTR_HOPS_WIDTH: {},
-                    IO_ADDR_WIDTH: {},
-                    DM_ADDR_WIDTH: {}
-                }}\n",
+"           drra: '{{
+                ROWS: {},
+                COLS: {},
+                INSTR_DATA_WIDTH: {},
+                INSTR_ADDR_WIDTH: {},
+                INSTR_HOPS_WIDTH: {},
+                IO_ADDR_WIDTH: {},
+                DM_ADDR_WIDTH: {}
+            }}",
             drra_cfg.rows,
             drra_cfg.cols,
             drra_cfg.instr_data_width,
@@ -343,7 +352,8 @@ fn hardware_system_generation(
         );
     
         let alimp_settings = format!(
-            "'{{\n{}{}{}\n}}",
+"      '{{\n{},\n{},\n{}\n
+        }}",
             cmn_settings,
             pico_settings,
             drra_settings
@@ -359,7 +369,8 @@ fn hardware_system_generation(
         }
     }
     
-    base_cfg.push_str("};\n");
+    base_cfg.push_str(
+"   };\n");
 
     // --------------------------------
     // IO settings 
@@ -374,14 +385,14 @@ fn hardware_system_generation(
             .get(id)
             .ok_or_else(|| format!("Alimp {} is not found in control synthesis", id))?;
     
-        let ib_cfgs = &alimp_cfg.hardware_common_config.in_io_config;
-        let ob_cfgs = &alimp_cfg.hardware_common_config.out_io_config;
-        let tp_cfgs = &alimp_cfg.hardware_common_config.out_tp_config;
+        let ib_cfgs = &alimp_cfg.hardware_config.in_io_config;
+        let ob_cfgs = &alimp_cfg.hardware_config.out_io_config;
+        let tp_cfgs = &alimp_cfg.hardware_config.out_tp_config;
         
         // -------------------- IB ----------------------------
-        let mut ib_settings = String::from("'{\n");
+        let mut ib_settings = String::new();
 
-        for j in 0..max_cols {
+        for j in 0..max_cols as usize {
             let ib_cfg = if j < ib_cfgs.len() {
                 &ib_cfgs[j]
             } else {
@@ -390,7 +401,7 @@ fn hardware_system_generation(
 
             let setting = if ib_cfg.active || ib_cfg.skip {
                 format!(
-                    "'{{
+"              '{{
                     active:{}, skip:{}, buf_type:{}, buf_size:{}, block_size:{},
                     input1:{}, input2:{}, output1:{}, output2:{},
                     tlb1:'{{ tlb_type:{}, program_size:{} }},
@@ -411,18 +422,18 @@ fn hardware_system_generation(
                     ib_cfg.tlb2.program_size
                 )
             } else {
-                "IO_DEFAULT".to_string()
+"               IO_DEFAULT".to_string()
             };
 
             ib_settings.push_str(&setting);
-            if j != ib_cfgs.len() - 1 {
+            if j != max_cols as usize - 1 {
                 ib_settings.push_str(",\n");
-            } else {
-                ib_settings.push_str("\n");
-            }
+            } 
         }
 
-        in_io_cfg.push_str(&format!("'{{\n{}\n}}", ib_settings));
+        in_io_cfg.push_str(&format!(
+"       '{{\n{}\n
+        }}", ib_settings));
         if i != cfg.alimp_id.len() - 1 {
             in_io_cfg.push_str(",\n");
         } else {
@@ -430,9 +441,9 @@ fn hardware_system_generation(
         }
             
         // -------------------- OB ----------------------------
-        let mut ob_settings = String::from("'{\n");
+        let mut ob_settings = String::new();
 
-        for j in 0..max_cols {
+        for j in 0..max_cols as usize {
             let ob_cfg = if j < ob_cfgs.len() {
                 &ob_cfgs[j]
             } else {
@@ -441,7 +452,7 @@ fn hardware_system_generation(
 
             let setting = if ob_cfg.active || ob_cfg.skip {
                 format!(
-                    "'{{
+"               '{{
                     active:{}, skip:{}, buf_type:{}, buf_size:{}, block_size:{},
                     input1:{}, input2:{}, output1:{}, output2:{},
                     tlb1:'{{ tlb_type:{}, program_size:{} }},
@@ -462,18 +473,19 @@ fn hardware_system_generation(
                     ob_cfg.tlb2.program_size
                 ) 
             } else {
-                "IO_DEFAULT".to_string()
+"               IO_DEFAULT".to_string()
             };
 
             ob_settings.push_str(&setting);
-            if j != ob_cfgs.len() - 1 {
+            if j != max_cols as usize - 1 {
                 ob_settings.push_str(",\n");
-            } else {
-                ob_settings.push_str("\n");
             }
         }
             
-        out_io_cfg.push_str(&format!("'{{\n{}\n}}", ob_settings));
+        out_io_cfg.push_str(&format!(
+"       '{{\n{}\n
+        }}", ob_settings));
+
         if i != cfg.alimp_id.len() - 1 {
             out_io_cfg.push_str(",\n");
         } else {
@@ -483,7 +495,7 @@ fn hardware_system_generation(
         // -------------------- TP ----------------------------
         let mut tp_settings = String::new();
 
-        for j in 0..max_cols {
+        for j in 0..max_cols as usize {
             let tp_cfg = if j < tp_cfgs.len() {
                 &tp_cfgs[j]
             } else {
@@ -491,8 +503,7 @@ fn hardware_system_generation(
             };
 
             let setting = if tp_cfg.active {
-                format!(
-                    "'{{active:{}, program_size:{}, last:{}}}",
+                format!("'{{active:{}, program_size:{}, last:{}}}",
                     tp_cfg.active as u32,
                     tp_cfg.program_size,
                     tp_cfg.last
@@ -501,13 +512,15 @@ fn hardware_system_generation(
                 "TP_DEFAULT".to_string()
             };
 
-            tp_settings.push_str(&setting);
-            if j != tp_cfgs.len() - 1 {
+            tp_settings.push_str(&setting); 
+
+            if j != max_cols as usize - 1 {
                 tp_settings.push_str(", ");
             } 
         }
             
-        out_tp_cfg.push_str(&format!("'{{ {} }}", tp_settings));
+        out_tp_cfg.push_str(&format!(
+"       '{{ {} }}", tp_settings));
         if i != cfg.alimp_id.len() - 1 {
             out_tp_cfg.push_str(",\n");
         } else {
@@ -515,29 +528,90 @@ fn hardware_system_generation(
         }
     }
 
-    in_io_cfg.push_str("};\n");
-    out_io_cfg.push_str("};\n");
-    out_tp_cfg.push_str("};\n");
+    in_io_cfg.push_str("    };\n");
+    out_io_cfg.push_str("   };\n");
+    out_tp_cfg.push_str("   };\n");
 
     // --------------------------------
     // Application data interface  
     // --------------------------------
 
-    for loop here-> synthesized info -> routingPath.source/target
-    -> (String, u32) // Alimp name, column ID
+    let mut app_interface_connect = String::new();
+    let routes = &db.synthesized_information.routing_paths;
 
-        let app_interface_connect = 
+    for route in routes.iter() {
+        let (source_name, source_col) = &route.source;
+        let (target_name, target_col) = &route.target;
 
-        app_if_pipe #(.A(32), .W(128), .DEPTH(0)) app_reg_1x5_2x3 app_reg_1x5_2x3 ( .clk(clk), .rst_n(rst_n),
-        .in_if (app_out[1][5]),
-        .out_if(app_in[2][3])
-    ); 
+        let delay = if route.delay < 0 {
+            return Err(format!("Negative delay for route {:?}->{:?}", source_name, target_name).into());
+        } else {
+            route.delay as u32
+        };
 
+        // map Alimp names to IDs
+        let source_id = cfg.alimp_id
+            .iter()
+            .enumerate()
+            .find(|(_, n)| *n == source_name)
+            .map(|(idx, _)| idx)
+            .ok_or_else(|| format!("Node {} is not found in Control Synthesis Info", source_name))?;
 
+        let target_id = cfg.alimp_id
+            .iter()
+            .enumerate()
+            .find(|(_, n)| *n == target_name)
+            .map(|(idx, _)| idx)
+            .ok_or_else(|| format!("Node {} is not found in Control Synthesis Info", target_name))?;
 
+        let connect = format!(
+"    app_if_connect #(.A(32), .W(128), .DEPTH({})) app_connect_{}x{}_{}x{} (
+        .clk    (clk), 
+        .rst_n  (rst_n),
+        .in_if  (app_out[{}][{}]),
+        .out_if (app_in[{}][{}]) 
+    );\n\n",
+            delay,
+            source_id,
+            source_col,
+            target_id,
+            target_col,
+            source_id,
+            source_col,
+            target_id,
+            target_col
+        );
+
+        app_interface_connect.push_str(&connect);
+    }
+
+    // --------------------------------
+    // Generate the file 
+    // --------------------------------
+    let alimp_top_ctx = AlimpTopTemplateCtx {
+        n_alimp: n_alimp,
+        max_cols: max_cols,
+        base_cfg: base_cfg,
+        in_io_cfg: in_io_cfg,
+        out_io_cfg: out_io_cfg,
+        out_tp_cfg: out_tp_cfg,
+        app_interface_connect: app_interface_connect
+    };
+
+    let alimp_top_context = Context::from_serialize(&alimp_top_ctx)?;
+    let alimp_top_rendered = TERA.render("alimp_top.sv", &alimp_top_context)
+        .map_err(|e| format!("Tera error:\n{}", e))?;
+
+    let alimp_top_path = std::path::Path::new(dir).join("alimp_top.sv");
+    file_handler::write_file(&alimp_top_path, alimp_top_rendered)?;
+    
+    // update alimp_top path
+    cfg.alimp_top_hardware_path = alimp_top_path;
+    
     Ok(())
 }
-*/    
+
+
 
 #[derive(Serialize)]
 struct HostTemplateCtx {
@@ -599,6 +673,13 @@ fn generate_host_firmware(
         active_tps: utils::vec_to_c_array(&active_tps),
         relative_time: utils::vec2d_to_c(&relative_time),
     };
+
+    let host_context = Context::from_serialize(&host_ctx)?;
+    let host_rendered = TERA.render("main.c", &host_context)
+        .map_err(|e| format!("Tera error:\n{}", e))?;
+
+    file_handler::write_file(main_path, host_rendered)?;
+
 
     let host_context = Context::from_serialize(&host_ctx)?;
     let host_rendered = TERA.render("main.c", &host_context)
@@ -776,13 +857,250 @@ fn generate_scheduling_firmware(
         &working_dir)?;
 
     // -----------------------------
-    // Extract
+    // Extract binary 
     // -----------------------------
-    
+    let mut host_text: Vec<u32> = Vec::new();
+    let mut host_data: Vec<u32> = Vec::new();
 
+    // ------------------------------        
+    // objdump -h
+    let output = Command::new(format!("{}objdump", utils::TOOLCHAIN))
+        .arg("-h")
+        .arg(&output_firmware_path)
+        .output()?; 
+
+    if !output.status.success() {
+        return Err(format!("objdump failed for {}", output_firmware_path.display()).into());
+    }
+
+    let stdout = String::from_utf8(output.stdout)?;
+    let sections = utils::elf_parse_sections(&stdout)?;
+
+    let architecture = ArchConfig {
+        inst_mem_length: cfg.host_cpu_settings.instruction_memory_size,  
+        data_mem_length: cfg.host_cpu_settings.data_memory_size,     
+        share_mem_length: 0,    // FIXED
+        part1_size: 0,          // FIXED
+        part2_size: 0,          // FIXED
+        data_offset: 0x10000,   // FIXED
+        share_offset: 0,        // FIXED
+    };
+    utils::validate_sections("host", &architecture, &sections)?;
+        
+    // ------------------------------        
+    // Extract sections
+    let target_sections = [".text", ".data"];
+    let parent_dir = output_firmware_path
+        .parent()
+        .ok_or("Invalid ELF path (no parent directory)")?;
+
+    for section_name in target_sections.iter() {
+        let tmp_out = parent_dir.join(format!("{}.bin", section_name));
+            
+        let tool = format!("{}objcopy", utils::TOOLCHAIN);
+            
+        let output = Command::new(&tool)
+            .arg("-O")
+            .arg("binary")
+            .arg("-j")
+            .arg(&section_name)
+            .arg(&output_firmware_path)
+            .arg(&tmp_out)
+            .output()?;
+
+        if !output.status.success() {
+            let error_command = format!(
+                "Command: {} -O binary -j {} {} {}",
+                tool,
+                section_name,
+                output_firmware_path.display(),
+                tmp_out.display()
+            );
+            return Err(format!("objcopy failed for {}", error_command).into());
+        }
+
+        let (size, _) = sections
+            .get(*section_name)
+            .ok_or_else(|| format!("Missing section {}", section_name))?;
+
+        // Read binary file
+        let raw = std::fs::read(&tmp_out)?;
+
+        if raw.len() as u32 != *size {
+            return Err(format!(
+                "Host firmware: size mismatch for {} (expected {}, got {})",
+                section_name,
+                size,
+                raw.len()
+            )
+            .into());
+        }
+
+        if raw.len() % 4 != 0 {
+            return Err(format!(
+                "Host firmware: section {} not aligned to u32", section_name
+            )
+            .into());
+        }
+
+        // Convert to u32 (little endian) and push to binary structs
+        for chunk in raw.chunks_exact(4) {
+            let val = u32::from_le_bytes(chunk.try_into().unwrap());
+            match *section_name {
+                ".text" => host_text.push(val),
+                ".data" => host_data.push(val),
+                _ => return Err(format!("Host firmware: unknown section {}", section_name).into()),
+            };
+        }
+    }
+
+    // ------------------------------        
+    // save output hex
+    let sections = ["text", "data"];
+    for name in sections.iter() {
+        let binary = match *name {
+            "text" => &host_text,
+            "data" => &host_data,
+            _ => return Err(format!("Host firmware: unknown section {}", name).into()),
+        };
+
+        let mut out = String::new();
+        
+        for word in binary {
+            out.push_str(&format!("{:08X}", *word));
+            out.push('\n');
+        }
+
+        let binary_file = parent_dir.join(format!("{}.hex", name));
+        file_handler::write_file(&binary_file, out)?;
+
+        // update host firmware info
+        match *name {
+            "text" => cfg.host_text_path = binary_file,
+            "data" => cfg.host_data_path = binary_file,
+            _ => return Err(format!("Host firmware: unknown section {}", name).into()),
+        };
+    }
+
+    // update host firmware raw info
+    cfg.host_text = host_text;
+    cfg.host_text = host_data;
 
     Ok(())
 }
+
+
+#[derive(Serialize)]
+struct TbSchedulingTemplateCtx {
+    #[serde(rename = "INST_BASE_ADDR")]
+    inst_base_addr: String,
+    #[serde(rename = "DATA_BASE_ADDR")]
+    data_base_addr: String,
+    #[serde(rename = "HOST_INSTMEM_DEPTH")]
+    host_instmem_depth: String,
+    #[serde(rename = "HOST_DATAMEM_DEPTH")]
+    host_datamem_depth: String,
+    #[serde(rename = "DATAMEM_BASE_ADDR")]
+    datamem_base_addr: String,
+    #[serde(rename = "DATAMEM_DEPTH")]
+    datamem_depth: String,
+    #[serde(rename = "PICO_CFG")]
+    pico_cfg: String,
+}
+
+
+fn global_scheduler(
+    db: &mut DataBase,
+    system_dir: &String,
+    module_dir: &String,
+) -> Result<(), Box<dyn std::error::Error>> {
+
+    let cfg = &mut db.synthesized_information.control_synthesis;
+    
+    // -----------------------------
+    // generating tb file 
+    // -----------------------------
+    let inst_base_addr: u32 = 0x8000_0000;       // FIXED
+    let data_base_addr: u32 = 0x8001_0000;       // FIXED
+    let host_instmem_depth: u32 = cfg.host_cpu_settings.instruction_memory_size;  
+    let host_datamem_depth: u32 = cfg.host_cpu_settings.data_memory_size;  
+    let datamem_base_addr: u32 = 0x8010_0000;    // FIXED 
+    let datamem_depth: u32 = 32768;              // FIXED
+    let pico_cfg = "'{
+            ENABLE_COUNTERS: 0,
+            ENABLE_COUNTERS64: 0,
+            ENABLE_REGS_16_31: 1,
+            ENABLE_REGS_DUALPORT: 0,
+            LATCHED_MEM_RDATA: 0,
+            TWO_STAGE_SHIFT: 0,
+            BARREL_SHIFTER: 0,
+            TWO_CYCLE_COMPARE: 0,
+            TWO_CYCLE_ALU: 0,
+            COMPRESSED_ISA: 0,
+            CATCH_MISALIGN: 0,
+            CATCH_ILLINSN: 0,
+            ENABLE_PCPI: 0,
+            ENABLE_MUL: 1,
+            ENABLE_FAST_MUL: 0,
+            ENABLE_DIV: 0,
+            ENABLE_IRQ: 0,
+            ENABLE_IRQ_QREGS: 0,
+            ENABLE_IRQ_TIMER: 0,
+            ENABLE_TRACE: 0,
+            REGS_INIT_ZERO: 0,
+            MASKED_IRQ: 32'h0000_0000,
+            LATCHED_IRQ: 32'hffff_ffff,
+            PROGADDR_RESET: 32'h0000_0000,
+            PROGADDR_IRQ: 32'h0000_0010,
+            STACKADDR: 32'hffff_ffff
+        }".to_string();
+   
+    let tb_ctx = TbSchedulingTemplateCtx {
+        inst_base_addr: utils::to_hex_sv(inst_base_addr), 
+        data_base_addr: utils::to_hex_sv(data_base_addr), 
+        host_instmem_depth: utils::to_hex_sv(host_instmem_depth), 
+        host_datamem_depth: utils::to_hex_sv(host_datamem_depth), 
+        datamem_base_addr: utils::to_hex_sv(datamem_base_addr), 
+        datamem_depth: utils::to_hex_sv(datamem_depth),
+        pico_cfg: pico_cfg,
+    };
+
+    let tb_context = Context::from_serialize(&tb_ctx)?;
+    let tb_rendered = TERA.render("system_scheduling_tb.sv", &tb_context)
+        .map_err(|e| format!("Tera error:\n{}", e))?;
+
+    let tb_file = std::path::Path::new(module_dir).join("system_scheduling_tb.sv");
+    file_handler::write_file(&tb_file, tb_rendered)?;
+    cfg.tb_scheduling_path = tb_file;
+
+    // -----------------------------
+    // getting the vsim framework ready 
+    // -----------------------------
+    let working_dir = std::path::Path::new(system_dir);
+
+    // copy alimp_top.sv -> rtl/
+    let alimp_top_dst = working_dir.join("rtl").join("alimp_top.sv");
+    std::fs::copy(&cfg.alimp_top_hardware_path, &alimp_top_dst)?;
+ 
+    // copy system_tb.sv -> tb/
+    let tb_dst = working_dir.join("tb").join("system_scheduling_tb.sv");
+    std::fs::copy(&cfg.tb_scheduling_path, &tb_dst)?;
+
+    // copy all binaries -> tb/data/
+    let text_dst = working_dir.join("tb").join("data").join("text.hex");
+    let data_dst = working_dir.join("tb").join("data").join("data.hex");
+    let alimp_data_dst = working_dir.join("tb").join("data").join("alimp_data.hex");
+    std::fs::copy(&cfg.host_text_path, &text_dst)?;
+    std::fs::copy(&cfg.host_data_path, &data_dst)?;
+    std::fs::copy(&cfg.alimp_data_path, &alimp_data_dst)?;
+
+    Ok(())
+}
+
+
+
+
+
 
 
 
@@ -803,9 +1121,9 @@ pub fn main(
     
     set_alimp_id(db)?;
     generate_alimp_data(db, &module_dir)?;
-    //hardware_system_generation(db, &module_dir)?;
+    hardware_system_generation(db, &module_dir)?;
     generate_scheduling_firmware(db, &system_dir, &module_dir)?;
-    //global_scheduler(db, &system_dir, &module_dir)?;
+    global_scheduler(db, &system_dir, &module_dir)?;
     //host_firmware_regeneration(db, &system_dir, &module_dir)?;
     //global_scheduling_verification(db, &system_dir, &module_dir)?;
 

@@ -431,6 +431,8 @@ fn generate_firmware_code(
         share_mem_length: 128,  // FIXED
         part1_size: 1536,       // FIXED
         part2_size: 512,        // FIXED
+        data_offset: 0x10000,   // FIXED
+        share_offset: 0x20000,  // FIXED
     };
     
     let estimate_data_size = estimate_drra_code_size(&cfg.ir_drra_config);
