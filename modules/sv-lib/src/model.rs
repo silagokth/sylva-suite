@@ -608,6 +608,8 @@ pub struct ControlSynthesis {
     pub host_text_path: std::path::PathBuf,
     pub host_data_path: std::path::PathBuf,
     pub tb_scheduling_path: std::path::PathBuf,
+    pub tb_verifying_path: std::path::PathBuf,
+    pub tb_output_path: std::path::PathBuf,
 }
 
 

@@ -2,6 +2,9 @@ use sv_lib::model::{ArchConfig};
 use log::{error};
 use std::collections::{HashMap};
 use std::fmt::UpperHex;
+use std::time::Duration;
+use wait_timeout::ChildExt;
+
 
 pub const TOOLCHAIN: &str = "riscv32-unknown-elf-";
 
@@ -174,4 +177,75 @@ pub fn validate_sections(
     Ok(())
 }
 
+
+
+pub fn run_vsim(
+    tb_name: &str,
+    time_limit: u32,
+    output_file: &std::path::Path,
+    sim_dir: &std::path::Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+
+    // ------------------------------------
+    // handle Bender
+    runc(
+        std::process::Command::new("bender")
+            .arg("clean")
+            .current_dir(sim_dir)
+    )?;
+
+    let compile_path = sim_dir.join("compile.tcl");
+    let compile_file = std::fs::File::create(&compile_path)?;
+    runc(
+        std::process::Command::new("bender")
+            .arg("script")
+            .arg("vsim")
+            .arg("-t")
+            .arg("tb")
+            .current_dir(sim_dir)
+            .stdout(std::process::Stdio::from(compile_file))
+    )?;
+
+    // ------------------------------------
+    // clean vsim work directory
+    let work_dir = sim_dir.join("work");
+
+    if work_dir.is_dir() {
+        runc(
+            std::process::Command::new("vdel")
+                .arg("-all")
+                .current_dir(sim_dir)
+        )?;
+    }
+
+    // ------------------------------------
+    // running rtl simulation
+    let stdout_file = std::fs::File::create(&output_file)?;
+    let run_command = format!("set tb_name {}; do run.tcl", tb_name);
+    let mut child = std::process::Command::new("vsim")
+        .arg("-c")
+        .arg("-do")
+        .arg(&run_command)
+        .current_dir(sim_dir)
+        .stdout(std::process::Stdio::from(stdout_file))
+        .spawn()?;
+
+    let timeout = Duration::from_secs(60 * time_limit as u64);
+
+    match child.wait_timeout(timeout)? {
+        Some(status) => {
+            if !status.success() {
+                return Err(format!("Command failed with status {}", status).into());
+            }
+        }
+        None => {
+            child.kill()?;
+            child.wait()?; // reap zombie
+
+            return Err(format!("Command timed out after {:?}", timeout).into());
+        }
+    }
+
+    Ok(())
+}
 

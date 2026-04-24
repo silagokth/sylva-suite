@@ -1094,6 +1094,12 @@ fn global_scheduler(
     std::fs::copy(&cfg.host_data_path, &data_dst)?;
     std::fs::copy(&cfg.alimp_data_path, &alimp_data_dst)?;
 
+    // -----------------------------
+    // running vsim 
+    let run_file = std::path::Path::new(module_dir).join("scheduling.txt");
+    utils::run_vsim("system_scheduling_tb", 2, &run_file, working_dir)?;
+    cfg.tb_output_path = run_file;
+
     Ok(())
 }
 
