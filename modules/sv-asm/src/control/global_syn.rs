@@ -4,12 +4,12 @@ use sv_lib::model::{DataBase, AlimpDataFormat,
 use sv_lib::file_handler;
 use crate::control::utils;
 use log::{error};
-//use std::collections::{HashMap};
 use std::process::Command;
+use std::collections::HashMap;
 use serde::Serialize;
 use tera::{Tera, Context};
 use once_cell::sync::Lazy;
-
+use regex::Regex;
 
 static TERA: Lazy<Tera> = Lazy::new(|| {
     let mut tera = Tera::default();
@@ -747,7 +747,7 @@ fn generate_host_firmware(
 }
 
 
-fn generate_scheduling_firmware(
+fn generate_firmware(
     db: &mut DataBase,
     system_dir: &String,
     module_dir: &String,
@@ -1009,7 +1009,7 @@ struct TbSchedulingTemplateCtx {
 }
 
 
-fn global_scheduler(
+fn run_scheduler(
     db: &mut DataBase,
     system_dir: &String,
     module_dir: &String,
@@ -1105,6 +1105,74 @@ fn global_scheduler(
 
 
 
+fn global_scheduler(
+    db: &mut DataBase,
+) -> Result<(), Box<dyn std::error::Error>> {
+
+    let cfg = &mut db.synthesis_information.control_synthesis;
+
+    // -------------------------------------
+    // Parse the TB output 
+    // -------------------------------------
+
+    let content = std::fs::read_to_string(cfg.tb_output_path)?;
+
+    // Check markers
+    let finished = content.contains("$finish");
+    let test_done = content.contains("--- Test Done ---");
+
+    if (!finished || !test_done) {
+        return Err("TB result is not complete and cannot be parsed");
+    }
+
+    // Getting GLOBAL_TIME
+    let global_time_re = Regex::new(r"GLOBAL_TIME:\s*(\d+)")?;
+    let global_time = global_time_re
+        .captures(&content)
+        .and_then(|cap| cap.get(1))
+        .map(|m| m.as_str().parse::<u64>().unwrap());
+    cfg.global_time = global_time  
+
+    // Getting Alimp_ready_time
+    let alimp_re = Regex::new(r"ALIMP_(\d+)\s+ready time:\s*(\d+)")?;
+    let mut alimp_ready_times: HashMap<u32, u64> = HashMap::new();
+    
+    for cap in alimp_re.captures_iter(&content) {
+        let id: u32 = cap[1].parse()?;
+        let val: u64 = cap[2].parse()?;
+    
+        alimp_ready_times.insert(id, val);
+    }
+    
+    cfg.alimp_ready_times = alimp_ready_times;
+
+    // -------------------------------------
+    // Validate the results 
+    // -------------------------------------
+    for (_id, ready_time) in cfg.alimp_ready_times.iter() {
+        if global_time < ready_time {
+            return Err("TB result is incomplete - GLOBAL_TIME is less than one of the READY_TIMES");
+        }
+    }
+
+    if cfg.alimp_ready_times.len() != cfg.alimp_id.len() {
+        return Err("TB result is incomplete - number of ALIMP_READY_TIMES is incorrect");
+    }
+
+    // -------------------------------------
+    // Global Scheduling 
+    // -------------------------------------
+    let max_ready_time: u64 = cfg.alimp_ready_times
+        .iter()
+        .map(|(_id, time)| time)
+        .collect()
+        .max();
+    
+
+
+
+
+}
 
 
 
@@ -1128,10 +1196,16 @@ pub fn main(
     set_alimp_id(db)?;
     generate_alimp_data(db, &module_dir)?;
     hardware_system_generation(db, &module_dir)?;
-    generate_scheduling_firmware(db, &system_dir, &module_dir)?;
-    global_scheduler(db, &system_dir, &module_dir)?;
-    //host_firmware_regeneration(db, &system_dir, &module_dir)?;
-    //global_scheduling_verification(db, &system_dir, &module_dir)?;
+    
+    // scheduling proces 
+    generate_firmware(db, &system_dir, &module_dir)?;
+    run_scheduler(db, &system_dir, &module_dir)?;
+    global_scheduling(db)?;
+
+    // host firmware correction and verification
+    generate_firmware(db, &system_dir, &module_dir)?;
+    run_verifier(db, &system_dir, &module_dir)?;
+    verify_schedule(db)?;
 
     Ok(())
 }

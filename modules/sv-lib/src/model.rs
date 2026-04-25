@@ -610,12 +610,10 @@ pub struct ControlSynthesis {
     pub tb_scheduling_path: std::path::PathBuf,
     pub tb_verifying_path: std::path::PathBuf,
     pub tb_output_path: std::path::PathBuf,
+    pub global_time: u64,
+    pub alimp_ready_times: HashMap<u32, u64>,
+    pub alimp_schedule_times: Vec<u64>,
 }
-
-
-
-
-
 
 
 impl DataBase {
@@ -691,21 +689,6 @@ impl DataBase {
             },
             alimp_binding_options: vec![],
             synthesized_information: SynthesizedInformation::default(),
-            /*
-            synthesized_information: SynthesizedInformation {
-                alimp_bindings: vec![],
-                placements: vec![],
-                max_width: 0,
-                max_height: 0,
-                max_latency: 0,
-                routing_paths: vec![],
-                wire_assignment: std::collections::HashMap::new(),
-                node_fire_times: std::collections::HashMap::new(),
-                channel_width: std::collections::HashMap::new(),
-                address_translations: vec![],
-                memory_synthesis: vec![],
-                transporter_tables: vec![],
-            },*/
         }
     }
 }
