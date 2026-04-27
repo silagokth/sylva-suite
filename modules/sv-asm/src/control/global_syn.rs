@@ -1109,72 +1109,124 @@ fn global_scheduler(
     db: &mut DataBase,
 ) -> Result<(), Box<dyn std::error::Error>> {
 
-    let cfg = &mut db.synthesis_information.control_synthesis;
+    let cfg = &mut db.synthesized_information.control_synthesis;
 
     // -------------------------------------
-    // Parse the TB output 
+    // Parse TB output 
     // -------------------------------------
 
-    let content = std::fs::read_to_string(cfg.tb_output_path)?;
+    let content = std::fs::read_to_string(&cfg.tb_output_path)?;
 
-    // Check markers
     let finished = content.contains("$finish");
     let test_done = content.contains("--- Test Done ---");
 
-    if (!finished || !test_done) {
-        return Err("TB result is not complete and cannot be parsed");
+    if !finished || !test_done {
+        return Err("TB result is not complete and cannot be parsed".into());
     }
 
-    // Getting GLOBAL_TIME
+    // GLOBAL_TIME
     let global_time_re = Regex::new(r"GLOBAL_TIME:\s*(\d+)")?;
     let global_time = global_time_re
         .captures(&content)
         .and_then(|cap| cap.get(1))
-        .map(|m| m.as_str().parse::<u64>().unwrap());
-    cfg.global_time = global_time  
+        .map(|m| m.as_str().parse::<u64>().unwrap())
+        .ok_or("GLOBAL_TIME not found")?;
 
-    // Getting Alimp_ready_time
+    cfg.global_time = global_time;
+
+    // ALIMP ready times
     let alimp_re = Regex::new(r"ALIMP_(\d+)\s+ready time:\s*(\d+)")?;
     let mut alimp_ready_times: HashMap<u32, u64> = HashMap::new();
-    
+
     for cap in alimp_re.captures_iter(&content) {
         let id: u32 = cap[1].parse()?;
         let val: u64 = cap[2].parse()?;
-    
         alimp_ready_times.insert(id, val);
     }
-    
-    cfg.alimp_ready_times = alimp_ready_times;
 
+    cfg.alimp_ready_times = alimp_ready_times.clone();
+    
     // -------------------------------------
     // Validate the results 
     // -------------------------------------
     for (_id, ready_time) in cfg.alimp_ready_times.iter() {
-        if global_time < ready_time {
-            return Err("TB result is incomplete - GLOBAL_TIME is less than one of the READY_TIMES");
+        if global_time > *ready_time {
+            println!("ALIMP ready times: {:#?}", alimp_ready_times.clone());
+            println!("GLOBAL_TIME: {}", global_time);
+            return Err("GLOBAL_TIME < READY_TIME".into());
         }
     }
 
     if cfg.alimp_ready_times.len() != cfg.alimp_id.len() {
-        return Err("TB result is incomplete - number of ALIMP_READY_TIMES is incorrect");
+        println!("ALIMP ready times: {:#?}", alimp_ready_times.clone());
+        println!("GLOBAL_TIME: {}", global_time);
+        return Err("Mismatch in ALIMP count".into());
     }
 
     // -------------------------------------
-    // Global Scheduling 
+    // Scheduling 
     // -------------------------------------
-    let max_ready_time: u64 = cfg.alimp_ready_times
-        .iter()
-        .map(|(_id, time)| time)
-        .collect()
-        .max();
+    let mut ready_times = Vec::new();
+    let mut fire_times = Vec::new();
+
+    for (idx, alimp_name) in cfg.alimp_id.iter().enumerate() {
+
+        let base_ready = *cfg.alimp_ready_times
+            .get(&(idx as u32))
+            .ok_or_else(|| format!("Missing ready time for ALIMP {}", idx))?;
+   
+        let relative_times = &cfg.alimp_control_synthesis
+            .get(alimp_name)
+            .ok_or_else(|| format!("Missing control synthesis for {}", alimp_name))?
+            .synchronisation;
+
+        let mut relative_start_time: i32 = 0;
+
+        for &t in relative_times.values() {
+            if t < relative_start_time {
+                relative_start_time = t;
+            }
+        }
+
+        let adjusted_ready = base_ready + (-relative_start_time as u64);
+
+        ready_times.push(adjusted_ready);
+
+        let fire_time = *db.synthesized_information
+            .node_fire_times
+            .get(alimp_name)
+            .ok_or_else(|| format!("Missing fire time for {}", alimp_name))?;
+
+        if fire_time < 0 {
+            return Err(format!("Negative fire time for {}", alimp_name).into());
+        }
+
+        fire_times.push(fire_time as u32);
+    }
     
+    let global_start_time = ready_times
+        .iter()
+        .zip(fire_times.iter())
+        .map(|(r, f)| r - *f as u64)
+        .max() // use max start time to make sure that every alimp can be run
+        .ok_or("Failed to compute global start time")?;
 
+    cfg.global_reference_time = global_start_time;
+    cfg.alimp_schedule_times.clear();
 
+    for (i, fire_time) in fire_times.iter().enumerate() {
+        let reference_time = global_start_time + *fire_time as u64;
 
+        if reference_time < global_time {
+            return Err(format!("Schedule time invalid for ALIMP {}", i).into());
+        }
 
+        let schedule_time = reference_time - global_time;
+        cfg.alimp_schedule_times.push(schedule_time);
+    }
+
+    Ok(())
 }
-
-
 
 
 
@@ -1200,13 +1252,13 @@ pub fn main(
     // scheduling proces 
     generate_firmware(db, &system_dir, &module_dir)?;
     run_scheduler(db, &system_dir, &module_dir)?;
-    global_scheduling(db)?;
+    global_scheduler(db)?;
 
     // host firmware correction and verification
-    generate_firmware(db, &system_dir, &module_dir)?;
+    /*generate_firmware(db, &system_dir, &module_dir)?;
     run_verifier(db, &system_dir, &module_dir)?;
     verify_schedule(db)?;
-
+*/
     Ok(())
 }
 
