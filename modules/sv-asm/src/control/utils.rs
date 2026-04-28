@@ -23,6 +23,16 @@ where
     format!("{}'h{:0width$X}", bits, v, width = bits / 4)
 }
 
+pub fn vec_to_sv_array<T>(v: &[T]) -> String
+where
+    T: UpperHex + Copy,
+{
+    v.iter()
+        .map(|x| to_hex_sv(*x))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 pub fn vec_to_c_array<T>(v: &[T]) -> String
 where
     T: UpperHex + Copy,
@@ -235,14 +245,14 @@ pub fn run_vsim(
     match child.wait_timeout(timeout)? {
         Some(status) => {
             if !status.success() {
-                return Err(format!("Command failed with status {}", status).into());
+                return Err(format!("Command vsim failed with status {}", status).into());
             }
         }
         None => {
             child.kill()?;
             child.wait()?; // reap zombie
 
-            return Err(format!("Command timed out after {:?}", timeout).into());
+            return Err(format!("Command vsim timed out after {:?}", timeout).into());
         }
     }
 

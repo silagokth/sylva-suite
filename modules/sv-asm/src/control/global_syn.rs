@@ -6,6 +6,7 @@ use crate::control::utils;
 use log::{error};
 use std::process::Command;
 use std::collections::HashMap;
+use itertools::Itertools;
 use serde::Serialize;
 use tera::{Tera, Context};
 use once_cell::sync::Lazy;
@@ -28,6 +29,10 @@ static TERA: Lazy<Tera> = Lazy::new(|| {
     tera.add_raw_template(
         "system_scheduling_tb.sv",
         include_str!("templates/system_scheduling_tb.sv.tmpl")
+    ).unwrap();
+    tera.add_raw_template(
+        "system_verifying_tb.sv",
+        include_str!("templates/system_verifying_tb.sv.tmpl")
     ).unwrap();
     tera
 });
@@ -680,13 +685,6 @@ fn generate_host_firmware(
 
     file_handler::write_file(main_path, host_rendered)?;
 
-
-    let host_context = Context::from_serialize(&host_ctx)?;
-    let host_rendered = TERA.render("main.c", &host_context)
-        .map_err(|e| format!("Tera error:\n{}", e))?;
-
-    file_handler::write_file(main_path, host_rendered)?;
-
     // ----------------- write sections.lds -------------------------
     let lds_ctx = LinkerTemplateCtx {
         inst_mem_length: utils::to_hex(instruction_memory_size),
@@ -789,8 +787,10 @@ fn generate_firmware(
         .part1_size;
     
     // Set to almost max time for scheduling
-    let schedule_time: Vec<u64> =
-        vec![u64::MAX - u32::MAX as u64; number_of_alimps as usize];
+    let schedule_time: Vec<u64> = match cfg.alimp_schedule_times.clone() {
+        Some(v) if v.len() == number_of_alimps as usize => v,
+        _ => vec![u64::MAX - u32::MAX as u64; number_of_alimps as usize],
+    };
 
     let mut active_tps: Vec<i32> =
         vec![0; number_of_alimps as usize];
@@ -832,9 +832,14 @@ fn generate_firmware(
     // -----------------------------
     // directory settings
     // -----------------------------
-    let main_path = std::path::Path::new(module_dir).join("main.c");
+    let prefix = match &cfg.alimp_schedule_times {
+        Some(v) if v.len() == number_of_alimps as usize => "",
+        _ => "scheduling_",
+    };
+    
+    let main_path = std::path::Path::new(module_dir).join(format!("{}main.c", prefix));
     let lds_path = std::path::Path::new(module_dir).join("sections.lds");
-    let output_firmware_path = std::path::Path::new(module_dir).join("scheduling_firmware.elf");
+    let output_firmware_path = std::path::Path::new(module_dir).join(format!("{}firmware.elf", prefix));
     let working_dir = std::path::Path::new(system_dir).join("firmware");
     
     // -----------------------------
@@ -984,7 +989,7 @@ fn generate_firmware(
 
     // update host firmware raw info
     cfg.host_text = host_text;
-    cfg.host_text = host_data;
+    cfg.host_data = host_data;
 
     Ok(())
 }
@@ -1212,7 +1217,8 @@ fn global_scheduler(
         .ok_or("Failed to compute global start time")?;
 
     cfg.global_reference_time = global_start_time;
-    cfg.alimp_schedule_times.clear();
+    
+    let mut schedule_times: Vec<u64> = Vec::new();
 
     for (i, fire_time) in fire_times.iter().enumerate() {
         let reference_time = global_start_time + *fire_time as u64;
@@ -1222,8 +1228,171 @@ fn global_scheduler(
         }
 
         let schedule_time = reference_time - global_time;
-        cfg.alimp_schedule_times.push(schedule_time);
+        schedule_times.push(schedule_time);
     }
+
+    cfg.alimp_schedule_times = Some(schedule_times);
+
+    Ok(())
+}
+
+
+#[derive(Serialize)]
+struct TbVerifyingTemplateCtx {
+    #[serde(rename = "INST_BASE_ADDR")]
+    inst_base_addr: String,
+    #[serde(rename = "DATA_BASE_ADDR")]
+    data_base_addr: String,
+    #[serde(rename = "HOST_INSTMEM_DEPTH")]
+    host_instmem_depth: String,
+    #[serde(rename = "HOST_DATAMEM_DEPTH")]
+    host_datamem_depth: String,
+    #[serde(rename = "DATAMEM_BASE_ADDR")]
+    datamem_base_addr: String,
+    #[serde(rename = "DATAMEM_DEPTH")]
+    datamem_depth: String,
+    #[serde(rename = "PICO_CFG")]
+    pico_cfg: String,
+    #[serde(rename = "EXPECT_GLOBAL_TIME")]
+    expect_global_time: String,
+    #[serde(rename = "ALIMP_STALL_TIME")]
+    alimp_stall_time: String,
+    #[serde(rename = "ALIMP_SCHEDULE")]
+    alimp_schedule: String,
+}
+
+
+fn run_verifier(
+    db: &mut DataBase,
+    system_dir: &String,
+    module_dir: &String,
+) -> Result<(), Box<dyn std::error::Error>> {
+
+    let cfg = &mut db.synthesized_information.control_synthesis;
+    
+    // -----------------------------
+    // generating tb file 
+    // -----------------------------
+    let inst_base_addr: u32 = 0x8000_0000;       // FIXED
+    let data_base_addr: u32 = 0x8001_0000;       // FIXED
+    let host_instmem_depth: u32 = cfg.host_cpu_settings.instruction_memory_size;  
+    let host_datamem_depth: u32 = cfg.host_cpu_settings.data_memory_size;  
+    let datamem_base_addr: u32 = 0x8010_0000;    // FIXED 
+    let datamem_depth: u32 = 32768;              // FIXED
+    let pico_cfg = "'{
+            ENABLE_COUNTERS: 0,
+            ENABLE_COUNTERS64: 0,
+            ENABLE_REGS_16_31: 1,
+            ENABLE_REGS_DUALPORT: 0,
+            LATCHED_MEM_RDATA: 0,
+            TWO_STAGE_SHIFT: 0,
+            BARREL_SHIFTER: 0,
+            TWO_CYCLE_COMPARE: 0,
+            TWO_CYCLE_ALU: 0,
+            COMPRESSED_ISA: 0,
+            CATCH_MISALIGN: 0,
+            CATCH_ILLINSN: 0,
+            ENABLE_PCPI: 0,
+            ENABLE_MUL: 1,
+            ENABLE_FAST_MUL: 0,
+            ENABLE_DIV: 0,
+            ENABLE_IRQ: 0,
+            ENABLE_IRQ_QREGS: 0,
+            ENABLE_IRQ_TIMER: 0,
+            ENABLE_TRACE: 0,
+            REGS_INIT_ZERO: 0,
+            MASKED_IRQ: 32'h0000_0000,
+            LATCHED_IRQ: 32'hffff_ffff,
+            PROGADDR_RESET: 32'h0000_0000,
+            PROGADDR_IRQ: 32'h0000_0010,
+            STACKADDR: 32'hffff_ffff
+        }".to_string();
+
+    let alimp_stall_vec: Vec<u64> = cfg.alimp_ready_times
+        .iter()
+        .sorted_by_key(|(id, _)| *id)
+        .map(|(_, v)| *v - cfg.global_time)
+        .collect();
+    
+    let alimp_schedule_vec: Vec<u64> = cfg.alimp_schedule_times
+        .clone()
+        .ok_or("Missing alimp_schedule_times")?;
+
+    let tb_ctx = TbVerifyingTemplateCtx {
+        inst_base_addr: utils::to_hex_sv(inst_base_addr), 
+        data_base_addr: utils::to_hex_sv(data_base_addr), 
+        host_instmem_depth: utils::to_hex_sv(host_instmem_depth), 
+        host_datamem_depth: utils::to_hex_sv(host_datamem_depth), 
+        datamem_base_addr: utils::to_hex_sv(datamem_base_addr), 
+        datamem_depth: utils::to_hex_sv(datamem_depth),
+        pico_cfg: pico_cfg,
+        expect_global_time: utils::to_hex_sv(cfg.global_time), 
+        alimp_stall_time: utils::vec_to_sv_array(&alimp_stall_vec),
+        alimp_schedule: utils::vec_to_sv_array(&alimp_schedule_vec),
+    };
+
+    let tb_context = Context::from_serialize(&tb_ctx)?;
+    let tb_rendered = TERA.render("system_verifying_tb.sv", &tb_context)
+        .map_err(|e| format!("Tera error:\n{}", e))?;
+
+    let tb_file = std::path::Path::new(module_dir).join("system_verifying_tb.sv");
+    file_handler::write_file(&tb_file, tb_rendered)?;
+    cfg.tb_verifying_path = tb_file;
+
+    // -----------------------------
+    // getting the vsim framework ready 
+    // -----------------------------
+    let working_dir = std::path::Path::new(system_dir);
+
+    // copy alimp_top.sv -> rtl/
+    let alimp_top_dst = working_dir.join("rtl").join("alimp_top.sv");
+    std::fs::copy(&cfg.alimp_top_hardware_path, &alimp_top_dst)?;
+ 
+    // copy system_tb.sv -> tb/
+    let tb_dst = working_dir.join("tb").join("system_verifying_tb.sv");
+    std::fs::copy(&cfg.tb_verifying_path, &tb_dst)?;
+
+    // copy all binaries -> tb/data/
+    let text_dst = working_dir.join("tb").join("data").join("text.hex");
+    let data_dst = working_dir.join("tb").join("data").join("data.hex");
+    let alimp_data_dst = working_dir.join("tb").join("data").join("alimp_data.hex");
+    std::fs::copy(&cfg.host_text_path, &text_dst)?;
+    std::fs::copy(&cfg.host_data_path, &data_dst)?;
+    std::fs::copy(&cfg.alimp_data_path, &alimp_data_dst)?;
+
+    // -----------------------------
+    // running vsim 
+    let run_file = std::path::Path::new(module_dir).join("verifying.txt");
+    utils::run_vsim("system_verifying_tb", 2, &run_file, working_dir)?;
+    cfg.tb_output_path = run_file;
+
+    Ok(())
+}
+
+
+fn verify_schedule(
+    db: &mut DataBase,
+) -> Result<(), Box<dyn std::error::Error>> {
+
+    let cfg = &db.synthesized_information.control_synthesis;
+
+    // -------------------------------------
+    // Parse TB output 
+    // -------------------------------------
+
+    let content = std::fs::read_to_string(&cfg.tb_output_path)?;
+
+    let finished = content.contains("$finish");
+    let test_done = content.contains("--- Test Done ---");
+
+    if !finished || !test_done {
+        return Err("TB result is not complete and cannot be parsed".into());
+    }
+
+    // TODO: Ok parse for these comments  
+    // In the future, we may print some warnings fot this
+    // However, these two are already sufficient to make sure that 
+    // the schedule times are correct
 
     Ok(())
 }
@@ -1255,10 +1424,10 @@ pub fn main(
     global_scheduler(db)?;
 
     // host firmware correction and verification
-    /*generate_firmware(db, &system_dir, &module_dir)?;
+    generate_firmware(db, &system_dir, &module_dir)?;
     run_verifier(db, &system_dir, &module_dir)?;
     verify_schedule(db)?;
-*/
+    
     Ok(())
 }
 

@@ -2,7 +2,7 @@
 import common_utils::*;
 import alimp_pkg::*;
 
-module system_scheduling_tb;
+module system_verifying_tb;
 
     localparam int N_ALIMP = dut.alimp_top_inst.N_ALIMP;
 
@@ -33,6 +33,13 @@ module system_scheduling_tb;
     always #5 clk = ~clk;
     assign axi_lite_ext.r_resp = '0;
     assign axi_lite_ext.b_resp = '0;
+
+    // ----------------------------------------------
+    // validation 
+    // ----------------------------------------------
+    localparam logic [63:0] expect_global_time = {{EXPECT_GLOBAL_TIME}};
+    localparam int alimp_stall_time [N_ALIMP] = '{ {{ALIMP_STALL_TIME}} }; 
+    localparam int alimp_schedule [N_ALIMP] = '{ {{ALIMP_SCHEDULE}} };
 
     // ----------------------------------------------
     // dut instantiation
@@ -216,10 +223,9 @@ module system_scheduling_tb;
     endtask
      
     // emulate read_timer64 function
+    logic [63:0] t;
+    logic [31:0] t_check;
     initial begin
-        logic [63:0] t;
-        logic [31:0] t_check;
-    
         forever begin
             // -----------------------
             // Read HI
@@ -262,6 +268,8 @@ module system_scheduling_tb;
             // -----------------------
             if (t_check == t[63:32]) begin
                 $display("[%0t] GLOBAL_TIME: %0d", $time, t);
+                assert (t == expect_global_time) 
+                    else $fatal("GLOBAL_TIME is changed - expected %0d", expect_global_time);
             end else begin
                 $display("[%0t] read time invalid - retrying", $time);
             end
@@ -289,8 +297,22 @@ module system_scheduling_tb;
                 automatic int id = i;
                 begin
                     @(posedge clk iff stall[id] == 1);
-                    $display("[%0t] ALIMP_%0d ready time: %0d",
+                    $display("[%0t] ALIMP_%0d stall time: %0d",
                              $time, id, dut.program_timer.value);
+                    assert (dut.program_timer.value <= t + alimp_stall_time[id]) 
+                        else $fatal("[%0t] ALIMP_%0d has invalid start stall time - %0d", $time, id, alimp_stall_time[id]);
+                    
+                    while (dut.program_timer.value < t + alimp_schedule[id]) begin
+                        assert (stall[id] == 1) 
+                            else $fatal ("[%0t] ALIMP_%0d fails to respect stall time @%0d", $time, id, dut.program_timer.value);
+                        @(posedge clk);
+                    end    
+                        
+                    assert (stall[id] == 1) // At this clock, mem_valid && mem_ready 
+                    @(posedge clk);
+                    assert (stall[id] == 0) 
+                        else $fatal ("[%0t] ALIMP_%0d should be released @%0d - 1", $time, id, dut.program_timer.value);
+                    $display("[%0t] ALIMP_%0d starts successfully", $time, id);
                 end
             join_none
         end

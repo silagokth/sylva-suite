@@ -613,7 +613,7 @@ pub struct ControlSynthesis {
     pub global_time: u64,
     pub global_reference_time: u64,
     pub alimp_ready_times: HashMap<u32, u64>,
-    pub alimp_schedule_times: Vec<u64>,
+    pub alimp_schedule_times: Option<Vec<u64>>,
 }
 
 
