@@ -71,7 +71,11 @@ fn get_drra_config(
     
     if alimp.kernel_object.name.is_empty() {
         return Err(format!("No kernel object available for node {}", node_id).into());
-    }
+    } 
+
+    if alimp.kernel_object.name != "kernel.o" {
+        return Err(format!("invalid kernel object for node {}", node_id).into());
+    } 
 
     // --- get mutable reference to config ---
     let cfg = db
