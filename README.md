@@ -50,11 +50,21 @@ Tool suite for Application Level Synthesis.
 
 ## Usage
 
+This project is developed and tested on Linux (Ubuntu). It relies on standard Unix utilities and may not work on non-Unix systems without modification.
+
+### Operating System
+- Ubuntu 22.04 / 24.04 (or compatible Linux distribution)
+  
 ### Requirements
 
+- `bash`
+- `coreutils` (provides `cp`, `mv`, `rm`, etc.)
+- `make`
 - [rustc](https://www.rust-lang.org/)
 - [minizinc](https://www.minizinc.org/)
 - [riscv-gnu-toolchain](https://github.com/riscv-collab/riscv-gnu-toolchain)
+- [bender](https://github.com/pulp-platform/bender)
+- [vsim](https://www.altera.com/products/development-tools/quartus-prime/questa) 
 
 ### Commands
 
