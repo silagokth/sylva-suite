@@ -1,4 +1,4 @@
-# sylva &emsp; [![Rustc Version 1.88+]][rustc] [![MiniZinc Version 2.9.0+]][minizinc] [![Questa Version 2023.4+]][questa]
+# sylva &emsp; [![Rustc Version 1.88+]][rustc] [![MiniZinc Version 2.9.0+]][minizinc] [![riscv-gnu-toolchain 2026.03.13+]][riscv-gnu-toolchain] [![bender Version 0.30.0+]][bender] [![Questa Version 2023.4+]][questa] 
 
 [Rustc Version 1.88+]: https://img.shields.io/badge/rustc-1.88+-lightgray.svg?e&logo=rust&logoColor=white
 [rustc]: https://blog.rust-lang.org/2025/06/26/Rust-1.88.0/
@@ -6,6 +6,10 @@
 [minizinc]: https://www.minizinc.org/
 [Questa Version 2023.4+]: https://img.shields.io/badge/questa*-2023.4+-lightgray.svg?e&logo=questa&logoColor=white
 [questa]: https://www.altera.com/products/development-tools/quartus-prime/questa
+[riscv-gnu-toolchain 2026.03.13+]: https://img.shields.io/badge/riscv--gnu--toolchain-2026.03.13+-lightgray.svg?e&logo=gnu&logoColor=white
+[riscv-gnu-toolchain]: https://github.com/riscv-collab/riscv-gnu-toolchain
+[bender Version 0.30.0+]: https://img.shields.io/badge/bender-0.30.0+-lightgray.svg?e&logo=github&logoColor=white 
+[bender]: https://github.com/pulp-platform/bender
 
 
 Tool suite for Application Level Synthesis.
