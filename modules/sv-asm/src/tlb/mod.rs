@@ -308,25 +308,25 @@ pub fn generate_code(
                     }
                 }
             
-                addr.push(7 << 2);
+                addr.push(7);
                 code.push(0); // reset 
                 
-                addr.push(0 << 2);
+                addr.push(0);
                 code.push(*value & 0xFFFF);
-                addr.push(1 << 2);
+                addr.push(1);
                 code.push(*i & 0xFFFF);
-                addr.push(2 << 2);
+                addr.push(2);
                 code.push(*j & 0xFFFF);
-                addr.push(3 << 2);
+                addr.push(3);
                 code.push(*k & 0xFFFF);
-                addr.push(4 << 2);
+                addr.push(4);
                 code.push((*stride_i as i32 as u32) & 0xFFFF);
-                addr.push(5 << 2);
+                addr.push(5);
                 code.push((*stride_j as i32 as u32) & 0xFFFF);
-                addr.push(6 << 2);
+                addr.push(6);
                 code.push((*stride_k as i32 as u32) & 0xFFFF);
             
-                addr.push(7 << 2);
+                addr.push(7);
                 code.push(1); // activate 
             }
             TLBImplementation::TLB { size, offset, map } => {
@@ -344,7 +344,7 @@ pub fn generate_code(
                     if i >= (1 << 12) {
                         return Err("TLB size exceeds 12bit limit".into());
                     }
-                    addr.push((i << 2) as u32);
+                    addr.push(i as u32);
                     code.push(entry & 0xFFFF);
                 }
             }
