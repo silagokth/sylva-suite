@@ -1,11 +1,23 @@
-# sylva &emsp; [![Rustc Version 1.88+]][rustc] [![MiniZinc Version 2.9.0+]][minizinc]
+# sylva &emsp; [![Rustc Version 1.88+]][rustc] [![MiniZinc Version 2.9.0+]][minizinc] [![Questa Version 2023.4+]][questa]
 
 [Rustc Version 1.88+]: https://img.shields.io/badge/rustc-1.88+-lightgray.svg?e&logo=rust&logoColor=white
 [rustc]: https://blog.rust-lang.org/2025/06/26/Rust-1.88.0/
 [MiniZinc Version 2.9.0+]: https://img.shields.io/badge/minizinc-2.9.0+-lightgray.svg?e&logo=minizinc&logoColor=white
 [minizinc]: https://www.minizinc.org/
+[Questa Version 2023.4+]: https://img.shields.io/badge/questa*-2023.4+-lightgray.svg?e&logo=questa&logoColor=white
+[questa]: https://www.altera.com/products/development-tools/quartus-prime/questa
+
 
 Tool suite for Application Level Synthesis.
+
+## Dependencies
+
+   ```bash
+   apt install -y \
+    build-essential \
+    pkg-config \
+    libfontconfig1-dev
+   ```
 
 ## Compile and Install
 
@@ -18,6 +30,18 @@ Tool suite for Application Level Synthesis.
 3. Create test example (minimum, copy, sobel, and lenet5)  
    ```bash
    ./bin/config --name {example} --output ./config/
+   ```
+
+## Quick Run
+
+   To run Sylva Design-Space-Exploration
+   ```bash
+   ./run_dse.sh
+   ```
+
+   To run Sylva assembly
+   ```bash
+   ./run_asm.sh
    ```
 
 ## Usage
