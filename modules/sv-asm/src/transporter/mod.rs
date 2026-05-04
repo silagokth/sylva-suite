@@ -697,7 +697,7 @@ fn pass_sanity(
                 transporter_table,
                 &ir,
                 &module_dir,
-                "Transporter code: LDI immediate out of signed 10-bit range",
+                "Transporter code: LDI immediate out of signed 16-bit range",
             )?;
         }
     }
