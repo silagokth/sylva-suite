@@ -187,7 +187,7 @@ fn apply_buffer(
 
         buffer_size <<= 1;
 
-        if buffer_size > (1 << 10) {
+        if buffer_size > (1 << 12) {
             return Err("Buffer size exploded; mapping likely sparse or invalid");
         }
     }
