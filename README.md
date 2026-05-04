@@ -68,12 +68,13 @@ Options:
 ```shell
 Arguments to get the configuration files and output directory
 
-Usage: sv-asm [OPTIONS] --intermediate-representation <IR_OBJECT> --binary <OUTPUT>
+Usage: sv-asm [OPTIONS] --intermediate-representation <IR_OBJECT> --sylva-components <SYLVA_COMPONENTS> --binary <OUTPUT>
 
 Options:
       --cpu <CPU_LIMIT>                          Set CPU limit
       --memory <MEMORY_LIMIT>                    Set memory limit in GB
   -i, --intermediate-representation <IR_OBJECT>  Input Intermediate Representation Object
+      --sylva-components <SYLVA_COMPONENTS>      Path to the Sylva components
   -o, --binary <OUTPUT>                          output directory
   -h, --help                                     Print help
   -V, --version                                  Print version
