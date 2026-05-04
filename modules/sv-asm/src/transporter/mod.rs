@@ -737,7 +737,7 @@ fn pass_sanity(
                         transporter_table,
                         &ir,
                         &module_dir,
-                        "Transporter code: MOV immediate out of signed 7-bit range",
+                        "Transporter code: MOV immediate out of signed 16-bit range",
                     )?;
                 }
             }
