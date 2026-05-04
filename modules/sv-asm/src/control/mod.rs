@@ -28,6 +28,30 @@ fn copy_dir_all(
     Ok(())
 }
 
+fn extract_owner_repo(url: &str) -> Option<String> {
+    // Normalize SSH form: git@github.com:owner/repo.git
+    let url = url
+        .replace("git@github.com:", "https://github.com/")
+        .replace("ssh://git@github.com/", "https://github.com/");
+
+    // Remove protocol
+    let url = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))
+        .unwrap_or(&url);
+
+    // Now split
+    let parts: Vec<&str> = url.split('/').collect();
+
+    if parts.len() < 3 {
+        return None;
+    }
+
+    let owner = parts[1];
+    let repo = parts[2].trim_end_matches(".git");
+
+    Some(format!("{}/{}", owner, repo))
+}
 
 fn verify_git_submodule(
     path: &str,
@@ -48,13 +72,19 @@ fn verify_git_submodule(
 
     let url = String::from_utf8(output.stdout)?.trim().to_string();
 
-    if url != expected_url {
+    let actual = extract_owner_repo(&url)
+        .ok_or("Failed to parse git URL")?;
+    
+    let expected = extract_owner_repo(expected_url)
+        .ok_or("Failed to parse expected URL")?;
+    
+    if actual != expected {
         return Err(format!(
             "Submodule mismatch:\n  expected: {}\n  got: {}",
-            expected_url, url
+            expected, actual
         ).into());
     }
-
+    
     Ok(())
 }
 
