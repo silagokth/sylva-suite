@@ -12,7 +12,47 @@
 [bender]: https://github.com/pulp-platform/bender
 
 
-Tool suite for Application Level Synthesis.
+Tool suite for Application-Level Synthesis (ALS).
+
+## Overview
+
+Sylva is the ALS layer of the [SiLago](https://silago.eecs.kth.se) framework. It
+takes an application modelled as a **Homogeneous Synchronous Dataflow (HSDF)
+graph**, together with a library of pre-characterised algorithm implementations
+(**AlImp**s, produced by the Vesyla HLS tool), and maps it onto a layout-aware
+network of hardware blocks. The generated system — a host processor plus a network
+of AlImps connected by output buffers, transporters and input buffers — is built
+from the RTL in [`sylva-components`](https://github.com/silagokth/sylva-components)
+(included here as a git submodule).
+
+The flow has two phases, each implemented as a binary:
+
+1. **Design Space Exploration** (`sv-dse`) — binding, placement, routing,
+   NoC wire synthesis and GLIC synthesis, optionally verified by the GLIC
+   simulator (`sv-sim`). Produces an intermediate representation (`db.bin`).
+2. **Assembly** (`sv-asm`) — memory synthesis, re-routing, NoC resynthesis, TLB
+   code generation, transporter code generation and control synthesis. Turns the
+   abstract result into a hardware-realisable design (`db_asm.bin`).
+
+The four worked examples are `minimum`, `copy`, `sobel` and `lenet5`.
+
+### Repository layout
+
+| Path | Contents |
+| --- | --- |
+| `modules/` | Rust workspace: `sv-lib` (shared model), `sv-dse`, `sv-asm`, `sv-sim`, and the `config` example generator. |
+| `config/` | Input configuration files for the current run. |
+| `examples/` | Compiled example application binaries (created by `setup.sh`). |
+| `bin/` | Built tool binaries (`sv-dse`, `sv-asm`, `sv-sim`, `config`). |
+| `sylva-components/` | RTL components submodule used by Assembly's control synthesis. |
+
+### Getting the sources
+
+```bash
+git clone --recurse-submodules https://github.com/silagokth/sylva-suite.git
+# or, if already cloned:
+git submodule update --init --recursive
+```
 
 ## Dependencies
 
@@ -129,3 +169,13 @@ Options:
   -h, --help          Print help
   -V, --version       Print version
 ```
+
+> Note: `sv-asm` additionally needs `--sylva-components <PATH>` pointing at the
+> `sylva-components` submodule, which it uses during control synthesis. The
+> provided `run_asm.sh` passes `./sylva-components/`.
+
+## Documentation
+
+Conceptual documentation of each synthesis step, the input file formats and the
+hardware architecture lives in the SiLago documentation under
+**ToolChain → Sylva ALS** (<https://silago.eecs.kth.se/docs>).

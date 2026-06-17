@@ -494,7 +494,7 @@ fn place_solve_approx_optimal(
     solver.new_line();
 
     solver.add(format!("% ========= objective ========="));
-    let (weight_area, weight_distance) = (10, 2); 
+    let (weight_area, weight_distance) = (2, 1); 
     solver.add(format!("solve minimize ({} * sum(weighted_distance) + {} * (max_x_position * max_y_position));", weight_distance, weight_area)); 
     solver.new_line();
     solver.new_line();

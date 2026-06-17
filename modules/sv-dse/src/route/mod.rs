@@ -557,6 +557,7 @@ fn update_synthesized_info(
     }
 
     // update synthesized info
+    let mut total_routing_costs = 0;
     for channel in graph.channels.iter() {
         // check if edge exists
         if !db.app_graph.edges.iter().any(|edge| edge.id == channel.app_edge_id) {
@@ -590,8 +591,10 @@ fn update_synthesized_info(
                     delay: 0,
                 }
             );
+            total_routing_costs += each_path.len();
         }
     }
+    info!("Total routing costs = {}", total_routing_costs);
 
     Ok(())
 }
