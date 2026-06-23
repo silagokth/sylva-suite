@@ -16,12 +16,23 @@ pub fn minimum(db: &mut DataBase) -> Result<(), Box<dyn std::error::Error>> {
     db.hyper_parameter.place_relaxation_factor = 1.0;
     db.hyper_parameter.place_reserved_routing_size = 1;
 
+    let default_kernel = ObjectFile {
+       name: "kernel.o".to_string(),
+       format: ObjectFormat::Elf32Le,
+       data: include_bytes!("data/kernel.o").to_vec(),
+    };
+
     db.alimp_lib.entries.push(AlimpEntry {
         func: "FA".to_string(),
         instances: vec![
-            AlimpInstance { width: 2, height: 2, energy: 1, latency: 16,
+            AlimpInstance { width: 2, height: 2, energy: 1, latency: 26,
                 input_addr_time_patterns: vec![],
-                output_addr_time_patterns: vec![AddressPatterns { address: 0, channel: 0, time: 0 }, AddressPatterns { address: 1, channel: 0, time: 1 }, AddressPatterns { address: 2, channel: 0, time: 2 }, AddressPatterns { address: 3, channel: 0, time: 3 }, AddressPatterns { address: 4, channel: 0, time: 4 }, AddressPatterns { address: 5, channel: 0, time: 5 }, AddressPatterns { address: 6, channel: 0, time: 6 }, AddressPatterns { address: 7, channel: 0, time: 7 }, AddressPatterns { address: 8, channel: 0, time: 8 }, AddressPatterns { address: 9, channel: 0, time: 9 }, AddressPatterns { address: 10, channel: 0, time: 10 }, AddressPatterns { address: 11, channel: 0, time: 11 }, AddressPatterns { address: 12, channel: 0, time: 12 }, AddressPatterns { address: 13, channel: 0, time: 13 }, AddressPatterns { address: 14, channel: 0, time: 14 }, AddressPatterns { address: 15, channel: 0, time: 15 }],
+                output_addr_time_patterns: vec![AddressPatterns { address: 0, channel: 0, time: 10 }, AddressPatterns { address: 1, channel: 0, time: 11 }, AddressPatterns { address: 2, channel: 0, time: 12 }, AddressPatterns { address: 3, channel: 0, time: 13 }, AddressPatterns { address: 4, channel: 0, time: 14 }, AddressPatterns { address: 5, channel: 0, time: 15 }, AddressPatterns { address: 6, channel: 0, time: 16 }, AddressPatterns { address: 7, channel: 0, time: 17 }, AddressPatterns { address: 8, channel: 0, time: 18 }, AddressPatterns { address: 9, channel: 0, time: 19 }, AddressPatterns { address: 10, channel: 0, time: 20 }, AddressPatterns { address: 11, channel: 0, time: 21 }, AddressPatterns { address: 12, channel: 0, time: 22 }, AddressPatterns { address: 13, channel: 0, time: 23 }, AddressPatterns { address: 14, channel: 0, time: 24 }, AddressPatterns { address: 15, channel: 0, time: 25 }],
+                instruction_code: vec![1000, 1002, 1003, 1004],
+                instruction_offsets: vec![vec![0, 1], vec![2, 3]],
+                number_of_instructions: vec![vec![1, 1], vec![1, 1]],
+                start_address_cells: vec![vec![100, 200], vec![300, 400]],
+                kernel_object: default_kernel.clone(),
                 ..Default::default()
             },
         ],
@@ -32,7 +43,12 @@ pub fn minimum(db: &mut DataBase) -> Result<(), Box<dyn std::error::Error>> {
         instances: vec![
             AlimpInstance { width: 1, height: 1, energy: 1, latency: 32,
                 input_addr_time_patterns: vec![AddressPatterns { address: 0, channel: 0, time: 0 }, AddressPatterns { address: 1, channel: 0, time: 1 }, AddressPatterns { address: 2, channel: 0, time: 2 }, AddressPatterns { address: 3, channel: 0, time: 3 }, AddressPatterns { address: 4, channel: 0, time: 4 }, AddressPatterns { address: 5, channel: 0, time: 5 }, AddressPatterns { address: 6, channel: 0, time: 6 }, AddressPatterns { address: 7, channel: 0, time: 7 }, AddressPatterns { address: 8, channel: 0, time: 8 }, AddressPatterns { address: 9, channel: 0, time: 9 }, AddressPatterns { address: 10, channel: 0, time: 10 }, AddressPatterns { address: 11, channel: 0, time: 11 }, AddressPatterns { address: 12, channel: 0, time: 12 }, AddressPatterns { address: 13, channel: 0, time: 13 }, AddressPatterns { address: 14, channel: 0, time: 14 }, AddressPatterns { address: 15, channel: 0, time: 15 }],
-                output_addr_time_patterns: vec![AddressPatterns { address: 0, channel: 0, time: 0 }, AddressPatterns { address: 1, channel: 0, time: 1 }, AddressPatterns { address: 2, channel: 0, time: 2 }, AddressPatterns { address: 3, channel: 0, time: 3 }, AddressPatterns { address: 4, channel: 0, time: 4 }, AddressPatterns { address: 5, channel: 0, time: 5 }, AddressPatterns { address: 6, channel: 0, time: 6 }, AddressPatterns { address: 7, channel: 0, time: 7 }, AddressPatterns { address: 8, channel: 0, time: 8 }, AddressPatterns { address: 9, channel: 0, time: 9 }, AddressPatterns { address: 10, channel: 0, time: 10 }, AddressPatterns { address: 11, channel: 0, time: 11 }, AddressPatterns { address: 12, channel: 0, time: 12 }, AddressPatterns { address: 13, channel: 0, time: 13 }, AddressPatterns { address: 14, channel: 0, time: 14 }, AddressPatterns { address: 15, channel: 0, time: 15 }],
+                output_addr_time_patterns: vec![AddressPatterns { address: 0, channel: 0, time: 16 }, AddressPatterns { address: 1, channel: 0, time: 17 }, AddressPatterns { address: 2, channel: 0, time: 18 }, AddressPatterns { address: 3, channel: 0, time: 19 }, AddressPatterns { address: 4, channel: 0, time: 20 }, AddressPatterns { address: 5, channel: 0, time: 21 }, AddressPatterns { address: 6, channel: 0, time: 22 }, AddressPatterns { address: 7, channel: 0, time: 23 }, AddressPatterns { address: 8, channel: 0, time: 24 }, AddressPatterns { address: 9, channel: 0, time: 25 }, AddressPatterns { address: 10, channel: 0, time: 26 }, AddressPatterns { address: 11, channel: 0, time: 27 }, AddressPatterns { address: 12, channel: 0, time: 28 }, AddressPatterns { address: 13, channel: 0, time: 29 }, AddressPatterns { address: 14, channel: 0, time: 30 }, AddressPatterns { address: 15, channel: 0, time: 31 }],
+                instruction_code: vec![999],
+                instruction_offsets: vec![vec![0]],
+                number_of_instructions: vec![vec![1]],
+                start_address_cells: vec![vec![50]],
+                kernel_object: default_kernel.clone(),
                 ..Default::default()
             },
         ],
@@ -44,6 +60,11 @@ pub fn minimum(db: &mut DataBase) -> Result<(), Box<dyn std::error::Error>> {
             AlimpInstance { width: 4, height: 4, energy: 10, latency: 16,
                 input_addr_time_patterns: vec![AddressPatterns { address: 0, channel: 0, time: 0 }, AddressPatterns { address: 1, channel: 0, time: 1 }, AddressPatterns { address: 2, channel: 0, time: 2 }, AddressPatterns { address: 3, channel: 0, time: 3 }, AddressPatterns { address: 4, channel: 0, time: 4 }, AddressPatterns { address: 5, channel: 0, time: 5 }, AddressPatterns { address: 6, channel: 0, time: 6 }, AddressPatterns { address: 7, channel: 0, time: 7 }, AddressPatterns { address: 8, channel: 0, time: 8 }, AddressPatterns { address: 9, channel: 0, time: 9 }, AddressPatterns { address: 10, channel: 0, time: 10 }, AddressPatterns { address: 11, channel: 0, time: 11 }, AddressPatterns { address: 12, channel: 0, time: 12 }, AddressPatterns { address: 13, channel: 0, time: 13 }, AddressPatterns { address: 14, channel: 0, time: 14 }, AddressPatterns { address: 15, channel: 0, time: 15 }],
                 output_addr_time_patterns: vec![],
+                instruction_code: vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25],
+                instruction_offsets: vec![vec![0, 2, 3, 6], vec![7, 8, 10, 11], vec![12, 14, 16, 17], vec![19, 20, 21, 22]],
+                number_of_instructions: vec![vec![2, 1, 3, 1], vec![1, 2, 1, 1], vec![2, 2, 1, 2], vec![1, 1, 1, 3]],
+                start_address_cells: vec![vec![100, 200, 300, 400], vec![500, 600, 700, 800], vec![900, 1000, 1100, 1200], vec![1300, 1400, 1500, 1600]],
+                kernel_object: default_kernel.clone(),
                 ..Default::default()
             },
         ],

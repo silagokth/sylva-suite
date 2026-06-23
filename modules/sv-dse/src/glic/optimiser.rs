@@ -48,8 +48,8 @@ pub fn solve_min_delay(
     solver.add(format!("% ========= constraints ========="));
     solver.add(format!(
         "constraint forall(i in 1..N)(\
-        \n  tr_read[i] > src_patterns[i] /\\\
-        \n  dst_patterns[i] + delay > tr_read[i] /\\\
+        \n  tr_read[i] > src_patterns[i] + 2 /\\\
+        \n  dst_patterns[i] + delay > tr_read[i] + 2 /\\\
         \n  dst_patterns[i] + delay < MAX_DELAY\
     \n);"));
     solver.add(format!(
@@ -78,7 +78,7 @@ pub fn solve_min_delay(
     }\"];")); 
 
     /* solving the model */
-    let (status, solutions) = solver.solve("cp-sat", 30, "-p 16")?;
+    let (status, solutions) = solver.solve("cp-sat", 30, "")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
         _ => return Ok(-1),
@@ -356,7 +356,7 @@ pub fn solve_channel_width(
 
 
     /* solving the model */
-    let (status, solutions) = solver.solve("cp-sat", 120, "-p 16")?;
+    let (status, solutions) = solver.solve("cp-sat", 360, "")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" => {}
         _ => return Err(format!("MiniZinc status: {}", status).into()),
@@ -516,8 +516,8 @@ fn solve_node_schedule(
         solver.add(format!("array [1..{}] of var 0..MAX_DELAY: T1_{};", size, edge.id));  
         solver.add(format!("array [1..{}] of var 0..MAX_DELAY: T2_{};", size, edge.id));  
         solver.add(format!("array [1..{}] of var 0..MAX_DELAY: T3_{};", size, edge.id));  
-        solver.add(format!("array [1..{}] of var 1..MAX_DELAY: D01_{};", size, edge.id));  
-        solver.add(format!("array [1..{}] of var 1..MAX_DELAY: D23_{};", size, edge.id));  
+        solver.add(format!("array [1..{}] of var 2..MAX_DELAY: D01_{};", size, edge.id));  
+        solver.add(format!("array [1..{}] of var 2..MAX_DELAY: D23_{};", size, edge.id));  
         solver.new_line();
 
         solver.add(format!("% scheduling constraints"));
@@ -584,11 +584,11 @@ fn solve_node_schedule(
     /* solving the model */
     let time_limit = match problem_size {
         a if a > 20000 => 20 * 60,
-        a if a > 10000 => 10 * 60,
-        a if a > 1000 => 6 * 60,
-        _ => 4 * 60,
+        a if a > 10000 => 15 * 60,
+        a if a > 1000 => 10 * 60,
+        _ => 7 * 60,
     };
-    let (status, solutions) = solver.solve("cp-sat", time_limit, "-p 16")?;
+    let (status, solutions) = solver.solve("cp-sat", time_limit, "")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
         _ => return Err(format!("MiniZinc status: {}", status).into()),

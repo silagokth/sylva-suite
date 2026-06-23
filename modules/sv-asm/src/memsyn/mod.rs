@@ -1,7 +1,7 @@
 use sv_lib::model::{DataBase, MemorySynthesis, MemoryStructure, MemoryPlacement,
                     TransporterTable, TransportTableEntry, AddressPatterns, AddressTranslation};
 use log::{info, error, debug};
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, BTreeMap};
 use std::collections::hash_map::Entry;
 use itertools::Itertools;
 use ndarray::{Axis};
@@ -462,8 +462,8 @@ fn memory_synthesis(
             target_memory.memory_structure.push(MemoryStructure {
                 memory_type: memory_info.ib_type.clone(),
                 memory_size: memory_info.ib_size as u32,
-                input_channels: dst_list.iter().map(|&x| x as u32).collect(), 
-                output_channels: input_communication_channels.iter().map(|&x| x as u32).collect(), 
+                input_channels: input_communication_channels.iter().map(|&x| x as u32).collect(),
+                output_channels: dst_list.iter().map(|&x| x as u32).collect(),  
                 corresponding_channels: vec![],
                 placement: MemoryPlacement {
                     x: target_x + (target_most_left_x_position as i32) * db.technology_constraint.grid_per_drra_width, 
@@ -491,12 +491,14 @@ fn memory_synthesis(
             app_node_id: edge.source_node.clone(),
             port_id: edge.source_port.clone(),
             address_assignment: HashMap::new(),
+            translation_table: HashMap::new(),
         };
        
         let mut target_assignment = AddressTranslation {
             app_node_id: edge.target_node.clone(),
             port_id: edge.target_port.clone(),
             address_assignment: HashMap::new(),
+            translation_table: HashMap::new(),
         };
 
         // To keep the information about transporter tables 
@@ -697,7 +699,11 @@ fn memory_synthesis(
                         transporter_id: transporter_id.clone(),
                         fire_time: fire_time,
                         end_time: end_time,
+                        latency: (end_time - fire_time) as u32,
                         entries: entries,
+                        ir: BTreeMap::new(),
+                        binary: Vec::new(),
+                        size: 0,
                         from: memory.output_channels[i],
                         to: memory.corresponding_channels[i],
                         placement: MemoryPlacement {

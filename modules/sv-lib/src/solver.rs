@@ -1,4 +1,5 @@
 use crate::file_handler::{write_file};
+use crate::utils::{CPU_LIMIT, MEMORY_LIMIT};
 use std::process::{Command};
 use log::{error};
 use std::fs::File;
@@ -15,6 +16,7 @@ use regex::Regex;
 enum MiniZincStreamEntry {
     Solution(SolutionEntry),
     Status(StatusEntry),
+    Comment(CommentEntry), // to support minizinc legacy
     Unknown(HashMap<String, serde_json::Value>),
 }
 
@@ -46,6 +48,15 @@ struct StatusEntry {
     status: String, // E.g., "OPTIMAL_SOLUTION", "UNSATISFIABLE", "UNKNOWN"
     #[serde(default)]
     time: u64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+struct CommentEntry {
+    #[serde(rename = "type")]
+    entry_type: String,
+    comment: String,
 }
 
 
@@ -134,12 +145,17 @@ impl Solver {
         let minizinc_filename = format!("{}/{}.mzn", self.dir, self.name);
         write_file(&minizinc_filename, self.model.clone())?;
 
+        let cpu_limit = *CPU_LIMIT.lock().unwrap();
+        let memory_limit = *MEMORY_LIMIT.lock().unwrap();
+
         // run minizinc with cp-sat solver and save the output as a file
         let output_filename = format!("{}/{}_output.json", self.dir, self.name);
         let cmd = format!(
-            "minizinc {} --output-time --json-stream --solver {} --time-limit {} -o {} {}",
+            "ulimit -v {} && minizinc {} --output-time --json-stream --solver {} -p {} --time-limit {} -o {} {}",
+            memory_limit,
             minizinc_filename,
             solver,
+            cpu_limit,
             duration_seconds * 1000,
             output_filename,
             args
@@ -174,6 +190,7 @@ impl Solver {
                 MiniZincStreamEntry::Status(status_entry) => {
                     status = status_entry.status;
                 },
+                MiniZincStreamEntry::Comment(_) => {},
                 MiniZincStreamEntry::Unknown(map) => {
                     error!("Unknown minizinc entry type: {:?}", map);
                     return Err(format!("Unknown MiniZinc entry type: {:?}", map).into());

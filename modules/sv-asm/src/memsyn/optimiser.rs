@@ -361,7 +361,7 @@ constraint forall(j in 1..WINDOW_SIZE)(
     }} in 
     if (selected_i1 != 0 /\ selected_i2 != 0) then
         D01[j] = T1[selected_i2, j] - T0[selected_i1, j] /\
-        D01[j] >= 1 /\
+        D01[j] >= 2 /\
         D01_START[j] = T0[selected_i1, j] /\
         D01_END[j] = T1[selected_i2, j] 
     else 
@@ -384,7 +384,7 @@ constraint forall(j in 1..WINDOW_SIZE)(
     }} in 
     if (selected_i1 != 0 /\ selected_i2 != 0) then
         D23[j] = T3[selected_i2, j] - T2[selected_i1, j] /\
-        D23[j] >= 1 /\
+        D23[j] >= 2 /\
         D23_START[j] = T2[selected_i1, j] /\
         D23_END[j] = T3[selected_i2, j]
     else 
@@ -519,7 +519,7 @@ output [
         let mut solver = Solver::new(format!("solve_{}_{}_window-{}", constraints.edge_id, id, i), module_dir.clone());
         solver.add(statements);
 
-        let (status, solutions) = solver.solve("cp-sat", 180, "-p 16")?;
+        let (status, solutions) = solver.solve("cp-sat", 300, "")?;
         match status.as_str() {
             "OPTIMAL_SOLUTION" | "FEASIBLE" => {},
             _ => { 

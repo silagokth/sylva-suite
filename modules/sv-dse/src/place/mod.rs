@@ -360,7 +360,7 @@ fn place_solve_optimal(
     }\"];")); 
 
     /* solving the model */
-    let (status, solutions) = solver.solve("cp-sat", 120, "-p 16")?;
+    let (status, solutions) = solver.solve("cp-sat", 180, "")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" => {}
         _ => return Err(format!("MiniZinc status: {}", status).into()),
@@ -494,7 +494,7 @@ fn place_solve_approx_optimal(
     solver.new_line();
 
     solver.add(format!("% ========= objective ========="));
-    let (weight_area, weight_distance) = (10, 2); 
+    let (weight_area, weight_distance) = (2, 1); 
     solver.add(format!("solve minimize ({} * sum(weighted_distance) + {} * (max_x_position * max_y_position));", weight_distance, weight_area)); 
     solver.new_line();
     solver.new_line();
@@ -509,7 +509,7 @@ fn place_solve_approx_optimal(
     }\"];")); 
 
     /* solving the model */
-    let (status, solutions) = solver.solve("cp-sat", 120, "-p 16")?;
+    let (status, solutions) = solver.solve("cp-sat", 180, "")?;
     match status.as_str() {
         "OPTIMAL_SOLUTION" | "FEASIBLE" => {}
         _ => return Err(format!("MiniZinc status: {}", status).into()),

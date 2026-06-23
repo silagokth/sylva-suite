@@ -1,6 +1,6 @@
 use sv_lib::model::{DataBase};
+use sv_lib::{utils};
 use sv_lib::{file_handler};
-use sv_lib::{setup};
 use log::{info, error};
 use clap::Parser;
 
@@ -16,6 +16,12 @@ mod sim;
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
+    #[arg(long = "cpu", help="Set CPU limit")]
+    cpu_limit: Option<u64>,
+
+    #[arg(long = "memory", help="Set memory limit in GB")]
+    memory_limit: Option<u64>,
+
     #[arg(short = 'g', long = "graph", help="SDF graph file")]
     graph: String,
 
@@ -38,9 +44,27 @@ struct Args {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let log_file = format!("{}/log_dse.log", args.output);
-    setup::setup_logger(&log_file).unwrap();
     
+    // This will create the output directory if it doesn't exist
+    match std::fs::create_dir_all(&args.output) {
+        Ok(_) => (),
+        Err(e) => {       
+            error!("Failed to create {} with {}", args.output, e);
+            std::process::exit(1);
+        },
+    };
+
+    let log_file = format!("{}/log_dse.log", args.output);
+    utils::setup_logger(&log_file).unwrap();
+  
+    if let Some(n) = args.cpu_limit {
+        utils::set_cpu_limit(n)?;
+    }
+    
+    if let Some(n) = args.memory_limit {
+        utils::set_memory_limit(n)?;
+    }
+
     // create empty data structure 
     let mut db = DataBase::new();
 
@@ -50,15 +74,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     db.alimp_lib = file_handler::load_json_file(&args.alimp_lib)?;
     db.hyper_parameter = file_handler::load_json_file(&args.hyper_parameter)?;
     db.technology_constraint = file_handler::load_json_file(&args.technology_constraint)?;
-    
-    // This will create the output directory if it doesn't exist
-    match std::fs::create_dir_all(&args.output) {
-        Ok(_) => (),
-        Err(e) => {       
-            error!("Failed to create {} with {}", args.output, e);
-            std::process::exit(1);
-        },
-    };    
+        
 
     /* run the compilation */
     info!("Sylva DSE starts compilation!");

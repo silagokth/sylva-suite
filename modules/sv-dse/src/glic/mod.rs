@@ -3,7 +3,7 @@ use sv_lib::model::{DataBase, AppNodePort, AddressTranslation,
                     MemorySynthesis, MemoryStructure, MemoryPlacement};
 use log::{info, debug, error};
 use itertools::Itertools;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, BTreeMap};
 
 mod optimiser;
 
@@ -392,6 +392,7 @@ fn update_synthesized_information(
                 app_node_id: nid.clone(),
                 port_id: out_port.clone(),
                 address_assignment: HashMap::new(),
+                translation_table: HashMap::new(),
             };
 
             for i in 0..assigned_address.len() {
@@ -435,6 +436,7 @@ fn update_synthesized_information(
                 app_node_id: nid.clone(),
                 port_id: in_port.clone(),
                 address_assignment: HashMap::new(),
+                translation_table: HashMap::new(),
             };
 
             for i in 0..assigned_address.len() {
@@ -549,7 +551,11 @@ fn update_synthesized_information(
                 transporter_id: transporter_name.clone(),
                 fire_time: fire_time,
                 end_time: fire_time + time_array.iter().max().unwrap(),
+                latency: *time_array.iter().max().unwrap() as u32,
                 entries: entries,
+                ir: BTreeMap::new(),
+                binary: Vec::new(),
+                size: 0,
                 from: 0,
                 to: 0,
                 placement: MemoryPlacement {
